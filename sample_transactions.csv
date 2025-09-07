@@ -1,0 +1,5 @@
+account_name,trade_date,symbol,transaction_type,side,quantity,price,amount,fees,currency,description
+Investment Account,2024-01-15,AAPL,buy,buy,100,150.50,15050.00,9.95,USD,Apple stock purchase
+Investment Account,2024-01-20,SPY,buy,buy,50,480.25,24012.50,9.95,USD,S&P 500 ETF purchase
+Investment Account,2024-02-15,AAPL,dividend,,,,250.00,0.00,USD,Quarterly dividend
+Investment Account,2024-03-10,AAPL,sell,sell,50,175.30,8765.00,9.95,USD,Partial Apple sale

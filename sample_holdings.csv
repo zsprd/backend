@@ -1,0 +1,4 @@
+account_name,symbol,quantity,avg_cost,currency
+Investment Account,AAPL,50,150.50,USD
+Investment Account,SPY,50,480.25,USD
+Investment Account,TSLA,25,220.80,USD
