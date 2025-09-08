@@ -1,7 +1,8 @@
+# app/api/v1/analytics.py
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from datetime import datetime, date
+from datetime import date, datetime, timezone
 
 from app.core.database import get_db
 from app.core.auth import get_current_user_id
@@ -10,247 +11,204 @@ router = APIRouter()
 
 
 @router.get("/performance")
-async def get_performance_metrics(
+async def get_performance_analytics(
     *,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
-    account_ids: Optional[List[str]] = Query(None, description="Filter by specific account IDs"),
-    start_date: Optional[datetime] = Query(None, description="Analysis start date"),
-    end_date: Optional[datetime] = Query(None, description="Analysis end date"),
+    account_ids: Optional[List[str]] = Query(None, description="Filter by account IDs"),
+    start_date: Optional[date] = Query(None, description="Start date for analysis"),
+    end_date: Optional[date] = Query(None, description="End date for analysis"),
     base_currency: str = Query("USD", description="Base currency for calculations")
 ):
     """
-    Calculate portfolio performance metrics including returns, volatility, and risk-adjusted measures.
+    Get portfolio performance analytics.
     """
     return {
-        "total_return": 12.5,
-        "annualized_return": 15.3,
-        "volatility": 18.2,
-        "sharpe_ratio": 0.85,
-        "max_drawdown": -8.1,
-        "value_at_risk_95": -3.2,
-        "current_value": 125000.0,
-        "start_value": 100000.0,
-        "data_points": 252,
-        "start_date": start_date.isoformat() if start_date else "2023-01-01T00:00:00",
-        "end_date": end_date.isoformat() if end_date else datetime.utcnow().isoformat()
+        "performance": {
+            "total_return": 25.5,
+            "annualized_return": 12.3,
+            "volatility": 15.8,
+            "sharpe_ratio": 0.78,
+            "max_drawdown": -8.2,
+            "value_at_risk_95": -3.5,
+            "current_value": 125000.0,
+            "start_value": 100000.0,
+            "data_points": 252,
+            "start_date": "2023-01-01",
+            "end_date": "2024-01-01"
+        },
+        "benchmark_comparison": {
+            "benchmark_symbol": "SPY",
+            "benchmark_return": 22.1,
+            "alpha": 3.4,
+            "beta": 1.15,
+            "correlation": 0.85
+        },
+        "base_currency": base_currency,
+        "analysis_period": {
+            "start_date": start_date.isoformat() if start_date else None,
+            "end_date": end_date.isoformat() if end_date else None
+        }
     }
 
 
 @router.get("/risk")
-async def get_risk_metrics(
+async def get_risk_analytics(
     *,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
-    account_ids: Optional[List[str]] = Query(None, description="Filter by specific account IDs"),
-    benchmark_symbol: str = Query("SPY", description="Benchmark symbol for comparison"),
+    account_ids: Optional[List[str]] = Query(None, description="Filter by account IDs"),
+    confidence_level: float = Query(95.0, description="VaR confidence level"),
     base_currency: str = Query("USD", description="Base currency for calculations")
 ):
     """
-    Calculate portfolio risk metrics including VaR, beta, correlation, and downside risk measures.
+    Get portfolio risk analytics.
     """
     return {
-        "beta": 1.05,
-        "correlation_with_benchmark": 0.82,
-        "downside_deviation": 12.5,
-        "sortino_ratio": 1.15,
-        "value_at_risk": {
-            "var_90": -2.1,
-            "var_95": -3.2,
-            "var_99": -5.8
+        "risk_metrics": {
+            "beta": 1.15,
+            "correlation_with_benchmark": 0.85,
+            "downside_deviation": 12.3,
+            "sortino_ratio": 1.05,
+            "value_at_risk": {
+                "var_90": -2.8,
+                "var_95": -3.5,
+                "var_99": -5.2
+            },
+            "benchmark_symbol": "SPY"
         },
-        "benchmark_symbol": benchmark_symbol
+        "concentration_risk": {
+            "top_10_holdings_weight": 65.5,
+            "largest_holding_weight": 22.1,
+            "herfindahl_index": 0.12
+        },
+        "currency_exposure": {
+            "USD": 85.5,
+            "EUR": 10.2,
+            "GBP": 4.3
+        },
+        "base_currency": base_currency,
+        "confidence_level": confidence_level
     }
 
 
-@router.get("/allocation")
-async def get_allocation_breakdown(
+@router.get("/exposures")
+async def get_exposure_analytics(
     *,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
-    account_ids: Optional[List[str]] = Query(None, description="Filter by specific account IDs"),
+    account_ids: Optional[List[str]] = Query(None, description="Filter by account IDs"),
     base_currency: str = Query("USD", description="Base currency for calculations")
 ):
     """
-    Get portfolio allocation breakdown by asset type, sector, geography, and other dimensions.
+    Get portfolio exposure analytics (allocation breakdown).
     """
     return {
-        "total_portfolio_value": 125000.0,
-        "by_asset_type": {
-            "equity": 75.0,
-            "etf": 15.0,
-            "cash": 10.0
-        },
-        "by_sector": {
-            "Technology": 35.0,
-            "Healthcare": 20.0,
-            "Financial Services": 15.0,
-            "Consumer Cyclical": 10.0,
-            "Other": 20.0
-        },
-        "by_geography": {
-            "United States": 80.0,
-            "International Developed": 15.0,
-            "Emerging Markets": 5.0
-        },
-        "by_currency": {
-            "USD": 85.0,
-            "EUR": 10.0,
-            "GBP": 5.0
-        },
-        "by_account": {
-            "Investment Account": 70.0,
-            "Retirement Account": 30.0
+        "asset_allocation": {
+            "by_type": {
+                "equity": 75.5,
+                "etf": 15.2,
+                "cash": 9.3
+            },
+            "by_sector": {
+                "Technology": 35.2,
+                "Healthcare": 18.5,
+                "Financial Services": 12.3,
+                "Consumer Discretionary": 10.8,
+                "Other": 23.2
+            },
+            "by_geography": {
+                "United States": 78.5,
+                "Europe": 12.8,
+                "Asia Pacific": 5.9,
+                "Emerging Markets": 2.8
+            },
+            "by_currency": {
+                "USD": 85.5,
+                "EUR": 10.2,
+                "GBP": 4.3
+            }
         },
         "top_holdings": [
             {
                 "symbol": "AAPL",
                 "name": "Apple Inc.",
-                "market_value": 25000.0,
-                "weight": 20.0
+                "weight": 22.1,
+                "value": 27625.0,
+                "sector": "Technology"
             },
             {
                 "symbol": "MSFT", 
                 "name": "Microsoft Corporation",
-                "market_value": 18750.0,
-                "weight": 15.0
-            },
-            {
-                "symbol": "GOOGL",
-                "name": "Alphabet Inc.",
-                "market_value": 12500.0,
-                "weight": 10.0
+                "weight": 18.5,
+                "value": 23125.0,
+                "sector": "Technology"
             }
         ],
-        "concentration": {
-            "top_5_weight": 55.0,
-            "top_10_weight": 80.0,
-            "number_of_positions": 15
+        "total_value": 125000.0,
+        "base_currency": base_currency,
+        "as_of_date": datetime.utcnow().isoformat()
+    }
+
+
+@router.get("/attribution")
+async def get_performance_attribution(
+    *,
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(get_current_user_id),
+    account_ids: Optional[List[str]] = Query(None, description="Filter by account IDs"),
+    start_date: Optional[date] = Query(None, description="Start date for analysis"),
+    end_date: Optional[date] = Query(None, description="End date for analysis")
+):
+    """
+    Get performance attribution analysis.
+    """
+    return {
+        "attribution": {
+            "total_return": 25.5,
+            "security_selection": 3.2,
+            "asset_allocation": 1.8,
+            "interaction": 0.5,
+            "benchmark_return": 22.1
+        },
+        "sector_attribution": [
+            {
+                "sector": "Technology",
+                "weight": 35.2,
+                "return": 28.5,
+                "contribution": 10.0,
+                "selection_effect": 2.1,
+                "allocation_effect": 0.8
+            },
+            {
+                "sector": "Healthcare", 
+                "weight": 18.5,
+                "return": 15.2,
+                "contribution": 2.8,
+                "selection_effect": -0.5,
+                "allocation_effect": 0.2
+            }
+        ],
+        "period": {
+            "start_date": start_date.isoformat() if start_date else None,
+            "end_date": end_date.isoformat() if end_date else None
         }
     }
 
 
-@router.post("/comprehensive")
-async def get_comprehensive_analytics(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
-    request_data: Dict[str, Any]
-):
-    """
-    Get comprehensive portfolio analytics including performance, risk, and allocation metrics.
-    This endpoint provides all analytics in a single request for dashboard views.
-    """
-    account_ids = request_data.get("account_ids")
-    start_date = request_data.get("start_date")
-    end_date = request_data.get("end_date")
-    benchmark_symbol = request_data.get("benchmark_symbol", "SPY")
-    base_currency = request_data.get("base_currency", "USD")
-    
-    return {
-        "performance": {
-            "total_return": 12.5,
-            "annualized_return": 15.3,
-            "volatility": 18.2,
-            "sharpe_ratio": 0.85,
-            "max_drawdown": -8.1,
-            "value_at_risk_95": -3.2,
-            "current_value": 125000.0,
-            "start_value": 100000.0,
-            "data_points": 252
-        },
-        "risk": {
-            "beta": 1.05,
-            "correlation_with_benchmark": 0.82,
-            "downside_deviation": 12.5,
-            "sortino_ratio": 1.15,
-            "value_at_risk": {
-                "var_90": -2.1,
-                "var_95": -3.2,
-                "var_99": -5.8
-            },
-            "benchmark_symbol": benchmark_symbol
-        },
-        "allocation": {
-            "total_portfolio_value": 125000.0,
-            "by_asset_type": {
-                "equity": 75.0,
-                "etf": 15.0,
-                "cash": 10.0
-            },
-            "by_sector": {
-                "Technology": 35.0,
-                "Healthcare": 20.0,
-                "Financial Services": 15.0
-            },
-            "top_holdings": [
-                {
-                    "symbol": "AAPL",
-                    "name": "Apple Inc.",
-                    "market_value": 25000.0,
-                    "weight": 20.0
-                }
-            ],
-            "concentration": {
-                "top_5_weight": 55.0,
-                "top_10_weight": 80.0,
-                "number_of_positions": 15
-            }
-        },
-        "benchmark_comparison": {
-            "portfolio_return": 15.3,
-            "benchmark_return": 12.8,
-            "alpha": 2.5,
-            "beta": 1.05,
-            "correlation": 0.82,
-            "tracking_error": 4.2,
-            "information_ratio": 0.6,
-            "benchmark_symbol": benchmark_symbol
-        },
-        "generated_at": datetime.utcnow().isoformat(),
-        "base_currency": base_currency
-    }
-
-
-@router.get("/benchmark-comparison")
-async def get_benchmark_comparison(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
-    benchmark_symbol: str = Query("SPY", description="Benchmark symbol"),
-    account_ids: Optional[List[str]] = Query(None, description="Filter by specific account IDs"),
-    start_date: Optional[datetime] = Query(None, description="Analysis start date"),
-    end_date: Optional[datetime] = Query(None, description="Analysis end date")
-):
-    """
-    Compare portfolio performance against a benchmark index.
-    """
-    return {
-        "portfolio_return": 15.3,
-        "benchmark_return": 12.8,
-        "alpha": 2.5,
-        "beta": 1.05,
-        "correlation": 0.82,
-        "tracking_error": 4.2,
-        "information_ratio": 0.6,
-        "benchmark_symbol": benchmark_symbol
-    }
-
-
 @router.get("/health")
-async def analytics_health_check():
+async def analytics_health():
     """
-    Health check endpoint for analytics service.
+    Health check for analytics service.
     """
     return {
         "status": "healthy",
         "service": "analytics",
-        "timestamp": datetime.utcnow().isoformat(),
-        "available_metrics": [
-            "performance",
-            "risk", 
-            "allocation",
-            "comprehensive",
-            "benchmark_comparison"
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "features": [
+            "performance_analytics",
+            "risk_analytics", 
+            "exposure_analytics",
+            "attribution_analysis"
         ]
     }

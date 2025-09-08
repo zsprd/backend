@@ -1,10 +1,9 @@
 from typing import Optional, List
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime
-from app.models.enums import AccountType, AccountSubtype
+from app.models.enums import AccountCategory, AccountSubtypeCategory 
 
 
-# Institution Schemas
 class InstitutionBase(BaseModel):
     name: str = Field(..., description="Institution name")
     country: str = Field(..., max_length=2, description="ISO country code")
@@ -36,17 +35,13 @@ class Institution(InstitutionBase):
     supports_transactions: bool
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
-# Account Schemas
 class AccountBase(BaseModel):
     name: str = Field(..., description="Account name")
     official_name: Optional[str] = Field(None, description="Official account name from institution")
-    type: AccountType = Field(..., description="Account type")
-    subtype: Optional[AccountSubtype] = Field(None, description="Account subtype")
+    account_type: AccountCategory = Field(..., description="Account type")
+    subtype: Optional[AccountSubtypeCategory] = Field(None, description="Account subtype")
     mask: Optional[str] = Field(None, max_length=4, description="Last 4 digits of account")
     currency: str = Field("USD", max_length=3, description="Account base currency")
 
@@ -59,11 +54,10 @@ class AccountCreate(AccountBase):
 class AccountUpdate(BaseModel):
     name: Optional[str] = None
     official_name: Optional[str] = None
-    type: Optional[AccountType] = None
-    subtype: Optional[AccountSubtype] = None
+    account_type: Optional[AccountCategory] = None
+    subtype: Optional[AccountSubtypeCategory] = None
     mask: Optional[str] = None
     currency: Optional[str] = None
-    institution_id: Optional[UUID4] = None
     is_active: Optional[bool] = None
 
 
@@ -72,35 +66,31 @@ class Account(AccountBase):
     user_id: UUID4
     institution_id: Optional[UUID4]
     plaid_account_id: Optional[str]
+    plaid_item_id: Optional[str]
     is_active: bool
     created_at: datetime
     updated_at: datetime
-    
-    # Optional nested institution data
     institution: Optional[Institution] = None
-    
-    class Config:
-        from_attributes = True
+
+
+class AccountWithBalances(Account):
+    """Account with current balance information"""
+    current_balance: Optional[float] = Field(None, description="Current account balance")
+    available_balance: Optional[float] = Field(None, description="Available balance")
+    limit: Optional[float] = Field(None, description="Credit limit for credit accounts")
+    market_value: Optional[float] = Field(None, description="Market value for investment accounts")
+    cash_value: Optional[float] = Field(None, description="Cash value for investment accounts")
+    last_updated: Optional[datetime] = Field(None, description="Last balance update")
 
 
 class AccountSummary(BaseModel):
-    """Account summary with calculated metrics"""
-    account_id: UUID4
-    account_name: str
-    account_type: AccountType
+    """Account summary for dashboard"""
+    id: UUID4
+    name: str
+    account_type: str
     currency: str
-    total_value: float = Field(..., description="Current total value")
-    holdings_count: int = Field(..., description="Number of holdings")
-    last_transaction_date: Optional[datetime] = Field(None, description="Date of last transaction")
-    performance_ytd: float = Field(..., description="Year-to-date performance percentage")
-    
-    class Config:
-        from_attributes = True
-
-
-# List response schemas
-class AccountList(BaseModel):
-    accounts: List[Account]
-    total: int
-    skip: int
-    limit: int
+    current_balance: Optional[float]
+    market_value: Optional[float]
+    total_return: Optional[float]
+    total_return_percent: Optional[float]
+    is_active: bool

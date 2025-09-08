@@ -1,8 +1,9 @@
+# app/schemas/transaction.py - FIXED
 from typing import Optional, List
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
-from app.models.enums import TransactionType, TransactionSide, CashTransactionType
+from app.models.enums import TransactionCategory, TransactionSideCategory, CashTransactionCategory
 
 
 # Basic security info for nested responses
@@ -10,17 +11,14 @@ class SecurityBasicInfo(BaseModel):
     id: UUID4
     symbol: str
     name: str
-    type: str
+    security_type: str
     currency: str
-    
-    class Config:
-        from_attributes = True
 
 
 # Transaction Schemas
 class TransactionBase(BaseModel):
-    type: TransactionType = Field(..., description="Transaction type")
-    side: Optional[TransactionSide] = Field(None, description="Buy or sell side")
+    transaction_type: TransactionCategory = Field(..., description="Transaction type")
+    side: Optional[TransactionSideCategory] = Field(None, description="Buy or sell side")
     quantity: Optional[Decimal] = Field(None, description="Quantity of securities")
     price: Optional[Decimal] = Field(None, description="Price per unit")
     amount: Decimal = Field(..., description="Total transaction amount")
@@ -40,12 +38,12 @@ class TransactionCreate(TransactionBase):
     account_id: UUID4 = Field(..., description="Account ID")
     security_id: Optional[UUID4] = Field(None, description="Security ID (if applicable)")
     plaid_transaction_id: Optional[str] = Field(None, description="Plaid transaction ID")
-    source: str = Field("manual", description="Data source")
+    data_source: str = Field("manual", description="Data source")
 
 
 class TransactionUpdate(BaseModel):
-    type: Optional[TransactionType] = None
-    side: Optional[TransactionSide] = None
+    transaction_type: Optional[TransactionCategory] = Field(None, description="Transaction type")
+    side: Optional[TransactionSideCategory] = None
     quantity: Optional[Decimal] = None
     price: Optional[Decimal] = None
     amount: Optional[Decimal] = None
@@ -66,15 +64,12 @@ class Transaction(TransactionBase):
     account_id: UUID4
     security_id: Optional[UUID4]
     plaid_transaction_id: Optional[str]
-    source: str
+    data_source: str
     created_at: datetime
     updated_at: datetime
     
-    # Nested relationships
+    # Nested objects
     security: Optional[SecurityBasicInfo] = None
-    
-    class Config:
-        from_attributes = True
 
 
 class TransactionWithMetrics(Transaction):
@@ -86,12 +81,12 @@ class TransactionWithMetrics(Transaction):
 
 # Cash Transaction Schemas
 class CashTransactionBase(BaseModel):
-    type: CashTransactionType = Field(..., description="Cash transaction type")
+    transaction_type: CashTransactionCategory = Field(..., alias="type", description="Cash transaction type")  # FIXED
     amount: Decimal = Field(..., description="Transaction amount")
     description: Optional[str] = Field(None, description="Transaction description")
     category: Optional[str] = Field(None, description="Transaction category")
     merchant_name: Optional[str] = Field(None, description="Merchant name")
-    date: date = Field(..., description="Transaction date")
+    as_of_date: date = Field(..., description="Transaction date")
     pending: bool = Field(False, description="Is transaction pending")
 
 
@@ -102,12 +97,12 @@ class CashTransactionCreate(CashTransactionBase):
 
 
 class CashTransactionUpdate(BaseModel):
-    type: Optional[CashTransactionType] = None
+    type: Optional[CashTransactionCategory] = None
     amount: Optional[Decimal] = None
     description: Optional[str] = None
     category: Optional[str] = None
     merchant_name: Optional[str] = None
-    date: Optional[date] = None
+    as_of_date: Optional[date] = None
     pending: Optional[bool] = None
 
 
@@ -118,9 +113,6 @@ class CashTransaction(CashTransactionBase):
     plaid_category: Optional[List[str]]
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 # Bulk Operations
@@ -163,7 +155,7 @@ class TransactionFilter(BaseModel):
     """Filter parameters for transaction queries"""
     account_ids: Optional[List[UUID4]] = None
     security_ids: Optional[List[UUID4]] = None
-    transaction_types: Optional[List[TransactionType]] = None
+    transaction_types: Optional[List[TransactionCategory]] = None
     start_date: Optional[date] = None
     end_date: Optional[date] = None
     min_amount: Optional[float] = None
@@ -234,5 +226,5 @@ class PortfolioPerformance(BaseModel):
     annualized_return: Optional[float] = None
     time_weighted_return: Optional[float] = None
     money_weighted_return: Optional[float] = None
-    
+
     securities: List[SecurityPerformance] = []

@@ -1,9 +1,8 @@
 from enum import Enum
-import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import ENUM
 
 
-class AccountType(str, Enum):
+class AccountCategory(str, Enum):
     INVESTMENT = "investment"
     DEPOSITORY = "depository"
     CREDIT = "credit"
@@ -11,7 +10,7 @@ class AccountType(str, Enum):
     OTHER = "other"
 
 
-class AccountSubtype(str, Enum):
+class AccountSubtypeCategory(str, Enum):
     # Investment subtypes
     BROKERAGE = "brokerage"
     IRA = "ira"
@@ -36,7 +35,7 @@ class AccountSubtype(str, Enum):
     CRYPTO_EXCHANGE = "crypto_exchange"
 
 
-class SecurityType(str, Enum):
+class SecurityCategory(str, Enum):
     EQUITY = "equity"
     ETF = "etf"
     MUTUAL_FUND = "mutual_fund"
@@ -48,21 +47,21 @@ class SecurityType(str, Enum):
     OTHER = "other"
 
 
-class DataSource(str, Enum):
+class DataProviderCategory(str, Enum):
     ALPHAVANTAGE = "alphavantage"
     PLAID = "plaid"
     MANUAL = "manual"
     CALCULATED = "calculated"
 
 
-class LotMethod(str, Enum):
+class LotMethodCategory(str, Enum):
     FIFO = "fifo"
     LIFO = "lifo"
     AVERAGE_COST = "average_cost"
     SPECIFIC_ID = "specific_id"
 
 
-class TransactionType(str, Enum):
+class TransactionCategory(str, Enum):
     BUY = "buy"
     SELL = "sell"
     DIVIDEND = "dividend"
@@ -79,12 +78,12 @@ class TransactionType(str, Enum):
     OTHER = "other"
 
 
-class TransactionSide(str, Enum):
+class TransactionSideCategory(str, Enum):
     BUY = "buy"
     SELL = "sell"
 
 
-class CashTransactionType(str, Enum):
+class CashTransactionCategory(str, Enum):
     PURCHASE = "purchase"
     PAYMENT = "payment"
     TRANSFER = "transfer"
@@ -96,14 +95,14 @@ class CashTransactionType(str, Enum):
     OTHER = "other"
 
 
-class ImportType(str, Enum):
+class ImportCategory(str, Enum):
     TRANSACTIONS = "transactions"
     HOLDINGS = "holdings"
     ACCOUNTS = "accounts"
     MARKET_DATA = "market_data"
 
 
-class ImportStatus(str, Enum):
+class ImportStatusCategory(str, Enum):
     PENDING = "pending"
     PROCESSING = "processing"
     COMPLETED = "completed"
@@ -111,27 +110,27 @@ class ImportStatus(str, Enum):
     CANCELLED = "cancelled"
 
 
-class ImportSource(str, Enum):
+class ImportProviderCategory(str, Enum):
     CSV_UPLOAD = "csv_upload"
     PLAID = "plaid"
     ALPHAVANTAGE = "alphavantage"
     MANUAL = "manual"
 
 
-class PlaidItemStatus(str, Enum):
+class PlaidItemStatusCategory(str, Enum):
     GOOD = "good"
     PENDING = "pending"
     ERROR = "error"
 
 
-class SubscriptionStatus(str, Enum):
+class SubscriptionStatusCategory(str, Enum):
     ACTIVE = "active"
     CANCELLED = "cancelled"
     PAST_DUE = "past_due"
     UNPAID = "unpaid"
 
 
-class AuditAction(str, Enum):
+class AuditActionCategory(str, Enum):
     CREATE = "create"
     UPDATE = "update"
     DELETE = "delete"
@@ -139,18 +138,20 @@ class AuditAction(str, Enum):
     LOGOUT = "logout"
 
 
-# Create PostgreSQL ENUM types for SQLAlchemy
-account_type_enum = ENUM(AccountType, name="account_type")
-account_subtype_enum = ENUM(AccountSubtype, name="account_subtype")
-security_type_enum = ENUM(SecurityType, name="security_type")
-data_source_enum = ENUM(DataSource, name="data_source")
-lot_method_enum = ENUM(LotMethod, name="lot_method")
-transaction_type_enum = ENUM(TransactionType, name="transaction_type")
-transaction_side_enum = ENUM(TransactionSide, name="transaction_side")
-cash_transaction_type_enum = ENUM(CashTransactionType, name="cash_transaction_type")
-import_type_enum = ENUM(ImportType, name="import_type")
-import_status_enum = ENUM(ImportStatus, name="import_status")
-import_source_enum = ENUM(ImportSource, name="import_source")
-plaid_item_status_enum = ENUM(PlaidItemStatus, name="plaid_item_status")
-subscription_status_enum = ENUM(SubscriptionStatus, name="subscription_status")
-audit_action_enum = ENUM(AuditAction, name="audit_action")
+# Create PostgreSQL ENUM types that match your database schema
+# These names must exactly match the enum type names in your PostgreSQL database
+
+account_category = ENUM(AccountCategory, name="account_category")
+account_subtype_category = ENUM(AccountSubtypeCategory, name="account_subtype_category")
+security_category = ENUM(SecurityCategory, name="security_category")
+data_provider_category = ENUM(DataProviderCategory, name="data_provider_category")
+lot_method_category = ENUM(LotMethodCategory, name="lot_method_category")
+transaction_category = ENUM(TransactionCategory, name="transaction_category")
+transaction_side_category = ENUM(TransactionSideCategory, name="transaction_side_category")
+cash_transaction_category = ENUM(CashTransactionCategory, name="cash_transaction_category")
+import_category = ENUM(ImportCategory, name="import_category")
+import_status_category = ENUM(ImportStatusCategory, name="import_status_category")
+import_provider_category = ENUM(ImportProviderCategory, name="import_provider_category")
+plaid_item_status_category = ENUM(PlaidItemStatusCategory, name="plaid_item_status_category")
+subscription_status_category = ENUM(SubscriptionStatusCategory, name="subscription_status_category")
+audit_action_category = ENUM(AuditActionCategory, name="audit_action_category")

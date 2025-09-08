@@ -1,7 +1,9 @@
+# app/models/holding.py
 from sqlalchemy import Column, String, ForeignKey, DECIMAL, Date, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
+from app.models.enums import lot_method_category
 
 
 class Holding(BaseModel):
@@ -69,7 +71,7 @@ class Position(BaseModel):
     quantity = Column(DECIMAL(15, 6), nullable=False)
     average_cost = Column(DECIMAL(15, 4))
     unrealized_gain_loss = Column(DECIMAL(15, 2))
-    lot_method = Column(String(20), default="fifo", nullable=False)  # fifo, lifo, average_cost, specific_id
+    lot_method = Column(lot_method_category, default="fifo", nullable=False)  # Fixed: use lot_method_category
     
     # Relationships
     account = relationship("Account", back_populates="positions")

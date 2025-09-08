@@ -1,13 +1,13 @@
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime
-from app.models.enums import SecurityType, DataSource
+from app.models.enums import SecurityCategory
 
 
 class SecurityBase(BaseModel):
     symbol: str = Field(..., max_length=20, description="Security symbol")
     name: str = Field(..., max_length=255, description="Security name")
-    type: SecurityType = Field(..., description="Security type")
+    security_type: SecurityCategory = Field(..., description="Security type")
     currency: str = Field("USD", max_length=3, description="Security currency")
     exchange: Optional[str] = Field(None, max_length=10, description="Exchange")
     country: Optional[str] = Field(None, max_length=2, description="ISO country code")
@@ -25,7 +25,7 @@ class SecurityCreate(SecurityBase):
 
 class SecurityUpdate(BaseModel):
     name: Optional[str] = None
-    type: Optional[SecurityType] = None
+    security_type: Optional[SecurityCategory] = Field(None, alias="type")  # FIXED
     currency: Optional[str] = None
     exchange: Optional[str] = None
     country: Optional[str] = None
@@ -47,9 +47,6 @@ class Security(SecurityBase):
     is_active: bool
     created_at: datetime
     updated_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 class SecurityWithPrice(Security):
@@ -64,53 +61,8 @@ class SecurityWithPrice(Security):
 
 class SecuritySearch(BaseModel):
     """Security search result"""
-    id: UUID4
     symbol: str
     name: str
-    type: SecurityType
+    security_type: str = Field(alias="type")  # FIXED
     exchange: Optional[str]
     currency: str
-    sector: Optional[str]
-    current_price: Optional[float]
-    market_cap: Optional[float] = Field(None, description="Market capitalization")
-    
-    class Config:
-        from_attributes = True
-
-
-class SecurityPerformance(BaseModel):
-    """Security performance metrics"""
-    security_id: UUID4
-    symbol: str
-    name: str
-    
-    # Price metrics
-    current_price: float
-    day_change: float
-    day_change_percent: float
-    
-    # Period returns
-    return_1d: Optional[float] = None
-    return_1w: Optional[float] = None
-    return_1m: Optional[float] = None
-    return_3m: Optional[float] = None
-    return_6m: Optional[float] = None
-    return_1y: Optional[float] = None
-    return_ytd: Optional[float] = None
-    
-    # Risk metrics
-    volatility_30d: Optional[float] = None
-    volatility_90d: Optional[float] = None
-    beta: Optional[float] = None
-    
-    # Trading metrics
-    volume_avg_30d: Optional[int] = None
-    volume_today: Optional[int] = None
-
-
-class SecurityList(BaseModel):
-    """Paginated securities list"""
-    securities: List[SecurityWithPrice]
-    total: int
-    skip: int
-    limit: int

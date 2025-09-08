@@ -1,8 +1,9 @@
+# app/models/account.py
 from sqlalchemy import Column, String, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
-from app.models.enums import account_type_enum, account_subtype_enum
+from app.models.enums import account_category, account_subtype_category
 
 
 class Institution(BaseModel):
@@ -45,8 +46,8 @@ class Account(BaseModel):
     # Account Details
     name = Column(String(255), nullable=False)
     official_name = Column(String(255))  # Official name from institution
-    type = Column(account_type_enum, nullable=False)
-    subtype = Column(account_subtype_enum)
+    category = Column(account_category, nullable=False)  # Fixed: use account_category
+    subtype = Column(account_subtype_category)  # Fixed: match database column name
     mask = Column(String(4))  # Last 4 digits of account number
     currency = Column(String(3), default="USD", nullable=False)
     
@@ -65,4 +66,4 @@ class Account(BaseModel):
     positions = relationship("Position", back_populates="account", cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"<Account(id={self.id}, name={self.name}, type={self.type})>"
+        return f"<Account(id={self.id}, name={self.name}, category={self.category})>"

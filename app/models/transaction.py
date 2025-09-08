@@ -1,12 +1,13 @@
+# app/models/transaction.py
 from sqlalchemy import Column, String, ForeignKey, DECIMAL, Date, Boolean, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
 from app.models.enums import (
-    transaction_type_enum, 
-    transaction_side_enum, 
-    cash_transaction_type_enum,
-    data_source_enum
+    transaction_category, 
+    transaction_side_category, 
+    cash_transaction_category,
+    data_provider_category
 )
 
 
@@ -27,8 +28,8 @@ class Transaction(BaseModel):
     )
     
     # Transaction Details
-    type = Column(transaction_type_enum, nullable=False)
-    side = Column(transaction_side_enum)  # buy/sell - only for equity transactions
+    category = Column(transaction_category, nullable=False)  # Fixed: use transaction_category
+    side = Column(transaction_side_category)  # buy/sell - only for equity transactions
     quantity = Column(DECIMAL(15, 6))
     price = Column(DECIMAL(15, 4))
     amount = Column(DECIMAL(15, 2), nullable=False)  # Total transaction amount
@@ -46,19 +47,18 @@ class Transaction(BaseModel):
     # Description and Categorization
     description = Column(Text)
     memo = Column(Text)
-    category = Column(String(100))
     subcategory = Column(String(100))
     
     # External Integration
     plaid_transaction_id = Column(String(255))
-    source = Column(data_source_enum, nullable=False)
+    data_provider = Column(data_provider_category, nullable=False)  # Fixed: use data_provider_category
     
     # Relationships
     account = relationship("Account", back_populates="transactions")
     security = relationship("Security", back_populates="transactions")
     
     def __repr__(self):
-        return f"<Transaction(id={self.id}, type={self.type}, amount={self.amount})>"
+        return f"<Transaction(id={self.id}, category={self.category}, amount={self.amount})>"
 
 
 class CashTransaction(BaseModel):
@@ -73,14 +73,13 @@ class CashTransaction(BaseModel):
     )
     
     # Transaction Details
-    type = Column(cash_transaction_type_enum, nullable=False)
+    category = Column(cash_transaction_category, nullable=False)  # Fixed: use cash_transaction_category
     amount = Column(DECIMAL(15, 2), nullable=False)
     description = Column(Text)
-    category = Column(String(100))
     merchant_name = Column(String(255))
     
     # Date and Status
-    date = Column(Date, nullable=False, index=True)
+    transaction_date = Column(Date, nullable=False, index=True)  # Fixed: match database column name
     pending = Column(Boolean, default=False, nullable=False)
     
     # External Integration
@@ -91,4 +90,4 @@ class CashTransaction(BaseModel):
     account = relationship("Account", back_populates="cash_transactions")
     
     def __repr__(self):
-        return f"<CashTransaction(id={self.id}, type={self.type}, amount={self.amount})>"
+        return f"<CashTransaction(id={self.id}, category={self.category}, amount={self.amount})>"

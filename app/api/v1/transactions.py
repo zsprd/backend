@@ -1,3 +1,4 @@
+# app/api/v1/transactions.py
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -29,7 +30,7 @@ async def get_transactions(
                 "id": "txn-1",
                 "account_id": "account-1",
                 "security_id": "security-1",
-                "type": "buy",
+                "transaction_type": "buy",
                 "side": "buy",
                 "symbol": "AAPL",
                 "quantity": 100.0,
@@ -46,7 +47,7 @@ async def get_transactions(
                 "id": "txn-2",
                 "account_id": "account-1",
                 "security_id": None,
-                "type": "dividend",
+                "transaction_type": "dividend",
                 "side": None,
                 "symbol": "AAPL",
                 "quantity": None,
@@ -93,7 +94,7 @@ async def get_transaction(
         "id": transaction_id,
         "account_id": "account-1",
         "security_id": "security-1",
-        "type": "buy",
+        "transaction_type": "buy",
         "side": "buy",
         "quantity": 100.0,
         "price": 150.0,
@@ -121,7 +122,7 @@ async def create_transaction(
         "id": "new-transaction-id",
         "account_id": transaction_data.get("account_id"),
         "security_id": transaction_data.get("security_id"),
-        "type": transaction_data.get("type"),
+        "transaction_type": transaction_data.get("transaction_type"),
         "amount": transaction_data.get("amount", 0),
         "trade_date": transaction_data.get("trade_date"),
         "transaction_currency": transaction_data.get("transaction_currency", "USD"),
@@ -179,7 +180,7 @@ async def get_recent_transactions(
     return [
         {
             "id": "txn-1",
-            "type": "buy",
+            "transaction_type": "buy",
             "symbol": "AAPL",
             "amount": 15000.0,
             "trade_date": "2024-01-15",
@@ -206,7 +207,7 @@ async def get_account_transactions(
         {
             "id": "txn-1",
             "account_id": account_id,
-            "type": "buy",
+            "transaction_type": "buy",
             "symbol": "AAPL",
             "amount": 15000.0,
             "trade_date": "2024-01-15"

@@ -2,11 +2,11 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
-from app.models.enums import DataSource
+from app.models.enums import DataProviderCategory
 
 
 class MarketDataBase(BaseModel):
-    date: date = Field(..., description="Market data date")
+    as_of_date: date = Field(..., description="Market data date")
     open: Optional[Decimal] = Field(None, description="Opening price")
     high: Optional[Decimal] = Field(None, description="High price")
     low: Optional[Decimal] = Field(None, description="Low price")
@@ -14,7 +14,7 @@ class MarketDataBase(BaseModel):
     volume: Optional[int] = Field(None, description="Trading volume")
     adjusted_close: Optional[Decimal] = Field(None, description="Adjusted closing price")
     currency: str = Field(..., max_length=3, description="Price currency")
-    source: DataSource = Field(..., description="Data source")
+    data_source: DataProviderCategory = Field(..., description="Data source")
 
 
 class MarketDataCreate(MarketDataBase):
@@ -35,9 +35,6 @@ class MarketData(MarketDataBase):
     id: UUID4
     security_id: UUID4
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 class PricePoint(BaseModel):
@@ -80,9 +77,9 @@ class CandlestickData(BaseModel):
 class ExchangeRateBase(BaseModel):
     base_currency: str = Field(..., max_length=3, description="Base currency")
     quote_currency: str = Field(..., max_length=3, description="Quote currency")
-    date: date = Field(..., description="Exchange rate date")
+    as_of_date: date = Field(..., description="Exchange rate date")
     rate: Decimal = Field(..., description="Exchange rate")
-    source: DataSource = Field(..., description="Data source")
+    data_source: DataProviderCategory = Field(..., description="Data source")
 
 
 class ExchangeRateCreate(ExchangeRateBase):
@@ -92,9 +89,6 @@ class ExchangeRateCreate(ExchangeRateBase):
 class ExchangeRate(ExchangeRateBase):
     id: UUID4
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 
 class QuoteData(BaseModel):

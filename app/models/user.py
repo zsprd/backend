@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Text
+from sqlalchemy import Column, String, Boolean, DateTime, Integer, JSON
 from sqlalchemy.orm import relationship
 from app.models.base import BaseModel
 
@@ -7,45 +7,45 @@ class User(BaseModel):
     __tablename__ = "users"
     
     # Personal Information
-    email = Column(String(255), unique=True, index=True, nullable=False)
-    email_verified = Column(Boolean, default=False, nullable=False)
-    full_name = Column(String(255))
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
     first_name = Column(String(100))
     last_name = Column(String(100))
+    date_of_birth = Column(DateTime(timezone=True))  # Match database schema
     
-    # Authentication (for NextAuth.js integration)
-    password_hash = Column(String(255))  # Optional if using OAuth only
-    
-    # Profile
-    profile_image = Column(Text)  # URL to profile image
+    # Contact Information
     phone = Column(String(20))
-    date_of_birth = Column(DateTime(timezone=True))
     country = Column(String(2))  # ISO country code
-    timezone = Column(String(50), default="UTC")
-    language = Column(String(10), default="en")
     
     # Preferences
-    base_currency = Column(String(3), default="USD", nullable=False)
-    theme_preference = Column(String(20), default="light")  # light, dark, auto
-    notification_preferences = Column(Text)  # JSON string
+    timezone = Column(String(50), default='UTC', nullable=False)
+    language = Column(String(10), default='en', nullable=False)
+    base_currency = Column(String(3), default='USD', nullable=False)
+    theme_preference = Column(String(20), default='light', nullable=False)
     
     # Account Status
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)
     is_premium = Column(Boolean, default=False, nullable=False)
-    
-    # Timestamps
-    last_login_at = Column(DateTime(timezone=True))
+    # email_verified = Column(Boolean, default=False, nullable=False)
+
+    # Security
     password_changed_at = Column(DateTime(timezone=True))
+    last_login_at = Column(DateTime(timezone=True))
+    failed_login_attempts = Column(Integer, default=0)
     
     # OAuth Integration
     google_id = Column(String(255), unique=True)
     apple_id = Column(String(255), unique=True)
     
+    # Notification Preferences
+    notification_preferences = Column(JSON)
+    
     # Relationships
     accounts = relationship("Account", back_populates="user", cascade="all, delete-orphan")
-    subscriptions = relationship("Subscription", back_populates="user", cascade="all, delete-orphan")
-    import_jobs = relationship("ImportJob", back_populates="user", cascade="all, delete-orphan")
+    alerts = relationship("Alert", back_populates="user", cascade="all, delete-orphan")
+    notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
+    subscription = relationship("Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<User(id={self.id}, email={self.email})>"
