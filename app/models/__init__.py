@@ -2,6 +2,7 @@ from app.models.base import Base
 
 # Core models
 from app.models.user import User
+from app.models.user_session import UserSession
 from app.models.account import Account, Institution
 from app.models.security import Security
 from app.models.holding import Holding, Position
@@ -22,6 +23,7 @@ __all__ = [
     "Base",
     # Core models
     "User", 
+    "UserSession",
     "Account", 
     "Institution",
     "Security",

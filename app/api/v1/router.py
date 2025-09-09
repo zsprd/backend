@@ -5,7 +5,7 @@ from app.api.v1 import auth, users, accounts, holdings, transactions, analytics,
 api_router = APIRouter()
 
 # Include all route modules
-api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
+api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 api_router.include_router(accounts.router, prefix="/accounts", tags=["accounts"])
 api_router.include_router(holdings.router, prefix="/holdings", tags=["holdings"])
