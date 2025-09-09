@@ -16,17 +16,17 @@ logger = logging.getLogger(__name__)
 # Create FastAPI application
 app = FastAPI(
     title=settings.APP_NAME,
-    version=settings.APP_VERSION,
+    version=settings.VERSION,
     description="Professional portfolio analytics API for high-net-worth individuals",
-    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json",
-    docs_url=f"{settings.API_V1_PREFIX}/docs",
-    redoc_url=f"{settings.API_V1_PREFIX}/redoc",
+    openapi_url=f"/api/{settings.API_VERSION}/openapi.json",
+    docs_url=f"/api/{settings.API_VERSION}/docs",
+    redoc_url=f"/api/{settings.API_VERSION}/redoc",
 )
 
-# Add CORS middleware
+# # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.BACKEND_CORS_ORIGINS,
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,7 +62,7 @@ async def health_check():
     """Health check endpoint for monitoring and deployment."""
     return {
         "status": "healthy",
-        "version": settings.APP_VERSION,
+        "version": settings.VERSION,
         "environment": settings.ENVIRONMENT
     }
 
@@ -73,8 +73,8 @@ async def root():
     """Root endpoint with API information."""
     return {
         "message": f"Welcome to {settings.APP_NAME}",
-        "version": settings.APP_VERSION,
-        "docs_url": f"{settings.API_V1_PREFIX}/docs",
+        "version": settings.VERSION,
+        "docs_url": f"/api/{settings.API_VERSION}/docs",
         "status": "online"
     }
 
@@ -82,7 +82,7 @@ async def root():
 # Only include API router after all models are properly defined
 try:
     from app.api.v1.router import api_router
-    app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(api_router, prefix=f"/api/{settings.API_VERSION}")
     logger.info("✅ API routes loaded successfully")
 except Exception as e:
     logger.error(f"❌ Failed to load API routes: {e}")

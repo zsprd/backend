@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, or_
+import secrets
 
 from app.crud.base import CRUDBase
 from app.models.user_session import UserSession
@@ -10,7 +11,7 @@ from app.models.user_session import UserSession
 class CRUDUserSession(CRUDBase[UserSession, None, None]):
     """
     CRUD operations for UserSession model.
-    Manages refresh tokens and user session tracking.
+    Manages refresh tokens, session tracking, and token rotation for enhanced security.
     """
 
     def create_session(
@@ -28,13 +29,16 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
         
         Args:
             user_id: User's ID
-            refresh_token: Refresh token string
+            refresh_token: JWT refresh token string
             expires_at: When the refresh token expires
             ip_address: Client IP address
             user_agent: Client user agent string
+            
+        Returns:
+            Created UserSession object
         """
-        # Generate a session token for additional security
-        session_token = f"session_{refresh_token[:16]}"
+        # Generate a unique session token
+        session_token = f"sess_{secrets.token_urlsafe(24)}"
         
         session = UserSession(
             user_id=user_id,
@@ -74,7 +78,7 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
         *, 
         session_token: str
     ) -> Optional[UserSession]:
-        """Get session by session token."""
+        """Get session by session token (not refresh token)."""
         return db.query(UserSession).filter(
             UserSession.session_token == session_token
         ).first()
@@ -84,7 +88,9 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
         db: Session, 
         *, 
         user_id: str,
-        active_only: bool = True
+        active_only: bool = True,
+        limit: int = 100,
+        offset: int = 0
     ) -> List[UserSession]:
         """
         Get all sessions for a user.
@@ -92,48 +98,86 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
         Args:
             user_id: User's ID
             active_only: Only return non-expired sessions
+            limit: Maximum sessions to return
+            offset: Number of sessions to skip
         """
         query = db.query(UserSession).filter(UserSession.user_id == user_id)
         
         if active_only:
             query = query.filter(UserSession.expires_at > datetime.utcnow())
         
-        return query.order_by(UserSession.last_accessed_at.desc()).all()
+        return query.order_by(
+            UserSession.last_accessed_at.desc()
+        ).offset(offset).limit(limit).all()
 
-    def update_session(
+    def update_session_token(
         self,
         db: Session,
         *,
         session: UserSession,
-        refresh_token: Optional[str] = None,
-        expires_at: Optional[datetime] = None,
-        update_last_accessed: bool = True
+        new_refresh_token: str,
+        new_expires_at: datetime,
+        ip_address: Optional[str] = None,
+        user_agent: Optional[str] = None
     ) -> UserSession:
         """
-        Update session with new refresh token and/or expiration.
+        Update session with new refresh token (token rotation).
+        
+        Args:
+            session: Existing session to update
+            new_refresh_token: New JWT refresh token
+            new_expires_at: New expiration time
+            ip_address: Updated IP address
+            user_agent: Updated user agent
         """
-        if refresh_token:
-            session.refresh_token = refresh_token
+        session.refresh_token = new_refresh_token
+        session.expires_at = new_expires_at
+        session.last_accessed_at = datetime.utcnow()
         
-        if expires_at:
-            session.expires_at = expires_at
-        
-        if update_last_accessed:
-            session.last_accessed_at = datetime.utcnow()
+        if ip_address:
+            session.ip_address = ip_address
+        if user_agent:
+            session.user_agent = user_agent
         
         db.add(session)
         db.commit()
         db.refresh(session)
         return session
 
-    def revoke_session(self, db: Session, *, session: UserSession) -> bool:
-        """
-        Revoke a specific session by setting expiration to past.
-        """
-        session.expires_at = datetime.utcnow() - timedelta(seconds=1)
+    def update_last_accessed(
+        self,
+        db: Session,
+        *,
+        session: UserSession
+    ) -> UserSession:
+        """Update session's last accessed timestamp."""
+        session.last_accessed_at = datetime.utcnow()
         db.add(session)
         db.commit()
-        return True
+        db.refresh(session)
+        return session
+
+    def revoke_session(
+        self, 
+        db: Session, 
+        *, 
+        session_id: str
+    ) -> bool:
+        """
+        Revoke (delete) a specific session.
+        
+        Args:
+            session_id: Session UUID to revoke
+            
+        Returns:
+            True if session was found and revoked, False otherwise
+        """
+        session = self.get(db, id=session_id)
+        if session:
+            db.delete(session)
+            db.commit()
+            return True
+        return False
 
     def revoke_session_by_token(
         self, 
@@ -143,195 +187,223 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
     ) -> bool:
         """
         Revoke session by refresh token.
+        
+        Args:
+            refresh_token: Refresh token to revoke
+            
+        Returns:
+            True if session was found and revoked, False otherwise
         """
         session = db.query(UserSession).filter(
             UserSession.refresh_token == refresh_token
         ).first()
         
         if session:
-            return self.revoke_session(db, session=session)
+            db.delete(session)
+            db.commit()
+            return True
         return False
 
     def revoke_all_user_sessions(
         self, 
         db: Session, 
         *, 
-        user_id: str
+        user_id: str,
+        except_current: bool = False,
+        current_refresh_token: Optional[str] = None
     ) -> int:
         """
-        Revoke all active sessions for a user.
-        Returns the number of sessions revoked.
-        """
-        expired_time = datetime.utcnow() - timedelta(seconds=1)
+        Revoke all sessions for a user.
         
-        result = db.query(UserSession).filter(
-            and_(
-                UserSession.user_id == user_id,
-                UserSession.expires_at > datetime.utcnow()
-            )
-        ).update(
-            {"expires_at": expired_time},
-            synchronize_session=False
-        )
+        Args:
+            user_id: User's ID
+            except_current: Keep current session active
+            current_refresh_token: Current session's refresh token to preserve
+            
+        Returns:
+            Number of sessions revoked
+        """
+        query = db.query(UserSession).filter(UserSession.user_id == user_id)
+        
+        if except_current and current_refresh_token:
+            query = query.filter(UserSession.refresh_token != current_refresh_token)
+        
+        sessions = query.all()
+        count = len(sessions)
+        
+        for session in sessions:
+            db.delete(session)
         
         db.commit()
-        return result
-
-    def revoke_other_sessions(
-        self, 
-        db: Session, 
-        *, 
-        user_id: str, 
-        keep_session_id: str
-    ) -> int:
-        """
-        Revoke all sessions for a user except the specified one.
-        Useful for "sign out other devices" functionality.
-        """
-        expired_time = datetime.utcnow() - timedelta(seconds=1)
-        
-        result = db.query(UserSession).filter(
-            and_(
-                UserSession.user_id == user_id,
-                UserSession.id != keep_session_id,
-                UserSession.expires_at > datetime.utcnow()
-            )
-        ).update(
-            {"expires_at": expired_time},
-            synchronize_session=False
-        )
-        
-        db.commit()
-        return result
+        return count
 
     def cleanup_expired_sessions(self, db: Session) -> int:
         """
-        Clean up expired sessions from the database.
-        Returns the number of sessions deleted.
-        """
-        cutoff_time = datetime.utcnow() - timedelta(days=30)  # Keep for 30 days for audit
+        Remove all expired sessions from the database.
+        This should be run periodically as a cleanup task.
         
-        result = db.query(UserSession).filter(
-            UserSession.expires_at < cutoff_time
-        ).delete(synchronize_session=False)
+        Returns:
+            Number of sessions cleaned up
+        """
+        expired_sessions = db.query(UserSession).filter(
+            UserSession.expires_at <= datetime.utcnow()
+        ).all()
+        
+        count = len(expired_sessions)
+        
+        for session in expired_sessions:
+            db.delete(session)
         
         db.commit()
-        return result
+        return count
 
-    def get_session_stats(self, db: Session, *, user_id: str) -> dict:
+    def get_sessions_by_ip(
+        self,
+        db: Session,
+        *,
+        ip_address: str,
+        active_only: bool = True,
+        limit: int = 100
+    ) -> List[UserSession]:
         """
-        Get session statistics for a user.
+        Get sessions by IP address.
+        Useful for security monitoring and rate limiting.
         """
-        total_sessions = db.query(UserSession).filter(
-            UserSession.user_id == user_id
-        ).count()
+        query = db.query(UserSession).filter(UserSession.ip_address == ip_address)
         
-        active_sessions = db.query(UserSession).filter(
+        if active_only:
+            query = query.filter(UserSession.expires_at > datetime.utcnow())
+        
+        return query.order_by(
+            UserSession.created_at.desc()
+        ).limit(limit).all()
+
+    def get_recent_sessions(
+        self,
+        db: Session,
+        *,
+        user_id: str,
+        hours: int = 24,
+        limit: int = 10
+    ) -> List[UserSession]:
+        """
+        Get recent sessions for a user within specified hours.
+        Useful for security dashboards and alerts.
+        """
+        since = datetime.utcnow() - timedelta(hours=hours)
+        
+        return db.query(UserSession).filter(
+            and_(
+                UserSession.user_id == user_id,
+                UserSession.created_at >= since
+            )
+        ).order_by(
+            UserSession.created_at.desc()
+        ).limit(limit).all()
+
+    def count_active_sessions_by_user(
+        self,
+        db: Session,
+        *,
+        user_id: str
+    ) -> int:
+        """
+        Count active sessions for a user.
+        """
+        return db.query(UserSession).filter(
             and_(
                 UserSession.user_id == user_id,
                 UserSession.expires_at > datetime.utcnow()
             )
         ).count()
+
+    def get_session_stats(
+        self,
+        db: Session,
+        *,
+        user_id: Optional[str] = None
+    ) -> dict:
+        """
+        Get session statistics for analytics.
         
-        # Get most recent session
-        recent_session = db.query(UserSession).filter(
-            UserSession.user_id == user_id
-        ).order_by(UserSession.last_accessed_at.desc()).first()
+        Args:
+            user_id: Specific user ID, or None for system-wide stats
+        """
+        base_query = db.query(UserSession)
+        
+        if user_id:
+            base_query = base_query.filter(UserSession.user_id == user_id)
+        
+        now = datetime.utcnow()
+        
+        total_sessions = base_query.count()
+        active_sessions = base_query.filter(UserSession.expires_at > now).count()
+        expired_sessions = total_sessions - active_sessions
+        
+        # Sessions created in last 24 hours
+        last_24h = now - timedelta(hours=24)
+        recent_sessions = base_query.filter(UserSession.created_at >= last_24h).count()
+        
+        # Sessions accessed in last hour
+        last_hour = now - timedelta(hours=1)
+        recent_activity = base_query.filter(UserSession.last_accessed_at >= last_hour).count()
         
         return {
             "total_sessions": total_sessions,
             "active_sessions": active_sessions,
-            "last_session_at": recent_session.last_accessed_at.isoformat() if recent_session else None,
-            "last_ip_address": recent_session.ip_address if recent_session else None
+            "expired_sessions": expired_sessions,
+            "sessions_last_24h": recent_sessions,
+            "active_last_hour": recent_activity
         }
 
-    def get_sessions_by_ip(
-        self, 
-        db: Session, 
-        *, 
-        ip_address: str, 
-        hours: int = 24
-    ) -> List[UserSession]:
-        """
-        Get all sessions from a specific IP in the last N hours.
-        Useful for detecting suspicious activity.
-        """
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
-        
-        return db.query(UserSession).filter(
-            and_(
-                UserSession.ip_address == ip_address,
-                UserSession.created_at >= cutoff_time
-            )
-        ).order_by(UserSession.created_at.desc()).all()
-
-    def get_concurrent_sessions(
-        self, 
-        db: Session, 
-        *, 
-        user_id: str,
-        max_allowed: int = 5
-    ) -> dict:
-        """
-        Check if user has too many concurrent sessions.
-        Returns info about concurrent sessions and whether limit is exceeded.
-        """
-        active_sessions = self.get_user_sessions(db, user_id=user_id, active_only=True)
-        
-        return {
-            "active_count": len(active_sessions),
-            "max_allowed": max_allowed,
-            "limit_exceeded": len(active_sessions) > max_allowed,
-            "sessions": [
-                {
-                    "id": str(session.id),
-                    "created_at": session.created_at.isoformat(),
-                    "last_accessed_at": session.last_accessed_at.isoformat(),
-                    "ip_address": session.ip_address,
-                    "user_agent": session.user_agent[:100] if session.user_agent else None
-                }
-                for session in active_sessions
-            ]
-        }
-
-    def track_session_activity(
-        self, 
-        db: Session, 
-        *, 
-        session: UserSession
+    def extend_session(
+        self,
+        db: Session,
+        *,
+        session: UserSession,
+        extend_by_days: int = 30
     ) -> UserSession:
         """
-        Update last accessed time for session tracking.
+        Extend session expiration time.
+        Useful for "Remember me" functionality.
         """
+        session.expires_at = session.expires_at + timedelta(days=extend_by_days)
         session.last_accessed_at = datetime.utcnow()
+        
         db.add(session)
         db.commit()
         db.refresh(session)
         return session
 
-    def get_global_session_stats(self, db: Session) -> dict:
+    def is_session_from_new_device(
+        self,
+        db: Session,
+        *,
+        user_id: str,
+        user_agent: str,
+        ip_address: str,
+        days_lookback: int = 30
+    ) -> bool:
         """
-        Get global session statistics for admin dashboard.
+        Check if this appears to be a new device/location for the user.
+        Useful for security alerts.
         """
-        total_sessions = db.query(UserSession).count()
+        since = datetime.utcnow() - timedelta(days=days_lookback)
         
-        active_sessions = db.query(UserSession).filter(
-            UserSession.expires_at > datetime.utcnow()
-        ).count()
+        # Check for similar user agent or IP in recent sessions
+        existing_session = db.query(UserSession).filter(
+            and_(
+                UserSession.user_id == user_id,
+                UserSession.created_at >= since,
+                or_(
+                    UserSession.user_agent == user_agent,
+                    UserSession.ip_address == ip_address
+                )
+            )
+        ).first()
         
-        # Sessions created in last 24 hours
-        recent_cutoff = datetime.utcnow() - timedelta(hours=24)
-        recent_sessions = db.query(UserSession).filter(
-            UserSession.created_at >= recent_cutoff
-        ).count()
-        
-        return {
-            "total_sessions": total_sessions,
-            "active_sessions": active_sessions,
-            "recent_sessions_24h": recent_sessions,
-            "inactive_sessions": total_sessions - active_sessions
-        }
+        return existing_session is None
 
 
-# Create instance
+# Create global instance
 user_session_crud = CRUDUserSession(UserSession)

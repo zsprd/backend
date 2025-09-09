@@ -88,8 +88,8 @@ def print_startup_info():
     print(f"Environment: {settings.ENVIRONMENT}")
     print(f"Debug Mode: {settings.DEBUG}")
     print(f"Database: {settings.POSTGRES_DB}@{settings.POSTGRES_HOST}")
-    print(f"API Version: {settings.API_V1_PREFIX}")
-    print(f"CORS Origins: {settings.BACKEND_CORS_ORIGINS}")
+    print(f"API Version: {settings.API_VERSION}")
+    print(f"CORS Origins: {settings.CORS_ORIGINS}")
     print("="*60)
     print("\n📋 Available Endpoints:")
     print("  • Health Check: http://localhost:8000/health")
@@ -196,8 +196,6 @@ def create_test_user():
         user_data = {
             "email": "test@zsprd.com",
             "full_name": "Test User",
-            "first_name": "Test",
-            "last_name": "User",
             "is_active": True,
             "is_verified": True,
             "base_currency": "USD"

@@ -1,13 +1,12 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, UUID4
+from pydantic import BaseModel, EmailStr, Field
 from datetime import datetime
+import uuid
 
 
 class UserBase(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     full_name: Optional[str] = Field(None, description="Full name")
-    first_name: Optional[str] = Field(None, description="First name")
-    last_name: Optional[str] = Field(None, description="Last name")
 
 
 class UserCreate(UserBase):
@@ -21,8 +20,6 @@ class UserCreate(UserBase):
 
 class UserUpdate(BaseModel):
     full_name: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
     phone: Optional[str] = None
     country: Optional[str] = None
     timezone: Optional[str] = None
@@ -41,9 +38,7 @@ class UserPreferences(BaseModel):
 
 
 class User(UserBase):
-    id: UUID4
-    email_verified: bool
-    profile_image: Optional[str]
+    id: str
     phone: Optional[str]
     date_of_birth: Optional[datetime]
     country: Optional[str]
@@ -64,12 +59,9 @@ class User(UserBase):
 
 class UserProfile(BaseModel):
     """Public user profile information"""
-    id: UUID4
+    id: str
     email: EmailStr
     full_name: Optional[str]
-    first_name: Optional[str]
-    last_name: Optional[str]
-    profile_image: Optional[str]
     country: Optional[str]
     base_currency: str
     theme_preference: str
@@ -89,3 +81,36 @@ class UserStats(BaseModel):
     portfolio_value: float
     last_activity: Optional[datetime]
     days_active: int
+
+
+# Additional schemas for auth endpoints
+class UserSignUpRequest(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=8)
+    full_name: str = Field(..., min_length=1)
+    base_currency: str = Field("USD", pattern="^[A-Z]{3}$")
+    timezone: str = Field("UTC")
+
+
+class UserSignInRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class UserResponse(BaseModel):
+    """User response for auth endpoints"""
+    id: str
+    email: str
+    full_name: Optional[str]
+    base_currency: str
+    theme_preference: str
+    timezone: str
+    language: str
+    is_verified: bool
+    is_premium: bool
+    is_active: bool
+    created_at: str
+    last_login_at: Optional[str]
+    
+    class Config:
+        from_attributes = True

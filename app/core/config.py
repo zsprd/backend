@@ -1,164 +1,170 @@
-from typing import List, Optional
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
-import os
-from pathlib import Path
-
-# Get the project root directory
-PROJECT_ROOT = Path(__file__).parent.parent.parent
+from typing import Optional
+import secrets
 
 
 class Settings(BaseSettings):
-    # Application
-    APP_NAME: str = "ZSPRD Portfolio Analytics API"
-    APP_VERSION: str = "1.0.0"
-    DEBUG: bool = False
+    # Basic App Settings
+    APP_NAME: str = "ZSPRD Portfolio Analytics"
+    VERSION: str = "1.0.0"
+    API_VERSION: str = "v1"
     ENVIRONMENT: str = "development"
+    DEBUG: bool = True  # Set to False in production
     
-    # API Configuration
-    API_V1_PREFIX: str = "/api/v1"
-    SECRET_KEY: str
+    # Security Settings - Critical for fintech
+    SECRET_KEY: str = secrets.token_urlsafe(32)  # Generate secure key
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 15  # Reduced for financial app security
     
-    # Database
-    POSTGRES_HOST: str = "localhost"
-    POSTGRES_PORT: int = 5432
-    POSTGRES_DB: str = "zsprd_dev"
-    POSTGRES_USER: str = "zsprd_dev"
-    POSTGRES_PASSWORD: str = "secure"
-    DATABASE_URL: Optional[str] = None
+    # JWT Token Expiration (Fintech-appropriate timings)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30      # 30 minutes for balance of security/UX
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 90        # 90 days for less frequent logins
+    EMAIL_VERIFICATION_EXPIRE_HOURS: int = 24  # 24 hours
+    PASSWORD_RESET_EXPIRE_HOURS: int = 1       # 1 hour for security
     
-    @field_validator("DATABASE_URL", mode="before")
-    def assemble_db_connection(cls, v: Optional[str], values: dict) -> str:
-        if isinstance(v, str):
-            return v
-        return (
-            f"postgresql://{values.get('POSTGRES_USER')}:"
-            f"{values.get('POSTGRES_PASSWORD')}@"
-            f"{values.get('POSTGRES_HOST')}:"
-            f"{values.get('POSTGRES_PORT')}/"
-            f"{values.get('POSTGRES_DB')}"
-        )
+    # Password Security Requirements
+    MIN_PASSWORD_LENGTH: int = 8
+    REQUIRE_UPPERCASE: bool = True
+    REQUIRE_LOWERCASE: bool = True
+    REQUIRE_DIGITS: bool = True
+    REQUIRE_SPECIAL_CHARS: bool = False  # Optional for better UX
     
-    # Email Configuration
-    SMTP_SERVER: str = "smtp.gmail.com"
-    SMTP_PORT: int = 587
-    SMTP_USERNAME: str = ""  # Your Gmail address
-    SMTP_PASSWORD: str = ""  # Your Gmail app password
-    FROM_EMAIL: Optional[str] = None
-    FROM_NAME: str = "ZSPRD Portfolio Analytics"
-    
-    @field_validator("FROM_EMAIL", mode="before")
-    def assemble_from_email(cls, v: Optional[str], values: dict) -> str:
-        if isinstance(v, str):
-            return v
-        return values.get('SMTP_USERNAME', '')
-    
-    # Frontend Configuration
-    FRONTEND_URL: str = "http://localhost:3000"
-    
-    # External APIs
-    ALPHA_VANTAGE_API_KEY: str
-    ALPHA_VANTAGE_BASE_URL: str = "https://www.alphavantage.co/query"
-    ALPHA_VANTAGE_RATE_LIMIT: int = 5  # requests per minute for free tier
-    
-    # Redis (optional)
-    REDIS_HOST: str = "localhost"
-    REDIS_PORT: int = 6379
-    REDIS_DB: int = 0
-    REDIS_URL: Optional[str] = None
-    
-    # @field_validator("REDIS_URL", mode="before")
-    # def assemble_redis_connection(cls, v: Optional[str], values: dict) -> str:
-    #     if isinstance(v, str):
-    #         return v
-    #     return (
-    #         f"redis://{values.get('REDIS_HOST')}:"
-    #         f"{values.get('REDIS_PORT')}/"
-    #         f"{values.get('REDIS_DB')}"
-    #     )
-    
-    # CORS
-    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
-    
-    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
-    @classmethod
-    def assemble_cors_origins(cls, v) -> List[str]:
-        if isinstance(v, str) and not v.startswith("["):
-            return [i.strip() for i in v.split(",")]
-        elif isinstance(v, (list, str)):
-            return v
-        raise ValueError(v)
-    
-    # Security Settings
-    PASSWORD_MIN_LENGTH: int = 8
-    MAX_LOGIN_ATTEMPTS: int = 5
-    LOGIN_ATTEMPT_TIMEOUT_MINUTES: int = 15
+    # Rate Limiting (requests per time window)
+    LOGIN_RATE_LIMIT: str = "5/15minutes"      # 5 attempts per 15 minutes
+    SIGNUP_RATE_LIMIT: str = "3/hour"          # 3 signups per hour per IP
+    PASSWORD_RESET_RATE_LIMIT: str = "3/hour"  # 3 reset requests per hour
+    AUTH_GENERAL_RATE_LIMIT: str = "20/minute" # 20 auth requests per minute
     
     # Session Management
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-    MAX_CONCURRENT_SESSIONS: int = 5
-    SESSION_CLEANUP_INTERVAL_HOURS: int = 24
+    MAX_ACTIVE_SESSIONS_PER_USER: int = 5      # Limit concurrent sessions
+    SESSION_CLEANUP_INTERVAL_HOURS: int = 24   # Clean expired sessions daily
+    REMEMBER_ME_EXTEND_DAYS: int = 30          # Extend session by 30 days
     
-    # Email Token Expiration
-    EMAIL_VERIFICATION_EXPIRE_HOURS: int = 24
-    PASSWORD_RESET_EXPIRE_HOURS: int = 1
+    # Security Headers
+    CORS_ORIGINS: list = [
+        "http://localhost:3000",  # Next.js dev
+        "https://app.zsprd.com",  # Production frontend
+    ]
+    CORS_ALLOW_CREDENTIALS: bool = True
+    CORS_ALLOW_METHODS: list = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"]
+    CORS_ALLOW_HEADERS: list = ["*"]
     
-    # Cache and Performance
-    CACHE_TTL_SECONDS: int = 3600  # 1 hour
+    # Database Settings
+    POSTGRES_HOST: str = "localhost"
+    POSTGRES_PORT: int = 5432
+    POSTGRES_USER: Optional[str] = None
+    POSTGRES_PASSWORD: Optional[str] = None
+    POSTGRES_DB: Optional[str] = None
+    DATABASE_URL: Optional[str] = None
+    DATABASE_ECHO: bool = True  # Set to True for SQL debugging
     
-    # Rate Limiting
-    RATE_LIMIT_REQUESTS: int = 100
-    RATE_LIMIT_WINDOW_MINUTES: int = 15
+    # Redis Settings (for caching and rate limiting)
+    REDIS_URL: Optional[str] = None
+    REDIS_PASSWORD: Optional[str] = None
+    REDIS_DB: int = 0
     
-    # File Upload
-    MAX_UPLOAD_SIZE_MB: int = 10
+    # Email Settings (for verification and password reset)
+    SMTP_HOST: Optional[str] = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    SMTP_USE_TLS: bool = True
+    FROM_EMAIL: str = "noreply@zsprd.com"
+    FROM_NAME: str = "ZSPRD Portfolio Analytics"
     
-    # Logging
+    # External API Keys
+    ALPHA_VANTAGE_API_KEY: Optional[str] = None
+    
+    # Logging and Monitoring
     LOG_LEVEL: str = "INFO"
+    SENTRY_DSN: Optional[str] = None
     
-    # Feature Flags
-    ENABLE_EMAIL_VERIFICATION: bool = True
-    ENABLE_PASSWORD_RESET: bool = True
-    ENABLE_SOCIAL_LOGIN: bool = True
-    ENABLE_RATE_LIMITING: bool = True
+    # Security Monitoring
+    ENABLE_AUDIT_LOGS: bool = True
+    TRACK_LOGIN_ATTEMPTS: bool = True
+    ALERT_ON_SUSPICIOUS_LOGIN: bool = True
+    NEW_DEVICE_NOTIFICATION: bool = True
     
-    # Development Settings
-    SEND_REAL_EMAILS: bool = False  # Set to True in production
+    # API Documentation
+    DOCS_URL: str = "/api/v1/docs"
+    REDOC_URL: str = "/api/v1/redoc"
+    OPENAPI_URL: str = "/api/v1/openapi.json"
+    
+    # Production Security Settings
+    REQUIRE_HTTPS: bool = False  # Set to True in production
+    SECURE_COOKIES: bool = False  # Set to True in production
+    HSTS_MAX_AGE: int = 31536000  # 1 year
     
     class Config:
         env_file = ".env"
         case_sensitive = True
 
+    @property
+    def fintech_security_config(self) -> dict:
+        """Get all fintech-specific security settings in one dict."""
+        return {
+            "access_token_expire_minutes": self.ACCESS_TOKEN_EXPIRE_MINUTES,
+            "refresh_token_expire_days": self.REFRESH_TOKEN_EXPIRE_DAYS,
+            "email_verification_expire_hours": self.EMAIL_VERIFICATION_EXPIRE_HOURS,
+            "password_reset_expire_hours": self.PASSWORD_RESET_EXPIRE_HOURS,
+            "max_login_attempts": 5,
+            "login_lockout_minutes": 15,
+            "password_reset_per_hour": 3,
+            "auth_requests_per_minute": 20,
+            "max_active_sessions": self.MAX_ACTIVE_SESSIONS_PER_USER,
+            "require_strong_passwords": True,
+            "enable_token_rotation": True,
+            "track_session_security": True
+        }
 
-# Create settings instance
+    @property
+    def password_requirements(self) -> dict:
+        """Get password requirements for frontend validation."""
+        return {
+            "min_length": self.MIN_PASSWORD_LENGTH,
+            "require_uppercase": self.REQUIRE_UPPERCASE,
+            "require_lowercase": self.REQUIRE_LOWERCASE,
+            "require_digits": self.REQUIRE_DIGITS,
+            "require_special_chars": self.REQUIRE_SPECIAL_CHARS
+        }
+
+
+# Create global settings instance
 settings = Settings()
 
-# Database connection string for SQLAlchemy
-DATABASE_URL = settings.DATABASE_URL
 
-# JWT Configuration
-JWT_SECRET_KEY = settings.SECRET_KEY
-JWT_ALGORITHM = settings.ALGORITHM
-JWT_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
-
-# Email Configuration
-EMAIL_CONFIG = {
-    "smtp_server": settings.SMTP_SERVER,
-    "smtp_port": settings.SMTP_PORT,
-    "smtp_username": settings.SMTP_USERNAME,
-    "smtp_password": settings.SMTP_PASSWORD,
-    "from_email": settings.FROM_EMAIL,
-    "from_name": settings.FROM_NAME,
-    "frontend_url": settings.FRONTEND_URL
+# Security middleware configuration
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "DENY",
+    "X-XSS-Protection": "1; mode=block",
+    "Strict-Transport-Security": f"max-age={settings.HSTS_MAX_AGE}; includeSubDomains",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "geolocation=(), microphone=(), camera=()"
 }
 
-# Security Configuration
-SECURITY_CONFIG = {
-    "password_min_length": settings.PASSWORD_MIN_LENGTH,
-    "max_login_attempts": settings.MAX_LOGIN_ATTEMPTS,
-    "login_attempt_timeout": settings.LOGIN_ATTEMPT_TIMEOUT_MINUTES,
-    "refresh_token_expire_days": settings.REFRESH_TOKEN_EXPIRE_DAYS,
-    "max_concurrent_sessions": settings.MAX_CONCURRENT_SESSIONS
+# Rate limiting configuration for different endpoints
+RATE_LIMIT_CONFIG = {
+    "auth_signin": "5/15minutes",      # 5 attempts per 15 minutes
+    "auth_signup": "3/hour",           # 3 signups per hour
+    "auth_refresh": "10/5minutes",     # 10 refreshes per 5 minutes
+    "auth_forgot_password": "3/hour",  # 3 password resets per hour
+    "auth_general": "20/minute",       # 20 general auth requests per minute
+    "api_general": "100/minute"        # 100 general API requests per minute
 }
+
+# JWT Token blacklist for enhanced security (optional Redis implementation)
+TOKEN_BLACKLIST_ENABLED = True
+
+# Audit log events to track
+AUDIT_EVENTS = [
+    "user_signin",
+    "user_signup", 
+    "user_signout",
+    "password_change",
+    "password_reset",
+    "email_verify",
+    "profile_update",
+    "session_revoke",
+    "suspicious_activity"
+]
