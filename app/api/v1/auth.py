@@ -177,7 +177,7 @@ async def confirm_email(
     
     return {
         "message": "Email verified successfully",
-        "verified_at": datetime.utcnow().isoformat()
+        "verified_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -202,7 +202,7 @@ async def sign_in(
     refresh_token = create_refresh_token(str(user.id))
     
     # Create session
-    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     user_session_crud.create_session(
         db,
         user_id=str(user.id),
@@ -313,7 +313,7 @@ async def oauth_callback(
         refresh_token = create_refresh_token(str(user.id))
         
         # Create session
-        expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
         user_session_crud.create_session(
             db,
             user_id=str(user.id),
@@ -371,8 +371,8 @@ async def refresh_token(
     
     # Update session with new refresh token
     session.refresh_token = new_refresh_token
-    session.last_used_at = datetime.utcnow()
-    session.expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    session.last_used_at = datetime.now(timezone.utc)
+    session.expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     
     db.add(session)
     db.commit()
@@ -403,7 +403,7 @@ async def sign_out(
     
     return {
         "message": message,
-        "signed_out_at": datetime.utcnow().isoformat()
+        "signed_out_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -426,7 +426,7 @@ async def forgot_password(
     # Always return success to prevent email enumeration
     return {
         "message": "If an account exists with this email, you will receive password reset instructions.",
-        "requested_at": datetime.utcnow().isoformat()
+        "requested_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -467,7 +467,7 @@ async def reset_password(
     
     return {
         "message": "Password updated successfully. Please sign in with your new password.",
-        "updated_at": datetime.utcnow().isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -510,5 +510,5 @@ async def change_password(
     
     return {
         "message": "Password changed successfully. Please sign in again.",
-        "updated_at": datetime.utcnow().isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }

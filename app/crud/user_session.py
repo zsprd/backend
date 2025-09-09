@@ -29,7 +29,7 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
             ip_address=ip_address,
             user_agent=user_agent,
             device_type=device_type,
-            last_used_at=datetime.utcnow()
+            last_used_at=datetime.now(timezone.utc)
         )
         
         db.add(session)
@@ -47,7 +47,7 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
         return db.query(UserSession).filter(
             and_(
                 UserSession.refresh_token == refresh_token,
-                UserSession.expires_at > datetime.utcnow()
+                UserSession.expires_at > datetime.now(timezone.utc)
             )
         ).first()
 
@@ -58,7 +58,7 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
         session: UserSession
     ) -> UserSession:
         """Update session last used timestamp."""
-        session.last_used_at = datetime.utcnow()
+        session.last_used_at = datetime.now(timezone.utc)
         db.add(session)
         db.commit()
         db.refresh(session)
@@ -101,11 +101,11 @@ class CRUDUserSession(CRUDBase[UserSession, None, None]):
     def cleanup_expired_sessions(self, db: Session) -> int:
         """Clean up expired sessions."""
         count = db.query(UserSession).filter(
-            UserSession.expires_at < datetime.utcnow()
+            UserSession.expires_at < datetime.now(timezone.utc)
         ).count()
         
         db.query(UserSession).filter(
-            UserSession.expires_at < datetime.utcnow()
+            UserSession.expires_at < datetime.now(timezone.utc)
         ).delete()
         
         db.commit()

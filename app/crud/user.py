@@ -1,6 +1,7 @@
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
+from datetime import datetime, timezone
 
 from app.crud.base import CRUDBase
 from app.models.user import User
@@ -104,8 +105,7 @@ class CRUDUser(CRUDBase[User, None, None]):
 
     def update_last_login(self, db: Session, *, user: User) -> User:
         """Update user's last login timestamp."""
-        from datetime import datetime
-        user.last_login_at = datetime.utcnow()
+        user.last_login_at = datetime.now(timezone.utc)
         db.add(user)
         db.commit()
         db.refresh(user)

@@ -1,8 +1,7 @@
-# app/api/v1/transactions.py
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from app.core.database import get_db
 from app.core.user import get_current_user_id
@@ -103,8 +102,8 @@ async def get_transaction(
         "trade_date": "2024-01-15",
         "transaction_currency": "USD",
         "description": "Apple stock purchase",
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -126,7 +125,7 @@ async def create_transaction(
         "amount": transaction_data.get("amount", 0),
         "trade_date": transaction_data.get("trade_date"),
         "transaction_currency": transaction_data.get("transaction_currency", "USD"),
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "message": "Transaction created successfully"
     }
 
@@ -146,7 +145,7 @@ async def update_transaction(
         "id": transaction_id,
         "message": "Transaction updated successfully",
         "updated_fields": list(transaction_data.keys()),
-        "updated_at": datetime.utcnow().isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -163,7 +162,7 @@ async def delete_transaction(
     return {
         "message": "Transaction deleted successfully",
         "transaction_id": transaction_id,
-        "deleted_at": datetime.utcnow().isoformat()
+        "deleted_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -184,7 +183,7 @@ async def get_recent_transactions(
             "symbol": "AAPL",
             "amount": 15000.0,
             "trade_date": "2024-01-15",
-            "created_at": datetime.utcnow().isoformat()
+            "created_at": datetime.now(timezone.utc).isoformat()
         }
     ]
 
@@ -253,7 +252,7 @@ async def transactions_health():
     return {
         "status": "healthy",
         "service": "transactions",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "features": [
             "transaction_management",
             "transaction_analysis",

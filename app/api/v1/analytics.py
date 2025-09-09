@@ -1,4 +1,3 @@
-# app/api/v1/analytics.py
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
@@ -147,7 +146,7 @@ async def get_exposure_analytics(
         ],
         "total_value": 125000.0,
         "base_currency": base_currency,
-        "as_of_date": datetime.utcnow().isoformat()
+        "as_of_date": datetime.now(timezone.utc).isoformat()
     }
 
 

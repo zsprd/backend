@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.core.database import get_db
 from app.core.user import get_current_user_id
@@ -36,8 +36,8 @@ async def get_accounts(
                 "is_active": True,
                 "current_balance": 25000.0,
                 "market_value": 25000.0,
-                "created_at": datetime.utcnow().isoformat(),
-                "updated_at": datetime.utcnow().isoformat()
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "updated_at": datetime.now(timezone.utc).isoformat()
             }
         ],
         "total": 1,
@@ -69,8 +69,8 @@ async def get_account(
         "is_active": True,
         "current_balance": 25000.0,
         "market_value": 25000.0,
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -91,7 +91,7 @@ async def create_account(
         "account_type": account_data.get("account_type"),
         "currency": account_data.get("currency", "USD"),
         "is_active": True,
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "message": "Account created successfully"
     }
 
@@ -111,7 +111,7 @@ async def update_account(
         "id": account_id,
         "message": "Account updated successfully",
         "updated_fields": list(account_data.keys()),
-        "updated_at": datetime.utcnow().isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -128,7 +128,7 @@ async def delete_account(
     return {
         "message": "Account deleted successfully",
         "account_id": account_id,
-        "deleted_at": datetime.utcnow().isoformat()
+        "deleted_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -152,7 +152,7 @@ async def get_account_summary(
         "total_holdings": 5,
         "cash_balance": 1000.0,
         "currency": "USD",
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -164,7 +164,7 @@ async def accounts_health():
     return {
         "status": "healthy",
         "service": "accounts",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "features": [
             "account_management",
             "account_summary",

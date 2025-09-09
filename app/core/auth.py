@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import secrets
 import uuid
@@ -38,13 +38,13 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     to_encode = data.copy()
     
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({
         "exp": expire,
-        "iat": datetime.utcnow(),
+        "iat": datetime.now(timezone.utc),
         "type": TOKEN_TYPE_ACCESS,
         "jti": secrets.token_urlsafe(16)
     })
@@ -57,8 +57,8 @@ def create_refresh_token(user_id: str) -> str:
     to_encode = {
         "sub": user_id,
         "type": TOKEN_TYPE_REFRESH,
-        "exp": datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
-        "iat": datetime.utcnow(),
+        "exp": datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        "iat": datetime.now(timezone.utc),
         "jti": secrets.token_urlsafe(16)
     }
     
@@ -70,8 +70,8 @@ def create_email_verification_token(email: str) -> str:
     to_encode = {
         "sub": email,
         "type": TOKEN_TYPE_EMAIL_VERIFICATION,
-        "exp": datetime.utcnow() + timedelta(hours=EMAIL_VERIFICATION_EXPIRE_HOURS),
-        "iat": datetime.utcnow()
+        "exp": datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFICATION_EXPIRE_HOURS),
+        "iat": datetime.now(timezone.utc)
     }
     
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -82,8 +82,8 @@ def create_password_reset_token(email: str) -> str:
     to_encode = {
         "sub": email,
         "type": TOKEN_TYPE_PASSWORD_RESET,
-        "exp": datetime.utcnow() + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES),
-        "iat": datetime.utcnow()
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES),
+        "iat": datetime.now(timezone.utc)
     }
     
     return jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)

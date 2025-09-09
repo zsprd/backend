@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import datetime, timezone, date
 
 from app.core.database import get_db
 from app.core.user import get_current_user_id
@@ -76,8 +76,8 @@ async def get_holding(
         "cost_basis_per_share": 150.0,
         "market_value": 17500.0,
         "currency": "USD",
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat()
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -99,7 +99,7 @@ async def create_holding(
         "cost_basis_per_share": holding_data.get("cost_basis_per_share", 0),
         "market_value": holding_data.get("market_value", 0),
         "currency": holding_data.get("currency", "USD"),
-        "created_at": datetime.utcnow().isoformat(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
         "message": "Holding created successfully"
     }
 
@@ -119,7 +119,7 @@ async def update_holding(
         "id": holding_id,
         "message": "Holding updated successfully",
         "updated_fields": list(holding_data.keys()),
-        "updated_at": datetime.utcnow().isoformat()
+        "updated_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -136,7 +136,7 @@ async def delete_holding(
     return {
         "message": "Holding deleted successfully",
         "holding_id": holding_id,
-        "deleted_at": datetime.utcnow().isoformat()
+        "deleted_at": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -199,7 +199,7 @@ async def holdings_health():
     return {
         "status": "healthy",
         "service": "holdings",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "features": [
             "holdings_management",
             "portfolio_summary",

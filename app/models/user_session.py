@@ -2,6 +2,7 @@ from sqlalchemy import Column, String, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, INET
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from datetime import timezone
 import uuid
 
 from app.models.base import Base
@@ -33,7 +34,7 @@ class UserSession(Base):
     def is_expired(self) -> bool:
         """Check if session is expired."""
         from datetime import datetime
-        return self.expires_at < datetime.utcnow()
+        return self.expires_at < datetime.now(timezone.utc)
 
     @property
     def is_active(self) -> bool:

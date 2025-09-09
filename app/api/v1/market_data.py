@@ -2,7 +2,7 @@
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 from app.core.database import get_db
 from app.core.user import get_current_user_id
@@ -62,7 +62,7 @@ async def get_current_price(
         "price_change": 1.30,
         "price_change_percent": 0.75,
         "currency": currency,
-        "last_updated": datetime.utcnow().isoformat(),
+        "last_updated": datetime.now(timezone.utc).isoformat(),
         "volume": 45123000,
         "market_status": "closed"
     }
@@ -128,7 +128,7 @@ async def get_exchange_rates(
             "JPY": 110.25,
             "CAD": 1.25
         },
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -146,7 +146,7 @@ async def get_specific_exchange_rate(
         "quote_currency": quote.upper(), 
         "rate": 0.85,
         "inverse_rate": 1.18,
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -205,7 +205,7 @@ async def get_market_status():
                 "next_close": "2024-01-03T16:30:00+00:00"
             }
         },
-        "last_updated": datetime.utcnow().isoformat()
+        "last_updated": datetime.now(timezone.utc).isoformat()
     }
 
 
@@ -217,7 +217,7 @@ async def market_data_health():
     return {
         "status": "healthy",
         "service": "market_data",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(timezone.utc).isoformat(),
         "features": [
             "security_search",
             "price_data",
