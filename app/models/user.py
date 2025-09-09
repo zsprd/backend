@@ -1,67 +1,40 @@
-from sqlalchemy import Column, String, Boolean, DateTime, Date, Text
+from sqlalchemy import Column, String, Boolean, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 import uuid
 
 from app.models.base import Base
 
 
 class User(Base):
-    """
-    User model aligned with corrected database schema.
-    Uses is_verified instead of email_verified.
-    """
+    """Simplified User model for MVP."""
     __tablename__ = "users"
 
-    # Primary key
-    id = Column(
-        UUID(as_uuid=True), 
-        primary_key=True, 
-        default=uuid.uuid4,
-        comment="Unique user identifier"
-    )
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=True)  # Nullable for OAuth users
     
-    # Authentication - REMOVED email_verified, only using is_verified
-    email = Column(String(255), unique=True, nullable=False, comment="User email address")
-    password_hash = Column(String(255), nullable=True, comment="Bcrypt hashed password")
+    # Core profile
+    full_name = Column(String(255), nullable=True)
+    base_currency = Column(String(3), nullable=False, default="USD")
+    timezone = Column(String(50), nullable=False, default="UTC")
+    language = Column(String(10), nullable=False, default="en")
+    theme_preference = Column(String(10), nullable=False, default="light")
     
-    # Profile information
-    full_name = Column(String(255), nullable=True, comment="User's full name")
-    phone = Column(String(20), nullable=True, comment="Phone number")
-    date_of_birth = Column(Date, nullable=True, comment="Date of birth")
-    country = Column(String(2), nullable=True, comment="Country code (ISO 2-letter)")
+    # OAuth providers
+    google_id = Column(String(255), nullable=True, unique=True)
+    apple_id = Column(String(255), nullable=True, unique=True)
     
-    # Preferences and settings
-    timezone = Column(String(50), nullable=False, default='UTC', comment="User timezone")
-    language = Column(String(10), nullable=False, default='en', comment="Language preference")
-    base_currency = Column(String(3), nullable=False, default='USD', comment="Base currency (ISO 3-letter)")
-    theme_preference = Column(String(10), nullable=False, default='light', comment="UI theme preference")
-    
-    # Status flags - ONLY is_verified, removed email_verified
-    is_active = Column(Boolean, nullable=False, default=True, comment="Account active status")
-    is_verified = Column(Boolean, nullable=False, default=False, comment="Email verification status")
-    is_premium = Column(Boolean, nullable=False, default=False, comment="Premium subscription status")
-    
-    # OAuth fields (for future social login)
-    google_id = Column(String(255), nullable=True, comment="Google OAuth ID")
-    apple_id = Column(String(255), nullable=True, comment="Apple OAuth ID")
+    # Status
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_verified = Column(Boolean, default=False, nullable=False)
+    is_premium = Column(Boolean, default=False, nullable=False)
     
     # Timestamps
-    last_login_at = Column(DateTime(timezone=True), nullable=True, comment="Last login timestamp")
-    created_at = Column(
-        DateTime(timezone=True), 
-        nullable=False, 
-        server_default=func.now(),
-        comment="Account creation timestamp"
-    )
-    updated_at = Column(
-        DateTime(timezone=True), 
-        nullable=False, 
-        server_default=func.now(),
-        onupdate=func.now(),  # Auto-update on modifications
-        comment="Last update timestamp"
-    )
+    created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now())
+    last_login_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
@@ -75,50 +48,30 @@ class User(Base):
     plaid_items = relationship("PlaidItem", back_populates="user", cascade="all, delete-orphan")
 
     def __repr__(self) -> str:
-        return f"<User(id={self.id}, email='{self.email}', verified={self.is_verified}, active={self.is_active})>"
+        return f"<User(id={self.id}, email='{self.email}', verified={self.is_verified})>"
 
-    def to_dict(self, include_sensitive: bool = False) -> dict:
-        """
-        Convert user to dictionary for API responses.
-        
-        Args:
-            include_sensitive: If True, includes sensitive fields like password_hash
-        """
-        data = {
+    def to_dict(self) -> dict:
+        """Convert user to dictionary for API responses."""
+        return {
             "id": str(self.id),
             "email": self.email,
             "full_name": self.full_name,
-            "phone": self.phone,
-            "date_of_birth": self.date_of_birth.isoformat() if bool(self.date_of_birth) else None,
-            "country": self.country,
+            "base_currency": self.base_currency,
             "timezone": self.timezone,
             "language": self.language,
-            "base_currency": self.base_currency,
             "theme_preference": self.theme_preference,
             "is_active": self.is_active,
             "is_verified": self.is_verified,
             "is_premium": self.is_premium,
-            "last_login_at": self.last_login_at.isoformat() if bool(self.last_login_at) else None,
+            "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat()
         }
-        
-        if include_sensitive:
-            data.update({
-                "password_hash": self.password_hash,
-                "google_id": self.google_id,
-                "apple_id": self.apple_id
-            })
-            
-        return data
 
     @property
     def display_name(self) -> str:
-        """Get user's display name (full_name or email)."""
-        if bool(self.full_name):
-            return str(self.full_name)
-        else:
-            return self.email.split('@')[0]
+        """Get user's display name."""
+        return self.full_name or self.email.split('@')[0]
 
     @property
     def is_oauth_user(self) -> bool:
@@ -126,5 +79,6 @@ class User(Base):
         return self.google_id is not None or self.apple_id is not None
 
     def can_login(self) -> bool:
-        """Check if user can login (active account)."""
-        return bool(self.is_active)
+        """Check if user can login."""
+        return self.is_active
+    

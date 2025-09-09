@@ -1,14 +1,13 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 from pydantic import BaseModel, EmailStr, Field
 
 from app.core.database import get_db
 from app.core.auth import (
-    get_current_user_id, 
-    get_current_user,
-    create_access_token, 
+    create_access_token,
     create_refresh_token,
     verify_token,
     create_email_verification_token,
@@ -16,25 +15,31 @@ from app.core.auth import (
     create_password_reset_token,
     verify_password_reset_token,
     get_client_ip,
+    check_password_strength,
     TOKEN_TYPE_REFRESH,
-    FINTECH_SECURITY_SETTINGS
+    ACCESS_TOKEN_EXPIRE_MINUTES,
+    REFRESH_TOKEN_EXPIRE_DAYS
 )
-from app.core.password import check_password_strength  # Import from password module
-from app.models.user import User  # Import User model
+from app.core.oauth import oauth_manager
+from app.core.config import settings
+from app.models.user import User
 from app.crud.user import user_crud
 from app.crud.user_session import user_session_crud
-# from app.core.email import send_verification_email, send_password_reset_email
+from app.core.user import get_current_user, get_optional_current_user_id
 
 router = APIRouter()
 
 
+# ===================================================================
 # Request/Response Models
+# ===================================================================
+
 class SignUpRequest(BaseModel):
     email: EmailStr = Field(..., description="User email address")
-    password: str = Field(..., min_length=8, description="Plain password (will be hashed)")
-    full_name: str = Field(..., min_length=1, max_length=255, description="User's full name")
-    base_currency: Optional[str] = Field("USD", pattern="^[A-Z]{3}$", description="ISO currency code")
-    timezone: Optional[str] = Field("UTC", description="User timezone")
+    password: str = Field(..., min_length=8, description="Password")
+    full_name: str = Field(..., min_length=1, max_length=255, description="Full name")
+    base_currency: Optional[str] = Field("USD", pattern="^[A-Z]{3}$")
+    timezone: Optional[str] = Field("UTC")
 
 
 class SignUpResponse(BaseModel):
@@ -49,8 +54,8 @@ class EmailConfirmRequest(BaseModel):
 
 
 class SignInRequest(BaseModel):
-    email: EmailStr = Field(..., description="User email address")
-    password: str = Field(..., description="Plain password")
+    email: EmailStr = Field(..., description="Email address")
+    password: str = Field(..., description="Password")
 
 
 class SignInResponse(BaseModel):
@@ -67,18 +72,18 @@ class RefreshTokenRequest(BaseModel):
 
 class TokenResponse(BaseModel):
     access_token: str
-    refresh_token: str  # New refresh token (rotation)
+    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
 
 
 class ForgotPasswordRequest(BaseModel):
-    email: EmailStr = Field(..., description="User email address")
+    email: EmailStr = Field(..., description="Email address")
 
 
 class ResetPasswordRequest(BaseModel):
     token: str = Field(..., description="Password reset token")
-    new_password: str = Field(..., min_length=8, description="New plain password")
+    new_password: str = Field(..., min_length=8, description="New password")
 
 
 class ChangePasswordRequest(BaseModel):
@@ -86,41 +91,19 @@ class ChangePasswordRequest(BaseModel):
     new_password: str = Field(..., min_length=8, description="New password")
 
 
-class SignOutRequest(BaseModel):
-    refresh_token: Optional[str] = Field(None, description="Refresh token to revoke")
-    revoke_all_sessions: bool = Field(False, description="Revoke all user sessions")
-
-
-class PasswordStrengthRequest(BaseModel):
-    password: str = Field(..., description="Password to check")
-
-
-class UserProfileResponse(BaseModel):
-    id: str
-    email: str
-    full_name: Optional[str]
-    base_currency: str
-    theme_preference: str
-    timezone: str
-    language: str
-    is_verified: bool
-    is_premium: bool
-    is_active: bool
-    created_at: str
-    last_login_at: Optional[str]
-
+# ===================================================================
+# Auth Endpoints
+# ===================================================================
 
 @router.post("/signup", response_model=SignUpResponse, status_code=status.HTTP_201_CREATED)
 async def sign_up(
     *,
     db: Session = Depends(get_db),
     request: SignUpRequest,
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    client_request: Request
 ):
-    """
-    User registration with secure password hashing and email verification.
-    Passwords are hashed using bcrypt with salt on the backend.
-    """
+    """User registration with secure password hashing."""
     # Check if user already exists
     existing_user = user_crud.get_by_email(db, email=request.email)
     if existing_user:
@@ -138,28 +121,22 @@ async def sign_up(
             headers={"X-Password-Strength": str(password_check)}
         )
     
-    # Create user (password will be hashed in user_crud.create_user)
+    # Create user
     user = user_crud.create_user(
         db,
         email=request.email,
-        password=request.password,  # Plain password - will be hashed
+        password=request.password,
         full_name=request.full_name,
-        base_currency=request.base_currency,
-        timezone=request.timezone,
-        is_active=True,
-        is_verified=False  # Requires email verification
+        base_currency=request.base_currency if request.base_currency is not None else "USD",
+        timezone=request.timezone if request.timezone is not None else "UTC",
+        is_verified=False
     )
     
     # Generate email verification token
     verification_token = create_email_verification_token(user.email)
     
-    # Send verification email in background
-    # background_tasks.add_task(
-    #     send_verification_email,
-    #     email=user.email,
-    #     name=request.full_name,
-    #     token=verification_token
-    # )
+    # TODO: Send verification email in background
+    # background_tasks.add_task(send_verification_email, user.email, verification_token)
     
     return SignUpResponse(
         message="Account created successfully. Please check your email to verify your account.",
@@ -169,16 +146,13 @@ async def sign_up(
     )
 
 
-@router.post("/confirm", status_code=status.HTTP_200_OK)
+@router.post("/confirm-email", status_code=status.HTTP_200_OK)
 async def confirm_email(
     *,
     db: Session = Depends(get_db),
     request: EmailConfirmRequest
 ):
-    """
-    Confirm user email address using verification token.
-    """
-    # Verify the token
+    """Confirm user email address."""
     email = verify_email_token(request.token)
     if not email:
         raise HTTPException(
@@ -186,7 +160,6 @@ async def confirm_email(
             detail="Invalid or expired confirmation token"
         )
     
-    # Get user by email
     user = user_crud.get_by_email(db, email=email)
     if not user:
         raise HTTPException(
@@ -200,7 +173,6 @@ async def confirm_email(
             "verified_at": user.updated_at.isoformat()
         }
     
-    # Verify the user
     user_crud.verify_email(db, user_id=str(user.id))
     
     return {
@@ -216,12 +188,7 @@ async def sign_in(
     request: SignInRequest,
     client_request: Request
 ):
-    """
-    User sign in with email and password.
-    Returns access token, refresh token, and user data.
-    Implements proper password verification with bcrypt.
-    """
-    # Authenticate user with bcrypt password verification
+    """User sign in with email and password."""
     user = user_crud.authenticate_user(db, email=request.email, password=request.password)
     
     if not user:
@@ -234,16 +201,16 @@ async def sign_in(
     access_token = create_access_token(data={"sub": str(user.id)})
     refresh_token = create_refresh_token(str(user.id))
     
-    # Create session with refresh token
-    expires_at = datetime.utcnow() + timedelta(days=FINTECH_SECURITY_SETTINGS["refresh_token_expire_days"])
-    
-    session = user_session_crud.create_session(
+    # Create session
+    expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    user_session_crud.create_session(
         db,
         user_id=str(user.id),
         refresh_token=refresh_token,
         expires_at=expires_at,
         ip_address=get_client_ip(client_request),
-        user_agent=client_request.headers.get("User-Agent")
+        user_agent=client_request.headers.get("User-Agent"),
+        device_type="web"
     )
     
     # Update last login
@@ -252,9 +219,121 @@ async def sign_in(
     return SignInResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        expires_in=FINTECH_SECURITY_SETTINGS["access_token_expire_minutes"] * 60,
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         user=user.to_dict()
     )
+
+
+@router.get("/oauth/{provider}")
+async def oauth_login(provider: str, request: Request):
+    """Initiate OAuth login with provider."""
+    if provider not in ['google', 'apple']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported OAuth provider"
+        )
+    
+    oauth_client = getattr(oauth_manager.oauth, provider)
+    if not oauth_client:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"{provider.title()} OAuth not configured"
+        )
+    
+    redirect_uri = f"{settings.FRONTEND_URL}/auth/callback/{provider}"
+    return await oauth_client.authorize_redirect(request, redirect_uri)
+
+
+@router.get("/oauth/{provider}/callback")
+async def oauth_callback(
+    provider: str,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Handle OAuth callback."""
+    if provider not in ['google', 'apple']:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unsupported OAuth provider"
+        )
+    
+    oauth_client = getattr(oauth_manager.oauth, provider)
+    
+    try:
+        # Get token from OAuth provider
+        token = await oauth_client.authorize_access_token(request)
+        
+        # Get user info
+        if provider == 'google':
+            user_info = await oauth_manager.get_user_info(provider, token['access_token'])
+        else:  # Apple
+            user_info = await oauth_manager.get_user_info(provider, token['id_token'])
+        
+        if not user_info or not user_info.get('email'):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Failed to get user information from OAuth provider"
+            )
+        
+        # Check if user exists
+        if provider == 'google':
+            user = user_crud.get_by_google_id(db, google_id=user_info['id'])
+        else:  # Apple
+            user = user_crud.get_by_apple_id(db, apple_id=user_info['id'])
+        
+        if not user:
+            # Check if user exists with same email
+            user = user_crud.get_by_email(db, email=user_info['email'])
+            
+            if user:
+                # Link OAuth account to existing user
+                if provider == 'google':
+                    user.google_id = user_info['id']
+                else:  # Apple
+                    user.apple_id = user_info['id']
+                db.add(user)
+                db.commit()
+            else:
+                # Create new user
+                oauth_data = {
+                    'email': user_info['email'],
+                    'full_name': user_info.get('name', ''),
+                    'is_verified': user_info.get('email_verified', True)
+                }
+                
+                if provider == 'google':
+                    oauth_data['google_id'] = user_info['id']
+                else:  # Apple
+                    oauth_data['apple_id'] = user_info['id']
+                
+                user = user_crud.create_user(db, **oauth_data)
+        
+        # Create tokens
+        access_token = create_access_token(data={"sub": str(user.id)})
+        refresh_token = create_refresh_token(str(user.id))
+        
+        # Create session
+        expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        user_session_crud.create_session(
+            db,
+            user_id=str(user.id),
+            refresh_token=refresh_token,
+            expires_at=expires_at,
+            ip_address=get_client_ip(request),
+            user_agent=request.headers.get("User-Agent"),
+            device_type="web"
+        )
+        
+        # Update last login
+        user_crud.update_last_login(db, user=user)
+        
+        # Redirect to frontend with tokens
+        redirect_url = f"{settings.FRONTEND_URL}/auth/success?access_token={access_token}&refresh_token={refresh_token}"
+        return RedirectResponse(url=redirect_url)
+        
+    except Exception as e:
+        error_url = f"{settings.FRONTEND_URL}/auth/error?error=oauth_failed"
+        return RedirectResponse(url=error_url)
 
 
 @router.post("/refresh", response_model=TokenResponse, status_code=status.HTTP_200_OK)
@@ -264,11 +343,8 @@ async def refresh_token(
     request: RefreshTokenRequest,
     client_request: Request
 ):
-    """
-    Get new access and refresh tokens using current refresh token.
-    Implements token rotation for enhanced security.
-    """
-    # Verify refresh token format
+    """Refresh access token using refresh token."""
+    # Verify refresh token
     payload = verify_token(request.refresh_token, TOKEN_TYPE_REFRESH)
     if not payload:
         raise HTTPException(
@@ -276,53 +352,35 @@ async def refresh_token(
             detail="Invalid or expired refresh token"
         )
     
-    user_id = payload.get("sub")
-    if not user_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token payload"
-        )
-    
-    # Check if session exists and is valid
+    # Get session from database
     session = user_session_crud.get_active_session_by_token(
         db, refresh_token=request.refresh_token
     )
+    
     if not session:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Refresh token not found or expired"
+            detail="Session not found or expired"
         )
     
-    # Verify user still exists and is active
-    user = user_crud.get(db, id=user_id)
-    if not user or not user.is_active:
-        # Revoke the session
-        user_session_crud.revoke_session(db, session_id=str(session.id))
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User account is disabled or not found"
-        )
+    user_id = payload.get("sub")
     
-    # Create new tokens
-    new_access_token = create_access_token(data={"sub": str(user.id)})
-    new_refresh_token = create_refresh_token(str(user.id))
+    # Create new tokens (token rotation)
+    new_access_token = create_access_token(data={"sub": user_id})
+    new_refresh_token = create_refresh_token(user_id)
     
-    # Update session with new refresh token (token rotation)
-    new_expires_at = datetime.utcnow() + timedelta(days=FINTECH_SECURITY_SETTINGS["refresh_token_expire_days"])
+    # Update session with new refresh token
+    session.refresh_token = new_refresh_token
+    session.last_used_at = datetime.utcnow()
+    session.expires_at = datetime.utcnow() + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
     
-    user_session_crud.update_session_token(
-        db,
-        session=session,
-        new_refresh_token=new_refresh_token,
-        new_expires_at=new_expires_at,
-        ip_address=get_client_ip(client_request),
-        user_agent=client_request.headers.get("User-Agent")
-    )
+    db.add(session)
+    db.commit()
     
     return TokenResponse(
         access_token=new_access_token,
         refresh_token=new_refresh_token,
-        expires_in=FINTECH_SECURITY_SETTINGS["access_token_expire_minutes"] * 60
+        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
 
 
@@ -330,23 +388,14 @@ async def refresh_token(
 async def sign_out(
     *,
     db: Session = Depends(get_db),
-    request: Optional[SignOutRequest] = None,
-    current_user_id: Optional[str] = Depends(get_current_user_id)
+    refresh_token: Optional[str] = None,
+    current_user_id: Optional[str] = Depends(get_optional_current_user_id)
 ):
-    """
-    Sign out user and revoke refresh tokens.
-    Can revoke specific token or all user sessions.
-    """
-    if request and request.refresh_token:
-        # Revoke specific refresh token
-        user_session_crud.revoke_session_by_token(db, refresh_token=request.refresh_token)
+    """Sign out user by revoking refresh token."""
+    if refresh_token:
+        user_session_crud.revoke_session_by_token(db, refresh_token=refresh_token)
         message = "Session revoked successfully"
-    elif request and request.revoke_all_sessions and current_user_id:
-        # Revoke all sessions for current user
-        count = user_session_crud.revoke_all_user_sessions(db, user_id=current_user_id)
-        message = f"All {count} sessions revoked successfully"
     elif current_user_id:
-        # Default: revoke all sessions for current user
         count = user_session_crud.revoke_all_user_sessions(db, user_id=current_user_id)
         message = f"All {count} sessions revoked successfully"
     else:
@@ -365,25 +414,16 @@ async def forgot_password(
     request: ForgotPasswordRequest,
     background_tasks: BackgroundTasks
 ):
-    """
-    Request password reset email.
-    Always returns success to prevent email enumeration.
-    """
-    # Always return success, but only send email if user exists
+    """Request password reset email."""
     user = user_crud.get_by_email(db, email=request.email)
     
-    if user and user.is_active:
-        # Generate password reset token
+    if user and user.is_active and not user.is_oauth_user:
         reset_token = create_password_reset_token(user.email)
         
-        # Send reset email in background
-        # background_tasks.add_task(
-        #     send_password_reset_email,
-        #     email=user.email,
-        #     name=user.display_name,
-        #     token=reset_token
-        # )
+        # TODO: Send reset email in background
+        # background_tasks.add_task(send_password_reset_email, user.email, reset_token)
     
+    # Always return success to prevent email enumeration
     return {
         "message": "If an account exists with this email, you will receive password reset instructions.",
         "requested_at": datetime.utcnow().isoformat()
@@ -396,11 +436,7 @@ async def reset_password(
     db: Session = Depends(get_db),
     request: ResetPasswordRequest
 ):
-    """
-    Reset user password using reset token.
-    New password is hashed using bcrypt.
-    """
-    # Verify the reset token
+    """Reset password using reset token."""
     email = verify_password_reset_token(request.token)
     if not email:
         raise HTTPException(
@@ -408,18 +444,11 @@ async def reset_password(
             detail="Invalid or expired reset token"
         )
     
-    # Get user by email
     user = user_crud.get_by_email(db, email=email)
-    if not user:
+    if not user or not user.is_active:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="User not found"
-        )
-    
-    if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Account is disabled"
         )
     
     # Validate password strength
@@ -430,10 +459,10 @@ async def reset_password(
             detail="Password does not meet security requirements"
         )
     
-    # Update password (will be hashed in user_crud.update_password)
+    # Update password
     user_crud.update_password(db, user=user, new_password=request.new_password)
     
-    # Revoke all existing sessions for security
+    # Revoke all sessions for security
     user_session_crud.revoke_all_user_sessions(db, user_id=str(user.id))
     
     return {
@@ -449,16 +478,17 @@ async def change_password(
     request: ChangePasswordRequest,
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Change password for authenticated user.
-    Requires current password verification.
-    """
-    # Verify current password
-    user = user_crud.authenticate_user(
-        db, email=current_user.email, password=request.current_password
-    )
+    """Change password for authenticated user."""
+    if current_user.is_oauth_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change password for OAuth users"
+        )
     
-    if not user:
+    # Verify current password
+    if not user_crud.authenticate_user(
+        db, email=current_user.email, password=request.current_password
+    ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Current password is incorrect"
@@ -475,91 +505,10 @@ async def change_password(
     # Update password
     user_crud.update_password(db, user=current_user, new_password=request.new_password)
     
-    # Revoke all other sessions (keep current session active)
-    user_session_crud.revoke_all_user_sessions(
-        db, user_id=str(current_user.id), except_current=True
-    )
+    # Revoke all other sessions for security
+    user_session_crud.revoke_all_user_sessions(db, user_id=str(current_user.id))
     
     return {
-        "message": "Password changed successfully",
+        "message": "Password changed successfully. Please sign in again.",
         "updated_at": datetime.utcnow().isoformat()
-    }
-
-
-@router.post("/check-password-strength", status_code=status.HTTP_200_OK)
-async def check_password_strength_endpoint(
-    *,
-    request: PasswordStrengthRequest
-):
-    """
-    Check password strength and return detailed analysis.
-    Useful for frontend password strength indicators.
-    """
-    return check_password_strength(request.password)
-
-
-@router.get("/me", response_model=UserProfileResponse, status_code=status.HTTP_200_OK)
-async def get_current_user_profile(
-    *,
-    current_user: User = Depends(get_current_user)
-):
-    """
-    Get current authenticated user's profile information.
-    """
-    return UserProfileResponse(**current_user.to_dict())
-
-
-@router.get("/sessions", status_code=status.HTTP_200_OK)
-async def get_user_sessions(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id)
-):
-    """
-    Get user's active sessions for session management.
-    """
-    sessions = user_session_crud.get_user_sessions(
-        db, user_id=current_user_id, active_only=True
-    )
-    
-    return {
-        "sessions": [
-            {
-                "id": str(session.id),
-                "created_at": session.created_at.isoformat(),
-                "last_accessed_at": session.last_accessed_at.isoformat(),
-                "expires_at": session.expires_at.isoformat(),
-                "ip_address": str(session.ip_address) if session.ip_address else None,
-                "user_agent": session.user_agent,
-                "is_current": False  # TODO: Detect current session
-            }
-            for session in sessions
-        ],
-        "total_active_sessions": len(sessions)
-    }
-
-
-@router.delete("/sessions/{session_id}", status_code=status.HTTP_200_OK)
-async def revoke_session(
-    *,
-    db: Session = Depends(get_db),
-    session_id: str,
-    current_user_id: str = Depends(get_current_user_id)
-):
-    """
-    Revoke a specific user session.
-    """
-    # Verify session belongs to current user
-    session = user_session_crud.get(db, id=session_id)
-    if not session or str(session.user_id) != current_user_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Session not found"
-        )
-    
-    user_session_crud.revoke_session(db, session_id=session_id)
-    
-    return {
-        "message": "Session revoked successfully",
-        "revoked_at": datetime.utcnow().isoformat()
     }

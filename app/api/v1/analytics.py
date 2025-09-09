@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 from datetime import date, datetime, timezone
 
 from app.core.database import get_db
-from app.core.auth import get_current_user_id
+from app.core.user import get_current_user_id
 
 router = APIRouter()
 

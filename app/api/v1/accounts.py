@@ -1,11 +1,10 @@
-# app/api/v1/accounts.py
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from datetime import datetime
 
 from app.core.database import get_db
-from app.core.auth import get_current_user_id
+from app.core.user import get_current_user_id
 
 router = APIRouter()
 

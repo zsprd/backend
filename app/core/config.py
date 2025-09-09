@@ -11,16 +11,29 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True  # Set to False in production
     
-    # Security Settings - Critical for fintech
+    # Security Settings
     SECRET_KEY: str = secrets.token_urlsafe(32)  # Generate secure key
     ALGORITHM: str = "HS256"
     
-    # JWT Token Expiration (Fintech-appropriate timings)
+    # JWT Token Expiration
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30      # 30 minutes for balance of security/UX
     REFRESH_TOKEN_EXPIRE_DAYS: int = 90        # 90 days for less frequent logins
     EMAIL_VERIFICATION_EXPIRE_HOURS: int = 24  # 24 hours
-    PASSWORD_RESET_EXPIRE_HOURS: int = 1       # 1 hour for security
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 60    # 1 hour for security
+
+    # OAuth Configuration
+    GOOGLE_CLIENT_ID: Optional[str] = None
+    GOOGLE_CLIENT_SECRET: Optional[str] = None
+    APPLE_CLIENT_ID: Optional[str] = None
+    APPLE_CLIENT_SECRET: Optional[str] = None
+    APPLE_KEY_ID: Optional[str] = None
+    APPLE_TEAM_ID: Optional[str] = None
+    APPLE_PRIVATE_KEY_PATH: Optional[str] = None
     
+    # Auth URLs
+    FRONTEND_URL: str = "http://localhost:3000"
+    OAUTH_REDIRECT_URI: str = "http://localhost:3000/auth/callback"
+
     # Password Security Requirements
     MIN_PASSWORD_LENGTH: int = 8
     REQUIRE_UPPERCASE: bool = True
@@ -105,7 +118,7 @@ class Settings(BaseSettings):
             "access_token_expire_minutes": self.ACCESS_TOKEN_EXPIRE_MINUTES,
             "refresh_token_expire_days": self.REFRESH_TOKEN_EXPIRE_DAYS,
             "email_verification_expire_hours": self.EMAIL_VERIFICATION_EXPIRE_HOURS,
-            "password_reset_expire_hours": self.PASSWORD_RESET_EXPIRE_HOURS,
+            "password_reset_expire_minutes": self.PASSWORD_RESET_EXPIRE_MINUTES,
             "max_login_attempts": 5,
             "login_lockout_minutes": 15,
             "password_reset_per_hour": 3,
