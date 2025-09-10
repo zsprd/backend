@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, EmailStr, Field
+
+from app.schemas.user import EmailConfirmRequest, ChangePasswordRequest, ResetPasswordRequest, ForgotPasswordRequest, RefreshTokenRequest, SignUpResponse, SignInResponse, SignUpRequest, SignInRequest, TokenResponse
 
 from app.core.database import get_db
 from app.core.auth import (
@@ -16,79 +17,19 @@ from app.core.auth import (
     verify_password_reset_token,
     get_client_ip,
     check_password_strength,
-    TOKEN_TYPE_REFRESH,
-    ACCESS_TOKEN_EXPIRE_MINUTES,
-    REFRESH_TOKEN_EXPIRE_DAYS
+    TOKEN_TYPE_REFRESH
 )
 from app.core.oauth import oauth_manager
 from app.core.config import settings
+from app.core.user import get_current_user, get_optional_current_user_id
+
 from app.models.user import User
 from app.crud.user import user_crud
 from app.crud.user_session import user_session_crud
-from app.core.user import get_current_user, get_optional_current_user_id
+
 
 router = APIRouter()
 
-
-# ===================================================================
-# Request/Response Models
-# ===================================================================
-
-class SignUpRequest(BaseModel):
-    email: EmailStr = Field(..., description="User email address")
-    password: str = Field(..., min_length=8, description="Password")
-    full_name: str = Field(..., min_length=1, max_length=255, description="Full name")
-    base_currency: Optional[str] = Field("USD", pattern="^[A-Z]{3}$")
-    timezone: Optional[str] = Field("UTC")
-
-
-class SignUpResponse(BaseModel):
-    message: str
-    user_id: str
-    email_verification_required: bool = True
-    user: dict
-
-
-class EmailConfirmRequest(BaseModel):
-    token: str = Field(..., description="Email verification token")
-
-
-class SignInRequest(BaseModel):
-    email: EmailStr = Field(..., description="Email address")
-    password: str = Field(..., description="Password")
-
-
-class SignInResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int
-    user: dict
-
-
-class RefreshTokenRequest(BaseModel):
-    refresh_token: str = Field(..., description="Current refresh token")
-
-
-class TokenResponse(BaseModel):
-    access_token: str
-    refresh_token: str
-    token_type: str = "bearer"
-    expires_in: int
-
-
-class ForgotPasswordRequest(BaseModel):
-    email: EmailStr = Field(..., description="Email address")
-
-
-class ResetPasswordRequest(BaseModel):
-    token: str = Field(..., description="Password reset token")
-    new_password: str = Field(..., min_length=8, description="New password")
-
-
-class ChangePasswordRequest(BaseModel):
-    current_password: str = Field(..., description="Current password")
-    new_password: str = Field(..., min_length=8, description="New password")
 
 
 # ===================================================================
@@ -127,8 +68,8 @@ async def sign_up(
         email=request.email,
         password=request.password,
         full_name=request.full_name,
-        base_currency=request.base_currency if request.base_currency is not None else "USD",
-        timezone=request.timezone if request.timezone is not None else "UTC",
+        base_currency="USD",
+        timezone="UTC",
         is_verified=False
     )
     
@@ -202,7 +143,7 @@ async def sign_in(
     refresh_token = create_refresh_token(str(user.id))
     
     # Create session
-    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     user_session_crud.create_session(
         db,
         user_id=str(user.id),
@@ -219,7 +160,7 @@ async def sign_in(
     return SignInResponse(
         access_token=access_token,
         refresh_token=refresh_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         user=user.to_dict()
     )
 
@@ -313,7 +254,7 @@ async def oauth_callback(
         refresh_token = create_refresh_token(str(user.id))
         
         # Create session
-        expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+        expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
         user_session_crud.create_session(
             db,
             user_id=str(user.id),
@@ -372,7 +313,7 @@ async def refresh_token(
     # Update session with new refresh token
     session.refresh_token = new_refresh_token
     session.last_used_at = datetime.now(timezone.utc)
-    session.expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    session.expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     
     db.add(session)
     db.commit()
@@ -380,7 +321,7 @@ async def refresh_token(
     return TokenResponse(
         access_token=new_access_token,
         refresh_token=new_refresh_token,
-        expires_in=ACCESS_TOKEN_EXPIRE_MINUTES * 60
+        expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
     )
 
 

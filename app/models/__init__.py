@@ -5,8 +5,8 @@ from app.models.user import User
 from app.models.user_session import UserSession
 from app.models.account import Account, Institution
 from app.models.security import Security
-from app.models.holding import Holding, Position
-from app.models.transaction import Transaction, CashTransaction
+from app.models.holding import Holding
+from app.models.transaction import Transaction
 from app.models.market_data import MarketData, ExchangeRate
 
 # Additional models that exist in your database
@@ -28,9 +28,7 @@ __all__ = [
     "Institution",
     "Security",
     "Holding",
-    "Position", 
     "Transaction",
-    "CashTransaction",
     "MarketData",
     "ExchangeRate",
     # Additional models

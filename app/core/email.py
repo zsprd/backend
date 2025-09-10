@@ -16,15 +16,15 @@ class EmailService:
     
     def __init__(self):
         # Email configuration (add these to your .env file)
-        self.smtp_server = getattr(settings, 'SMTP_SERVER', 'smtp.gmail.com')
-        self.smtp_port = getattr(settings, 'SMTP_PORT', 587)
-        self.smtp_username = getattr(settings, 'SMTP_USERNAME', '')
-        self.smtp_password = getattr(settings, 'SMTP_PASSWORD', '')
-        self.from_email = getattr(settings, 'FROM_EMAIL', self.smtp_username)
-        self.from_name = getattr(settings, 'FROM_NAME', 'ZSPRD Portfolio Analytics')
+        self.smtp_server = settings.SMTP_HOST
+        self.smtp_port = settings.SMTP_PORT
+        self.smtp_username = settings.SMTP_USERNAME
+        self.smtp_password = settings.SMTP_PASSWORD
+        self.from_email = settings.FROM_EMAIL
+        self.from_name = settings.FROM_NAME
         
         # Frontend URL for links
-        self.frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+        self.frontend_url = settings.FRONTEND_URL
 
     def send_email(
         self, 
@@ -62,6 +62,8 @@ class EmailService:
             msg.attach(html_part)
             
             # Send email
+            if not self.smtp_server or not self.smtp_port:
+                raise ValueError("SMTP server and port must be set in the configuration.")
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()
                 if self.smtp_username and self.smtp_password:

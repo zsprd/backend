@@ -1,6 +1,8 @@
 from enum import Enum
 from sqlalchemy.dialects.postgresql import ENUM
 
+# Create PostgreSQL ENUM types that match your database schema
+# These names must exactly match the enum type names in your PostgreSQL database
 
 class AccountCategory(str, Enum):
     INVESTMENT = "investment"
@@ -54,13 +56,6 @@ class DataProviderCategory(str, Enum):
     CALCULATED = "calculated"
 
 
-class LotMethodCategory(str, Enum):
-    FIFO = "fifo"
-    LIFO = "lifo"
-    AVERAGE_COST = "average_cost"
-    SPECIFIC_ID = "specific_id"
-
-
 class TransactionCategory(str, Enum):
     BUY = "buy"
     SELL = "sell"
@@ -81,18 +76,6 @@ class TransactionCategory(str, Enum):
 class TransactionSideCategory(str, Enum):
     BUY = "buy"
     SELL = "sell"
-
-
-class CashTransactionCategory(str, Enum):
-    PURCHASE = "purchase"
-    PAYMENT = "payment"
-    TRANSFER = "transfer"
-    DEPOSIT = "deposit"
-    WITHDRAWAL = "withdrawal"
-    FEE = "fee"
-    INTEREST = "interest"
-    DIVIDEND = "dividend"
-    OTHER = "other"
 
 
 class ImportCategory(str, Enum):
@@ -138,17 +121,12 @@ class AuditActionCategory(str, Enum):
     LOGOUT = "logout"
 
 
-# Create PostgreSQL ENUM types that match your database schema
-# These names must exactly match the enum type names in your PostgreSQL database
-
 account_category = ENUM(AccountCategory, name="account_category")
 account_subtype_category = ENUM(AccountSubtypeCategory, name="account_subtype_category")
 security_category = ENUM(SecurityCategory, name="security_category")
 data_provider_category = ENUM(DataProviderCategory, name="data_provider_category")
-lot_method_category = ENUM(LotMethodCategory, name="lot_method_category")
 transaction_category = ENUM(TransactionCategory, name="transaction_category")
 transaction_side_category = ENUM(TransactionSideCategory, name="transaction_side_category")
-cash_transaction_category = ENUM(CashTransactionCategory, name="cash_transaction_category")
 import_category = ENUM(ImportCategory, name="import_category")
 import_status_category = ENUM(ImportStatusCategory, name="import_status_category")
 import_provider_category = ENUM(ImportProviderCategory, name="import_provider_category")

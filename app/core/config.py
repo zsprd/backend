@@ -112,8 +112,8 @@ class Settings(BaseSettings):
         case_sensitive = True
 
     @property
-    def fintech_security_config(self) -> dict:
-        """Get all fintech-specific security settings in one dict."""
+    def security_config(self) -> dict:
+        """Get all security settings in one dict."""
         return {
             "access_token_expire_minutes": self.ACCESS_TOKEN_EXPIRE_MINUTES,
             "refresh_token_expire_days": self.REFRESH_TOKEN_EXPIRE_DAYS,

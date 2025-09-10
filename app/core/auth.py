@@ -1,11 +1,9 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional, Dict, Any
 import secrets
-import uuid
 from passlib.context import CryptContext
-from jose import JWTError, jwt
-from fastapi import HTTPException, status, Request
-
+import jwt
+from fastapi import Request
 from app.core.config import settings
 
 # Updated security settings for fintech
@@ -16,12 +14,6 @@ TOKEN_TYPE_ACCESS = "access"
 TOKEN_TYPE_REFRESH = "refresh"
 TOKEN_TYPE_EMAIL_VERIFICATION = "email_verification"
 TOKEN_TYPE_PASSWORD_RESET = "password_reset"
-
-# Token expiration times
-ACCESS_TOKEN_EXPIRE_MINUTES = 30      # 30 minutes for security
-REFRESH_TOKEN_EXPIRE_DAYS = 90        # 90 days for user convenience
-EMAIL_VERIFICATION_EXPIRE_HOURS = 24  # 24 hours
-PASSWORD_RESET_EXPIRE_MINUTES = 60    # 1 hour for security
 
 def hash_password(password: str) -> str:
     """Hash password with bcrypt."""
@@ -40,7 +32,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     
     to_encode.update({
         "exp": expire,
@@ -57,7 +49,7 @@ def create_refresh_token(user_id: str) -> str:
     to_encode = {
         "sub": user_id,
         "type": TOKEN_TYPE_REFRESH,
-        "exp": datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
+        "exp": datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         "iat": datetime.now(timezone.utc),
         "jti": secrets.token_urlsafe(16)
     }
@@ -70,7 +62,7 @@ def create_email_verification_token(email: str) -> str:
     to_encode = {
         "sub": email,
         "type": TOKEN_TYPE_EMAIL_VERIFICATION,
-        "exp": datetime.now(timezone.utc) + timedelta(hours=EMAIL_VERIFICATION_EXPIRE_HOURS),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=settings.EMAIL_VERIFICATION_EXPIRE_HOURS),
         "iat": datetime.now(timezone.utc)
     }
     
@@ -82,7 +74,7 @@ def create_password_reset_token(email: str) -> str:
     to_encode = {
         "sub": email,
         "type": TOKEN_TYPE_PASSWORD_RESET,
-        "exp": datetime.now(timezone.utc) + timedelta(minutes=PASSWORD_RESET_EXPIRE_MINUTES),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=settings.PASSWORD_RESET_EXPIRE_MINUTES),
         "iat": datetime.now(timezone.utc)
     }
     
@@ -98,7 +90,7 @@ def verify_token(token: str, token_type: str) -> Optional[Dict[str, Any]]:
             return None
             
         return payload
-    except JWTError:
+    except jwt.PyJWTError:
         return None
 
 

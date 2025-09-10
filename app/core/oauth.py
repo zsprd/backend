@@ -2,7 +2,7 @@ from authlib.integrations.starlette_client import OAuth
 from starlette.config import Config
 from typing import Optional, Dict, Any
 import httpx
-import jwt as jose_jwt
+import jwt
 from cryptography.hazmat.primitives import serialization
 from app.core.config import settings
 
@@ -90,7 +90,7 @@ class OAuthManager:
         """Get user info from Apple ID token."""
         try:
             # Apple returns user info in the ID token
-            decoded = jose_jwt.decode(id_token, options={"verify_signature": False})
+            decoded = jwt.decode(id_token, options={"verify_signature": False})
             return {
                 'id': decoded.get('sub'),
                 'email': decoded.get('email'),
