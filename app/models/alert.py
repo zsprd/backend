@@ -1,43 +1,49 @@
-from sqlalchemy import Column, DateTime, Integer, String, Boolean, DECIMAL, Text, ForeignKey
+
+from sqlalchemy import String, Boolean, DECIMAL, Text, ForeignKey, DateTime, Integer
 from sqlalchemy.dialects.postgresql import UUID, JSONB
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.notification import Notification
 
 # Note: Need to add these enums to enums.py
 class Alert(BaseModel):
     __tablename__ = "alerts"
-    
+
     # Foreign Key
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    
+    user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+
     # Alert Configuration
-    category = Column(String(50), nullable=False)  # price_change, portfolio_value, etc.
-    name = Column(String(255), nullable=False)
-    description = Column(Text)
-    
+    category: Mapped[str] = mapped_column(String(50), nullable=False)  # price_change, portfolio_value, etc.
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+
     # Target and Conditions
-    target_type = Column(String(50))  # portfolio, security, account
-    target_id = Column(UUID(as_uuid=True))
-    metric = Column(String(100))  # price, value, allocation_percent, etc.
-    
+    target_type: Mapped[Optional[str]] = mapped_column(String(50))  # portfolio, security, account
+    target_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True))
+    metric: Mapped[Optional[str]] = mapped_column(String(100))  # price, value, allocation_percent, etc.
+
     # Threshold Configuration
-    threshold_operator = Column(String(10))  # gt, lt, gte, lte, eq, ne
-    threshold_value = Column(DECIMAL(15, 4))
-    threshold_percent = Column(DECIMAL(5, 2))
-    
+    threshold_operator: Mapped[Optional[str]] = mapped_column(String(10))  # gt, lt, gte, lte, eq, ne
+    threshold_value: Mapped[Optional[float]] = mapped_column(DECIMAL(15, 4))
+    threshold_percent: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 2))
+
     # Frequency and Status
-    frequency = Column(String(20), default="real_time")  # real_time, hourly, daily, weekly
-    status = Column(String(20), default="active")  # active, paused, triggered, disabled
-    
+    frequency: Mapped[str] = mapped_column(String(20), default="real_time")  # real_time, hourly, daily, weekly
+    status: Mapped[str] = mapped_column(String(20), default="active")  # active, paused, triggered, disabled
+
     # Configuration
-    conditions = Column(JSONB)
-    notification_config = Column(JSONB)
-    
+    conditions: Mapped[Optional[dict]] = mapped_column(JSONB)
+    notification_config: Mapped[Optional[dict]] = mapped_column(JSONB)
+
     # Status Tracking
-    is_active = Column(Boolean, default=True, nullable=False)
-    last_triggered_at = Column(DateTime(timezone=True))
-    trigger_count = Column(Integer, default=0)
-    
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_triggered_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
+    trigger_count: Mapped[int] = mapped_column(Integer, default=0)
+
     # Relationships
-    user = relationship("User", back_populates="alerts")
-    notifications = relationship("Notification", back_populates="alert", cascade="all, delete-orphan")
+    user: Mapped["User"] = relationship("User", back_populates="alerts")
+    notifications: Mapped[list["Notification"]] = relationship("Notification", back_populates="alert", cascade="all, delete-orphan")

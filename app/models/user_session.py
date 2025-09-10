@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 import uuid
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import String, DateTime, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID, INET
@@ -23,9 +23,9 @@ class UserSession(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
     last_used_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
-    ip_address: Mapped[str | None] = mapped_column(INET, nullable=True)
-    user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    device_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(INET, nullable=True)
+    user_agent: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    device_type: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="sessions")
 

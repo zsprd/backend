@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, DECIMAL, Date, BigInteger, UniqueConstraint, ForeignKey
+from sqlalchemy import String, DECIMAL, Date, BigInteger, UniqueConstraint, ForeignKey, Enum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models.base import BaseModel
-from app.models.enums import data_provider_category
+from app.models.enums import DataProviderCategory
 
 if TYPE_CHECKING:
     from app.models.security import Security
@@ -21,16 +21,19 @@ class MarketData(BaseModel):
     price_date: Mapped[Date] = mapped_column(Date, nullable=False, index=True)
 
     # OHLCV Data
-    open_price: Mapped[float | None] = mapped_column(DECIMAL(15, 4))
-    high_price: Mapped[float | None] = mapped_column(DECIMAL(15, 4))
-    low_price: Mapped[float | None] = mapped_column(DECIMAL(15, 4))
+    open_price: Mapped[Optional[float]] = mapped_column(DECIMAL(15, 4))
+    high_price: Mapped[Optional[float]] = mapped_column(DECIMAL(15, 4))
+    low_price: Mapped[Optional[float]] = mapped_column(DECIMAL(15, 4))
     close_price: Mapped[float] = mapped_column(DECIMAL(15, 4), nullable=False)
-    volume: Mapped[int | None] = mapped_column(BigInteger)
-    adjusted_close: Mapped[float | None] = mapped_column(DECIMAL(15, 4))
+    volume: Mapped[Optional[int]] = mapped_column(BigInteger)
+    adjusted_close: Mapped[Optional[float]] = mapped_column(DECIMAL(15, 4))
 
     # Metadata
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    data_provider: Mapped[str] = mapped_column(data_provider_category, nullable=False)
+    data_provider: Mapped[DataProviderCategory] = mapped_column(
+        Enum(DataProviderCategory, native_enum=False, length=50),
+        nullable=False
+    )
 
     # Relationships
     security: Mapped["Security"] = relationship(back_populates="market_data")
@@ -56,7 +59,10 @@ class ExchangeRate(BaseModel):
     rate: Mapped[float] = mapped_column(DECIMAL(15, 6), nullable=False)
 
     # Source
-    data_provider: Mapped[str] = mapped_column(data_provider_category, nullable=False)
+    data_provider: Mapped[DataProviderCategory] = mapped_column(
+        Enum(DataProviderCategory, native_enum=False, length=50),
+        nullable=False
+    )
 
     # Unique constraint - one rate per currency pair per date
     __table_args__ = (

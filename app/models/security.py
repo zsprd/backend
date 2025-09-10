@@ -1,10 +1,10 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Boolean
+from sqlalchemy import String, Boolean, Enum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.models.base import BaseModel
-from app.models.enums import security_category, data_provider_category
+from app.models.enums import SecurityCategory, DataProviderCategory
 
 if TYPE_CHECKING:
     from app.models.holding import Holding
@@ -18,7 +18,10 @@ class Security(BaseModel):
     # Basic Information
     symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    category: Mapped[str] = mapped_column(security_category, nullable=False)
+    category: Mapped[SecurityCategory] = mapped_column(
+        Enum(SecurityCategory, native_enum=False, length=50),
+        nullable=False
+    )
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
 
     # Market Information
@@ -37,7 +40,10 @@ class Security(BaseModel):
     # External Integration
     plaid_security_id: Mapped[str | None] = mapped_column(String(255))
     alphavantage_symbol: Mapped[str | None] = mapped_column(String(20))
-    data_provider_category: Mapped[str | None] = mapped_column(data_provider_category)
+    data_provider_category: Mapped[Optional[DataProviderCategory]] = mapped_column(
+        Enum(DataProviderCategory, native_enum=False, length=50),
+        nullable=True
+    )
     is_delisted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Status

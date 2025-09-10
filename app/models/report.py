@@ -1,39 +1,43 @@
-from sqlalchemy import Column, String, ForeignKey, BigInteger, Text, JSON
+from sqlalchemy import String, ForeignKey, BigInteger, Text, JSON
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class Report(BaseModel):
     __tablename__ = "reports"
-    
+
     # Foreign Key
-    user_id = Column(
+    user_id: Mapped[UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True
     )
-    
+
     # Report Details
-    name = Column(String(255), nullable=False)
-    category = Column(String(50), nullable=False)  # 'portfolio_summary', 'performance', 'tax'
-    format = Column(String(20), nullable=False)    # 'pdf', 'csv', 'xlsx'
-    status = Column(String(20), default='pending', nullable=False)
-    
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    category: Mapped[str] = mapped_column(String(50), nullable=False)  # 'portfolio_summary', 'performance', 'tax'
+    format: Mapped[str] = mapped_column(String(20), nullable=False)    # 'pdf', 'csv', 'xlsx'
+    status: Mapped[str] = mapped_column(String(20), default='pending', nullable=False)
+
     # Configuration
-    parameters = Column(JSON)
-    filters = Column(JSON)
-    
+    parameters: Mapped[Optional[dict]] = mapped_column(JSON)
+    filters: Mapped[Optional[dict]] = mapped_column(JSON)
+
     # File Information
-    file_url = Column(String(500))
-    file_size = Column(BigInteger)
-    
+    file_url: Mapped[Optional[str]] = mapped_column(String(500))
+    file_size: Mapped[Optional[int]] = mapped_column(BigInteger)
+
     # Status Information
-    error_message = Column(Text)
-    
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
+
     # Relationships
-    user = relationship("User")
-    
-    def __repr__(self):
+    user: Mapped["User"] = relationship("User")
+
+    def __repr__(self) -> str:
         return f"<Report(id={self.id}, name={self.name}, category={self.category}, status={self.status})>"

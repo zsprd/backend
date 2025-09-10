@@ -34,11 +34,12 @@ async def get_accounts(
             limit=limit,
             include_inactive=include_inactive
         )
-        
+        # Explicitly convert ORM objects to Pydantic models for correct enum handling
+        from app.schemas.account import AccountResponse
+        accounts_response = [AccountResponse.model_validate(acc, from_attributes=True) for acc in accounts]
         total = account_crud.count_by_user(db, user_id=current_user_id)
-        
         return {
-            "accounts": accounts,
+            "accounts": accounts_response,
             "total": total,
             "skip": skip,
             "limit": limit
@@ -80,8 +81,8 @@ async def create_account(
 ):
     """Create a new account."""
     try:
-        # Add user_id to the account data
-        account_dict = account_data.dict()
+        # Convert Pydantic model to dict and add user_id
+        account_dict = account_data.model_dump()  # Pydantic v2 syntax
         account_dict["user_id"] = current_user_id
         
         account = account_crud.create_from_dict(db, obj_in=account_dict)
@@ -114,7 +115,9 @@ async def update_account(
         )
     
     try:
-        updated_account = account_crud.update(db, db_obj=account, obj_in=account_data)
+        # Only include non-None values in update
+        update_dict = account_data.model_dump(exclude_unset=True)  # Pydantic v2 syntax
+        updated_account = account_crud.update(db, db_obj=account, obj_in=update_dict)
         return updated_account
     except Exception as e:
         raise HTTPException(

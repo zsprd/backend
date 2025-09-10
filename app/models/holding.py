@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import String, ForeignKey, DECIMAL, Date, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
@@ -18,22 +18,23 @@ class Holding(BaseModel):
     __tablename__ = "holdings"
 
     # Foreign Keys
+
     account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
     security_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("securities.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Holding Details
     quantity: Mapped[Decimal] = mapped_column(DECIMAL(15, 6), nullable=False)
-    cost_basis_per_share: Mapped[Decimal | None] = mapped_column(DECIMAL(15, 4))
-    cost_basis_total: Mapped[Decimal | None] = mapped_column(DECIMAL(15, 2))
-    market_value: Mapped[Decimal | None] = mapped_column(DECIMAL(15, 2))
+    cost_basis_per_share: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 4))
+    cost_basis_total: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 2))
+    market_value: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 2))
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     as_of_date: Mapped[date] = mapped_column(Date, nullable=False)
 
     # External Integration
-    plaid_account_id: Mapped[str | None] = mapped_column(String(255))
-    plaid_security_id: Mapped[str | None] = mapped_column(String(255))
-    institution_price: Mapped[Decimal | None] = mapped_column(DECIMAL(15, 4))
-    institution_value: Mapped[Decimal | None] = mapped_column(DECIMAL(15, 2))
+    plaid_account_id: Mapped[Optional[str]] = mapped_column(String(255))
+    plaid_security_id: Mapped[Optional[str]] = mapped_column(String(255))
+    institution_price: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 4))
+    institution_value: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 2))
 
     # Relationships
     account: Mapped["Account"] = relationship(back_populates="holdings")

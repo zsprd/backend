@@ -70,6 +70,33 @@ class UserProfileResponse(BaseModel):
     created_at: str
     last_login_at: Optional[str]
 
+    @classmethod
+    def _ensure_base_currency_upper(cls, v):
+        if isinstance(v, str):
+            return v.upper()
+        return v
+
+    @classmethod
+    def _ensure_language_lower(cls, v):
+        if isinstance(v, str):
+            return v.lower()
+        return v
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, *args, **kwargs):
+        from pydantic import GetCoreSchemaHandler
+        from pydantic_core import core_schema
+        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_base_currency_upper(v) if v is not None else v,
+            schema
+        )
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_language_lower(v) if v is not None else v,
+            schema
+        )
+        return schema
+
 
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -77,4 +104,31 @@ class UserProfileUpdate(BaseModel):
     timezone: Optional[str] = None
     language: Optional[str] = None
     theme_preference: Optional[str] = None
+
+    @classmethod
+    def _ensure_base_currency_upper(cls, v):
+        if isinstance(v, str):
+            return v.upper()
+        return v
+
+    @classmethod
+    def _ensure_language_lower(cls, v):
+        if isinstance(v, str):
+            return v.lower()
+        return v
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, *args, **kwargs):
+        from pydantic import GetCoreSchemaHandler
+        from pydantic_core import core_schema
+        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_base_currency_upper(v) if v is not None else v,
+            schema
+        )
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_language_lower(v) if v is not None else v,
+            schema
+        )
+        return schema
 

@@ -16,6 +16,34 @@ class MarketDataBase(BaseModel):
     currency: str = Field(..., max_length=3, description="Price currency")
     data_source: DataProviderCategory = Field(..., description="Data source")
 
+    @classmethod
+    def _ensure_currency_upper(cls, v):
+        if isinstance(v, str):
+            return v.upper()
+        return v
+
+    @classmethod
+    def _ensure_data_source_lower(cls, v):
+        if isinstance(v, str):
+            return v.lower()
+        return v
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, *args, **kwargs):
+        from pydantic import GetCoreSchemaHandler
+        from pydantic_core import core_schema
+        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
+        # Add field validators for currency and data_source
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_currency_upper(v) if v is not None else v,
+            schema
+        )
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_data_source_lower(v) if v is not None else v,
+            schema
+        )
+        return schema
+
 
 class MarketDataCreate(MarketDataBase):
     security_id: UUID4 = Field(..., description="Security ID")
@@ -50,6 +78,23 @@ class PriceHistory(BaseModel):
     symbol: str
     name: str
     currency: str
+
+    @classmethod
+    def _ensure_currency_upper(cls, v):
+        if isinstance(v, str):
+            return v.upper()
+        return v
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, *args, **kwargs):
+        from pydantic import GetCoreSchemaHandler
+        from pydantic_core import core_schema
+        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_currency_upper(v) if v is not None else v,
+            schema
+        )
+        return schema
     data_points: int
     start_date: date
     end_date: date
@@ -80,6 +125,33 @@ class ExchangeRateBase(BaseModel):
     as_of_date: date = Field(..., description="Exchange rate date")
     rate: Decimal = Field(..., description="Exchange rate")
     data_source: DataProviderCategory = Field(..., description="Data source")
+
+    @classmethod
+    def _ensure_currency_upper(cls, v):
+        if isinstance(v, str):
+            return v.upper()
+        return v
+
+    @classmethod
+    def _ensure_data_source_lower(cls, v):
+        if isinstance(v, str):
+            return v.lower()
+        return v
+
+    @classmethod
+    def __get_pydantic_core_schema__(cls, *args, **kwargs):
+        from pydantic import GetCoreSchemaHandler
+        from pydantic_core import core_schema
+        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_currency_upper(v) if v is not None else v,
+            schema
+        )
+        schema = core_schema.no_info_after_validator_function(
+            lambda v: cls._ensure_data_source_lower(v) if v is not None else v,
+            schema
+        )
+        return schema
 
 
 class ExchangeRateCreate(ExchangeRateBase):
@@ -164,6 +236,8 @@ class TechnicalIndicators(BaseModel):
     atr_14: Optional[float] = None
 
 
+from app.models.enums import SecurityCategory
+
 class MarketDataStats(BaseModel):
     """Market data coverage statistics"""
     total_securities: int
@@ -173,4 +247,4 @@ class MarketDataStats(BaseModel):
     data_points_total: int
     date_range: dict = Field(default_factory=dict)
     by_source: dict = Field(default_factory=dict)
-    by_security_type: dict = Field(default_factory=dict)
+    by_security_type: dict[SecurityCategory, int] = Field(default_factory=dict)
