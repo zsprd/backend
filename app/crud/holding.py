@@ -104,7 +104,7 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         for holding in holdings:
             if holding.security:
                 # By asset type
-                asset_type = holding.security.category
+                asset_type = holding.security.security_category
                 if asset_type not in by_asset_type:
                     by_asset_type[asset_type] = Decimal('0')
                 by_asset_type[asset_type] += (holding.market_value or Decimal('0'))

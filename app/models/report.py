@@ -1,7 +1,8 @@
-from sqlalchemy import String, ForeignKey, BigInteger, Text, JSON
+from sqlalchemy import String, ForeignKey, BigInteger, Text, JSON, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
+from app.models.enums import ReportCategory, ReportFormatCategory, ReportStatusCategory
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -20,10 +21,21 @@ class Report(BaseModel):
     )
 
     # Report Details
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
-    category: Mapped[str] = mapped_column(String(50), nullable=False)  # 'portfolio_summary', 'performance', 'tax'
-    format: Mapped[str] = mapped_column(String(20), nullable=False)    # 'pdf', 'csv', 'xlsx'
-    status: Mapped[str] = mapped_column(String(20), default='pending', nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    report_category: Mapped[ReportCategory] = mapped_column(
+        Enum(ReportCategory, native_enum=False, length=50),
+        nullable=False
+    )
+    file_format: Mapped[ReportFormatCategory] = mapped_column(
+        Enum(ReportFormatCategory, native_enum=False, length=20),
+        nullable=False
+    )
+    status: Mapped[ReportStatusCategory] = mapped_column(
+        Enum(ReportStatusCategory, native_enum=False, length=20),
+        default=ReportStatusCategory.PENDING,
+        nullable=False
+    )
 
     # Configuration
     parameters: Mapped[Optional[dict]] = mapped_column(JSON)
@@ -40,4 +52,4 @@ class Report(BaseModel):
     user: Mapped["User"] = relationship("User")
 
     def __repr__(self) -> str:
-        return f"<Report(id={self.id}, name={self.name}, category={self.category}, status={self.status})>"
+        return f"<Report(id={self.id}, name={self.title}, category={self.report_category}, status={self.status})>"

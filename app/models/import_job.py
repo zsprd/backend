@@ -27,13 +27,13 @@ class ImportJob(BaseModel):
     )
 
     # Job Details
-    category: Mapped[ImportCategory] = mapped_column(
+    import_category: Mapped[ImportCategory] = mapped_column(
         Enum(ImportCategory, name="import_category"), nullable=False
     )
     status: Mapped[ImportStatusCategory] = mapped_column(
         Enum(ImportStatusCategory, name="import_status_category"), default='pending', nullable=False
     )
-    provider: Mapped[ImportProviderCategory] = mapped_column(
+    import_provider: Mapped[ImportProviderCategory] = mapped_column(
         Enum(ImportProviderCategory, name="import_provider_category"), nullable=False
     )
 
@@ -56,4 +56,4 @@ class ImportJob(BaseModel):
     account: Mapped[Optional["Account"]] = relationship("Account")
 
     def __repr__(self) -> str:
-        return f"<ImportJob(id={self.id}, category={self.category}, status={self.status})>"
+        return f"<ImportJob(id={self.id}, category={self.import_category}, status={self.status})>"

@@ -150,7 +150,7 @@ class AuditActionCategory(str, Enum):
     SYNC = "sync"
 
 
-class ReportTypeCategory(str, Enum):
+class ReportCategory(str, Enum):
     """Report type enum."""
     PORTFOLIO_SUMMARY = "portfolio_summary"
     PERFORMANCE_ANALYSIS = "performance_analysis"
@@ -177,7 +177,7 @@ class ReportStatusCategory(str, Enum):
     EXPIRED = "expired"
 
 
-class AlertTypeCategory(str, Enum):
+class AlertCategory(str, Enum):
     """Alert type enum."""
     PRICE_CHANGE = "price_change"
     PORTFOLIO_VALUE = "portfolio_value"
@@ -203,7 +203,7 @@ class AlertFrequencyCategory(str, Enum):
     WEEKLY = "weekly"
 
 
-class NotificationTypeCategory(str, Enum):
+class NotificationCategory(str, Enum):
     """Notification type enum."""
     ALERT = "alert"
     SYSTEM = "system"

@@ -29,7 +29,7 @@ class Subscription(BaseModel):
     stripe_price_id: Mapped[Optional[str]] = mapped_column(String(255))
 
     # Plan Details
-    plan: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., 'basic', 'premium'
+    plan_name: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., 'basic', 'premium'
     billing_cycle: Mapped[Optional[str]] = mapped_column(String(20))  # 'monthly', 'yearly'
     status: Mapped[SubscriptionStatusCategory] = mapped_column(
         Enum(SubscriptionStatusCategory, name="subscription_status_category"),
@@ -47,7 +47,6 @@ class Subscription(BaseModel):
     # Pricing
     amount: Mapped[Optional[float]] = mapped_column(DECIMAL(10, 2))  # Amount in cents
     currency: Mapped[str] = mapped_column(String(3), default='USD', nullable=False)
-    tax_percent: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 2))
 
     # Features
     feature_flags: Mapped[Optional[str]] = mapped_column(Text)  # JSON stored as text
@@ -56,4 +55,4 @@ class Subscription(BaseModel):
     user: Mapped["User"] = relationship("User", back_populates="subscription")
 
     def __repr__(self) -> str:
-        return f"<Subscription(id={self.id}, user_id={self.user_id}, plan={self.plan}, status={self.status})>"
+        return f"<Subscription(id={self.id}, user_id={self.user_id}, plan={self.plan_name}, status={self.status})>"

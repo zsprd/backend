@@ -1,8 +1,9 @@
 
-from sqlalchemy import String, Boolean, Text, ForeignKey, DateTime
+from sqlalchemy import String, Boolean, Text, ForeignKey, DateTime, Enum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
+from app.models.enums import NotificationCategory, NotificationChannelCategory
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,19 +18,23 @@ class Notification(BaseModel):
     alert_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("alerts.id", ondelete="SET NULL"), nullable=True)
 
     # Notification Details
-    category: Mapped[str] = mapped_column(String(50), nullable=False)  # alert, system, import, error, welcome
-    channel: Mapped[str] = mapped_column(String(20), nullable=False)  # in_app, email, push
+    notification_category: Mapped[NotificationCategory] = mapped_column(
+        Enum(NotificationCategory, native_enum=False, length=50),
+        nullable=False
+    )
+    notification_channel: Mapped[NotificationChannelCategory] = mapped_column(
+        Enum(NotificationChannelCategory, native_enum=False, length=20),
+        nullable=True
+    )
 
     # Content
     title: Mapped[str] = mapped_column(String(255), nullable=False)
-    body: Mapped[str] = mapped_column(Text, nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
     action_url: Mapped[Optional[str]] = mapped_column(Text)
 
     # Status
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    is_sent: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     read_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
-    sent_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
 
     # Priority
     priority: Mapped[str] = mapped_column(String(20), default="normal")  # low, normal, high, urgent

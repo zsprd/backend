@@ -1,8 +1,9 @@
 
-from sqlalchemy import String, Boolean, DECIMAL, Text, ForeignKey, DateTime, Integer
+from sqlalchemy import String, Boolean, DECIMAL, Text, ForeignKey, DateTime, Integer, Enum
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
+from app.models.enums import AlertCategory, AlertFrequencyCategory, AlertStatusCategory, ThresholdOperatorCategory
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -17,8 +18,9 @@ class Alert(BaseModel):
     user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Alert Configuration
-    category: Mapped[str] = mapped_column(String(50), nullable=False)  # price_change, portfolio_value, etc.
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    alert_category: Mapped[AlertCategory] = mapped_column(
+        Enum(AlertCategory, native_enum=False, length=50),
+        nullable=False)  # price_change, portfolio_value, etc.
     description: Mapped[Optional[str]] = mapped_column(Text)
 
     # Target and Conditions
@@ -27,13 +29,24 @@ class Alert(BaseModel):
     metric: Mapped[Optional[str]] = mapped_column(String(100))  # price, value, allocation_percent, etc.
 
     # Threshold Configuration
-    threshold_operator: Mapped[Optional[str]] = mapped_column(String(10))  # gt, lt, gte, lte, eq, ne
+    threshold_operator: Mapped[Optional[ThresholdOperatorCategory]] = mapped_column(
+        Enum(ThresholdOperatorCategory, native_enum=False, length=10),
+        nullable=True
+    )
     threshold_value: Mapped[Optional[float]] = mapped_column(DECIMAL(15, 4))
     threshold_percent: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 2))
 
     # Frequency and Status
-    frequency: Mapped[str] = mapped_column(String(20), default="real_time")  # real_time, hourly, daily, weekly
-    status: Mapped[str] = mapped_column(String(20), default="active")  # active, paused, triggered, disabled
+    frequency: Mapped[AlertFrequencyCategory] = mapped_column(
+        Enum(AlertFrequencyCategory, native_enum=False, length=20),
+        default=AlertFrequencyCategory.DAILY,
+        nullable=True
+    )
+    status: Mapped[AlertStatusCategory] = mapped_column(
+        Enum(AlertStatusCategory, native_enum=False, length=20),
+        default=AlertStatusCategory.ACTIVE,
+        nullable=True
+    )
 
     # Configuration
     conditions: Mapped[Optional[dict]] = mapped_column(JSONB)

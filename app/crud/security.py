@@ -35,7 +35,7 @@ class CRUDSecurity(CRUDBase[Security, SecurityCreate, SecurityUpdate]):
     def get_by_category(self, db: Session, *, category: str) -> List[Security]:
         """Get securities by category."""
         return db.query(Security).filter(
-            and_(Security.category == category, Security.is_active == True)
+            and_(Security.security_category == category, Security.is_active == True)
         ).all()
 
 

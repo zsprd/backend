@@ -18,7 +18,7 @@ class Security(BaseModel):
     # Basic Information
     symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    category: Mapped[SecurityCategory] = mapped_column(
+    security_category: Mapped[SecurityCategory] = mapped_column(
         Enum(SecurityCategory, native_enum=False, length=50),
         nullable=False
     )
@@ -44,7 +44,6 @@ class Security(BaseModel):
         Enum(DataProviderCategory, native_enum=False, length=50),
         nullable=True
     )
-    is_delisted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

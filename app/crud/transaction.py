@@ -60,7 +60,7 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
             query = query.filter(Transaction.trade_date <= end_date)
         
         if transaction_types:
-            query = query.filter(Transaction.category.in_(transaction_types))
+            query = query.filter(Transaction.transaction_category.in_(transaction_types))
         
         return query.order_by(desc(Transaction.trade_date)).offset(skip).limit(limit).all()
 
@@ -113,17 +113,17 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         
         for txn in transactions:
             # Calculate totals
-            if txn.category in ['buy', 'sell']:
-                if txn.category == 'buy':
+            if txn.transaction_category in ['buy', 'sell']:
+                if txn.transaction_category == 'buy':
                     total_invested += abs(txn.amount)
-            elif txn.category == 'dividend':
+            elif txn.transaction_category == 'dividend':
                 total_dividends += txn.amount
             
             if txn.fees:
                 total_fees += txn.fees
             
             # Group by category
-            category = txn.category
+            category = txn.transaction_category
             if category not in by_category:
                 by_category[category] = {'count': 0, 'amount': Decimal('0')}
             by_category[category]['count'] += 1
