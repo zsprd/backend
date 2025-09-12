@@ -8,11 +8,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.models.base import BaseModel
-from app.models.enums import (
-    TransactionCategory,
-    TransactionSideCategory,
-    DataProviderCategory,
-)
 
 if TYPE_CHECKING:
     from app.models.account import Account
@@ -27,14 +22,8 @@ class Transaction(BaseModel):
     security_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("securities.id", ondelete="SET NULL"), nullable=True)
 
     # Transaction Details
-    transaction_category: Mapped[TransactionCategory] = mapped_column(
-        Enum(TransactionCategory, native_enum=False, length=50),
-        nullable=False
-    )
-    transaction_side: Mapped[Optional[TransactionSideCategory]] = mapped_column(
-        Enum(TransactionSideCategory, native_enum=False, length=50),
-        nullable=True
-    )
+    transaction_category: Mapped[str] = mapped_column(String(50), nullable=False)
+    transaction_side: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     quantity: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 6))
     price: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 4))
     amount: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), nullable=False)
@@ -51,10 +40,7 @@ class Transaction(BaseModel):
 
     # External Integration
     plaid_transaction_id: Mapped[Optional[str]] = mapped_column(String(255))
-    data_provider: Mapped[DataProviderCategory] = mapped_column(
-        Enum(DataProviderCategory, native_enum=False, length=50),
-        nullable=False
-    )
+    data_provider: Mapped[str] = mapped_column(String(50), nullable=False)
 
     # Relationships
     account: Mapped["Account"] = relationship(back_populates="transactions")

@@ -6,7 +6,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.models.base import BaseModel
-from app.models.enums import AccountCategory, AccountSubtypeCategory
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -54,15 +53,9 @@ class Account(BaseModel):
     # Account Details
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     official_name: Mapped[Optional[str]] = mapped_column(String(255))  # Official name from institution
-    
-    account_category: Mapped[AccountCategory] = mapped_column(
-        Enum(AccountCategory, native_enum=False, length=50),
-        nullable=False
-    )
-    account_subtype: Mapped[Optional[AccountSubtypeCategory]] = mapped_column(
-        Enum(AccountSubtypeCategory, native_enum=False, length=50),
-        nullable=True
-    )
+
+    account_category: Mapped[str] = mapped_column(String(50), nullable=False)
+    account_subtype: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     
     mask: Mapped[Optional[str]] = mapped_column(String(4))  # Last 4 digits of account number
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)

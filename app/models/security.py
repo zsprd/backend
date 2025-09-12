@@ -4,7 +4,6 @@ from sqlalchemy import String, Boolean, Enum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 
 from app.models.base import BaseModel
-from app.models.enums import SecurityCategory, DataProviderCategory
 
 if TYPE_CHECKING:
     from app.models.holding import Holding
@@ -18,32 +17,26 @@ class Security(BaseModel):
     # Basic Information
     symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    security_category: Mapped[SecurityCategory] = mapped_column(
-        Enum(SecurityCategory, native_enum=False, length=50),
-        nullable=False
-    )
+    security_category: Mapped[str] = mapped_column(String(50), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
 
     # Market Information
-    exchange: Mapped[str | None] = mapped_column(String(10))  # e.g., NASDAQ, NYSE, LSE
-    country: Mapped[str | None] = mapped_column(String(2))    # ISO country code
+    exchange: Mapped[Optional[str]] = mapped_column(String(10))  # e.g., NASDAQ, NYSE, LSE
+    country: Mapped[Optional[str]] = mapped_column(String(2))    # ISO country code
 
     # Classification
-    sector: Mapped[str | None] = mapped_column(String(100))
-    industry: Mapped[str | None] = mapped_column(String(100))
+    sector: Mapped[Optional[str]] = mapped_column(String(100))
+    industry: Mapped[Optional[str]] = mapped_column(String(100))
 
     # Identifiers
-    cusip: Mapped[str | None] = mapped_column(String(9))      # US securities identifier
-    isin: Mapped[str | None] = mapped_column(String(12))      # International securities identifier
-    sedol: Mapped[str | None] = mapped_column(String(7))      # Stock Exchange Daily Official List
+    cusip: Mapped[Optional[str]] = mapped_column(String(9))      # US securities identifier
+    isin: Mapped[Optional[str]] = mapped_column(String(12))      # International securities identifier
+    sedol: Mapped[Optional[str]] = mapped_column(String(7))      # Stock Exchange Daily Official List
 
     # External Integration
-    plaid_security_id: Mapped[str | None] = mapped_column(String(255))
-    alphavantage_symbol: Mapped[str | None] = mapped_column(String(20))
-    data_provider_category: Mapped[Optional[DataProviderCategory]] = mapped_column(
-        Enum(DataProviderCategory, native_enum=False, length=50),
-        nullable=True
-    )
+    plaid_security_id: Mapped[Optional[str]] = mapped_column(String(255))
+    alphavantage_symbol: Mapped[Optional[str]] = mapped_column(String(20))
+    data_provider_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

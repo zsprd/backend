@@ -3,7 +3,7 @@ from sqlalchemy import String, ForeignKey, Date, DECIMAL, Text, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
-from app.models.enums import SubscriptionStatusCategory
+
 from typing import TYPE_CHECKING, Optional
 
 if TYPE_CHECKING:
@@ -31,10 +31,7 @@ class Subscription(BaseModel):
     # Plan Details
     plan_name: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., 'basic', 'premium'
     billing_cycle: Mapped[Optional[str]] = mapped_column(String(20))  # 'monthly', 'yearly'
-    status: Mapped[SubscriptionStatusCategory] = mapped_column(
-        Enum(SubscriptionStatusCategory, name="subscription_status_category"),
-        default='active', nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(20), default='active', nullable=False)
 
     # Billing Periods
     current_period_start: Mapped[Date] = mapped_column(Date, nullable=False)
@@ -56,3 +53,4 @@ class Subscription(BaseModel):
 
     def __repr__(self) -> str:
         return f"<Subscription(id={self.id}, user_id={self.user_id}, plan={self.plan_name}, status={self.status})>"
+    

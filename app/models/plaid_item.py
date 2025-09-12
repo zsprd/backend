@@ -2,7 +2,7 @@ from sqlalchemy import String, ForeignKey, Text, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
-from app.models.enums import PlaidItemStatusCategory
+
 from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -29,9 +29,7 @@ class PlaidItem(BaseModel):
     # Plaid Details
     plaid_item_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     plaid_access_token: Mapped[str] = mapped_column(String(255), nullable=False)
-    status: Mapped[PlaidItemStatusCategory] = mapped_column(
-        Enum(PlaidItemStatusCategory, name="plaid_item_status_category"), default='good', nullable=False
-    )
+    status: Mapped[str] = mapped_column(String(50), default='good', nullable=False)
 
     # Connection Information
     available_products: Mapped[Optional[str]] = mapped_column(Text)  # JSON array as text
@@ -48,3 +46,4 @@ class PlaidItem(BaseModel):
 
     def __repr__(self) -> str:
         return f"<PlaidItem(id={self.id}, plaid_item_id={self.plaid_item_id}, status={self.status})>"
+    

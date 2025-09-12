@@ -1,9 +1,9 @@
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, ForeignKey, Text, JSON, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.models.base import BaseModel
-from app.models.enums import AuditActionCategory
-from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -21,9 +21,7 @@ class AuditLog(BaseModel):
     )
 
     # Action Details
-    action: Mapped[AuditActionCategory] = mapped_column(
-        Enum(AuditActionCategory, name="audit_action_category"), nullable=False
-    )
+    action: Mapped[str] = mapped_column(String(50), nullable=False)
     description: Mapped[Optional[str]] = mapped_column(Text)
 
     # Target Information

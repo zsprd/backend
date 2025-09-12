@@ -1,9 +1,9 @@
+from typing import Optional, TYPE_CHECKING
 from sqlalchemy import String, ForeignKey, Integer, BigInteger, Text, JSON, Enum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.models.base import BaseModel
-from app.models.enums import ImportCategory, ImportStatusCategory, ImportProviderCategory
-from typing import Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -27,15 +27,9 @@ class ImportJob(BaseModel):
     )
 
     # Job Details
-    import_category: Mapped[ImportCategory] = mapped_column(
-        Enum(ImportCategory, name="import_category"), nullable=False
-    )
-    status: Mapped[ImportStatusCategory] = mapped_column(
-        Enum(ImportStatusCategory, name="import_status_category"), default='pending', nullable=False
-    )
-    import_provider: Mapped[ImportProviderCategory] = mapped_column(
-        Enum(ImportProviderCategory, name="import_provider_category"), nullable=False
-    )
+    import_category: Mapped[str] = mapped_column(String(50), nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default='pending', nullable=False)
+    import_provider: Mapped[str] = mapped_column(String(50), nullable=False)
 
     # File Information
     filename: Mapped[Optional[str]] = mapped_column(String(255))
@@ -57,3 +51,4 @@ class ImportJob(BaseModel):
 
     def __repr__(self) -> str:
         return f"<ImportJob(id={self.id}, category={self.import_category}, status={self.status})>"
+    

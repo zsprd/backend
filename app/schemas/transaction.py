@@ -2,6 +2,7 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
+
 from app.schemas.security import SecurityBasicInfo
 from app.models.enums import TransactionCategory, TransactionSideCategory
 
@@ -22,66 +23,12 @@ class TransactionBase(BaseModel):
     memo: Optional[str] = Field(None, description="Additional notes")
     subcategory: Optional[str] = Field(None, max_length=100, description="Transaction subcategory")
 
-    @classmethod
-    def _ensure_transaction_category_lower(cls, v):
-        if isinstance(v, str):
-            return v.lower()
-        return v
-
-    @classmethod
-    def _ensure_transaction_side_lower(cls, v):
-        if isinstance(v, str):
-            return v.lower()
-        return v
-
-    @classmethod
-    def _ensure_transaction_currency_upper(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_transaction_category_lower(v) if v is not None else v,
-            schema
-        )
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_transaction_side_lower(v) if v is not None else v,
-            schema
-        )
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_transaction_currency_upper(v) if v is not None else v,
-            schema
-        )
-        return schema
-
 
 class TransactionCreate(TransactionBase):
     account_id: UUID4 = Field(..., description="Account ID")
     security_id: Optional[UUID4] = Field(None, description="Security ID (if applicable)")
     plaid_transaction_id: Optional[str] = Field(None, max_length=255)
     data_provider: str = Field("manual", description="Data provider source")
-
-    @classmethod
-    def _ensure_data_provider_lower(cls, v):
-        if isinstance(v, str):
-            return v.lower()
-        return v
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_data_provider_lower(v) if v is not None else v,
-            schema
-        )
-        return schema
 
 
 class TransactionUpdate(BaseModel):

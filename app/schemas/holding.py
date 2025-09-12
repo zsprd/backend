@@ -2,6 +2,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
+
 from app.schemas.security import SecurityBasicInfo
 from app.models.enums import SecurityCategory
 
@@ -13,24 +14,6 @@ class HoldingBase(BaseModel):
     market_value: Optional[Decimal] = Field(None, description="Current market value")
     currency: str = Field(..., max_length=3, description="Currency of the holding")
     as_of_date: date = Field(..., description="Date of the holding snapshot")
-
-    @classmethod
-    def _ensure_currency_upper(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        # Add a field validator for currency
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_currency_upper(v) if v is not None else v,
-            schema
-        )
-        return schema
 
 
 class HoldingCreate(HoldingBase):
@@ -83,21 +66,3 @@ class HoldingSummaryResponse(BaseModel):
     by_sector: dict
     by_geography: dict
     as_of_date: date
-
-    @classmethod
-    def _ensure_base_currency_upper(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        # Add a field validator for base_currency
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_base_currency_upper(v) if v is not None else v,
-            schema
-        )
-        return schema

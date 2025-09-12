@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime
+from typing import Any, Dict, Optional
 
 from sqlalchemy import DateTime, text
 from sqlalchemy.dialects.postgresql import UUID
@@ -39,5 +40,18 @@ class BaseModel(Base):
         nullable=False,
     )
 
+    deleted_at: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        default=None,
+    )
+
     def __repr__(self) -> str:
         return f"<{self.__class__.__name__}(id={self.id})>"
+
+    def __str__(self) -> str:
+        return self.__repr__()
+
+    def to_dict(self) -> Dict[str, Any]:
+        """Quick dict serialization for debugging (not for API output)."""
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}

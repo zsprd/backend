@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import and_, func, desc
-from datetime import date, datetime
+from sqlalchemy import select, and_, func, desc, update
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 from app.crud.base import CRUDBase
@@ -10,6 +10,8 @@ from app.schemas.holding import HoldingCreate, HoldingUpdate
 
 
 class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
+    """CRUD operations for Holding model."""
+
     def get_by_account(
         self,
         db: Session,
@@ -17,70 +19,62 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         account_id: str,
         as_of_date: Optional[date] = None
     ) -> List[Holding]:
-        """Get holdings for a specific account."""
-        query = db.query(Holding).options(joinedload(Holding.security)).filter(
+        """Get holdings for a specific account, optionally as of a specific date."""
+        stmt = select(Holding).options(joinedload(Holding.security)).where(
             Holding.account_id == account_id
         )
         
         if as_of_date:
-            query = query.filter(Holding.as_of_date <= as_of_date)
+            stmt = stmt.where(Holding.as_of_date <= as_of_date)
         
-        return query.order_by(desc(Holding.as_of_date)).all()
+        # Get most recent holdings per security
+        stmt = stmt.order_by(Holding.security_id, desc(Holding.as_of_date))
+        result = db.execute(stmt)
+        holdings = list(result.scalars().all())
+        
+        # Filter to most recent per security
+        latest_holdings = {}
+        for holding in holdings:
+            if holding.security_id not in latest_holdings:
+                latest_holdings[holding.security_id] = holding
+        
+        return list(latest_holdings.values())
 
-    def get_by_user_accounts(
+    def get_current_holdings_by_account(
         self,
         db: Session,
         *,
-        user_id: str,
-        account_ids: Optional[List[str]] = None,
-        as_of_date: Optional[date] = None
+        account_id: str
     ) -> List[Holding]:
-        """Get holdings across multiple accounts for a user."""
-        from app.models.account import Account
-        
-        query = db.query(Holding).options(joinedload(Holding.security)).join(Account).filter(
-            Account.user_id == user_id
+        """Get current holdings for an account (latest as_of_date per security)."""
+        # Subquery to get latest date per security for the account
+        latest_date_subq = (
+            select(
+                Holding.security_id,
+                func.max(Holding.as_of_date).label('max_date')
+            )
+            .where(Holding.account_id == account_id)
+            .group_by(Holding.security_id)
+            .subquery()
         )
         
-        if account_ids:
-            query = query.filter(Holding.account_id.in_(account_ids))
-        
-        if as_of_date:
-            query = query.filter(Holding.as_of_date <= as_of_date)
-        
-        return query.order_by(desc(Holding.as_of_date)).all()
-
-    def get_by_security(
-        self,
-        db: Session,
-        *,
-        security_id: str,
-        user_id: str
-    ) -> List[Holding]:
-        """Get all holdings for a specific security owned by user."""
-        from app.models.account import Account
-        
-        return db.query(Holding).options(joinedload(Holding.security)).join(Account).filter(
-            and_(
-                Holding.security_id == security_id,
-                Account.user_id == user_id
+        # Main query to get holdings with latest dates
+        stmt = (
+            select(Holding)
+            .options(joinedload(Holding.security))
+            .join(
+                latest_date_subq,
+                and_(
+                    Holding.security_id == latest_date_subq.c.security_id,
+                    Holding.as_of_date == latest_date_subq.c.max_date
+                )
             )
-        ).all()
-
-    def get_latest_by_account_and_security(
-        self,
-        db: Session,
-        *,
-        account_id: str,
-        security_id: str
-    ) -> Optional[Holding]:
-        """Get the most recent holding for an account/security combination."""
-        return db.query(Holding).filter(
-            and_(
-                Holding.account_id == account_id,
-                Holding.security_id == security_id
-            )
-        ).order_by(desc(Holding.as_of_date)).first()
+            .where(Holding.account_id == account_id)
+            .where(Holding.quantity > 0)  # Only non-zero positions
+        )
+        
+        result = db.execute(stmt)
+        return list(result.scalars().all())
 
     def get_holdings_summary(
         self,
@@ -89,49 +83,208 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         account_id: str,
         base_currency: str = "USD"
     ) -> Dict[str, Any]:
-        """Get holdings summary for an account."""
-        holdings = self.get_by_account(db, account_id=account_id)
+        """Get comprehensive holdings summary for an account."""
+        holdings = self.get_current_holdings_by_account(db, account_id=account_id)
         
         total_market_value = sum(h.market_value or Decimal('0') for h in holdings)
         total_cost_basis = sum(h.cost_basis_total or Decimal('0') for h in holdings)
         unrealized_gain_loss = total_market_value - total_cost_basis
-        unrealized_gain_loss_percent = (unrealized_gain_loss / total_cost_basis * 100) if total_cost_basis > 0 else Decimal('0')
+        unrealized_gain_loss_percent = (
+            (unrealized_gain_loss / total_cost_basis * 100) 
+            if total_cost_basis > 0 else Decimal('0')
+        )
         
-        # Group by asset type
-        by_asset_type = {}
-        by_sector = {}
+        # Calculate allocation by asset type
+        allocation_by_type = {}
+        allocation_by_currency = {}
         
         for holding in holdings:
-            if holding.security:
-                # By asset type
-                asset_type = holding.security.security_category
-                if asset_type not in by_asset_type:
-                    by_asset_type[asset_type] = Decimal('0')
-                by_asset_type[asset_type] += (holding.market_value or Decimal('0'))
-                
-                # By sector
-                sector = holding.security.sector or "Other"
-                if sector not in by_sector:
-                    by_sector[sector] = Decimal('0')
-                by_sector[sector] += (holding.market_value or Decimal('0'))
+            # Allocation by asset type (from security)
+            asset_type = holding.security.security_category if holding.security else "unknown"
+            current_value = allocation_by_type.get(asset_type, Decimal('0'))
+            allocation_by_type[asset_type] = current_value + (holding.market_value or Decimal('0'))
+            
+            # Allocation by currency
+            currency = holding.currency
+            current_currency_value = allocation_by_currency.get(currency, Decimal('0'))
+            allocation_by_currency[currency] = current_currency_value + (holding.market_value or Decimal('0'))
         
         # Convert to percentages
+        allocation_by_type_percent = {}
+        allocation_by_currency_percent = {}
+        
         if total_market_value > 0:
-            by_asset_type = {k: float(v / total_market_value * 100) for k, v in by_asset_type.items()}
-            by_sector = {k: float(v / total_market_value * 100) for k, v in by_sector.items()}
+            for asset_type, value in allocation_by_type.items():
+                allocation_by_type_percent[asset_type] = round((value / total_market_value * 100), 2)
+            
+            for currency, value in allocation_by_currency.items():
+                allocation_by_currency_percent[currency] = round((value / total_market_value * 100), 2)
         
         return {
             "account_id": account_id,
-            "total_holdings": len(holdings),
+            "base_currency": base_currency,
             "total_market_value": total_market_value,
             "total_cost_basis": total_cost_basis,
-            "total_unrealized_gain_loss": unrealized_gain_loss,
-            "total_unrealized_gain_loss_percent": unrealized_gain_loss_percent,
+            "unrealized_gain_loss": unrealized_gain_loss,
+            "unrealized_gain_loss_percent": round(unrealized_gain_loss_percent, 2),
+            "holdings_count": len(holdings),
+            "allocation_by_type": allocation_by_type,
+            "allocation_by_type_percent": allocation_by_type_percent,
+            "allocation_by_currency": allocation_by_currency,
+            "allocation_by_currency_percent": allocation_by_currency_percent,
+            "largest_positions": sorted(
+                holdings, 
+                key=lambda h: h.market_value or Decimal('0'), 
+                reverse=True
+            )[:10],
+            "summary_date": datetime.now(timezone.utc).date()
+        }
+
+    def get_holding_history(
+        self,
+        db: Session,
+        *,
+        account_id: str,
+        security_id: str,
+        start_date: Optional[date] = None,
+        end_date: Optional[date] = None,
+        limit: int = 100
+    ) -> List[Holding]:
+        """Get historical holdings for a specific security in an account."""
+        stmt = select(Holding).where(
+            and_(
+                Holding.account_id == account_id,
+                Holding.security_id == security_id
+            )
+        )
+        
+        if start_date:
+            stmt = stmt.where(Holding.as_of_date >= start_date)
+        if end_date:
+            stmt = stmt.where(Holding.as_of_date <= end_date)
+        
+        stmt = stmt.order_by(desc(Holding.as_of_date)).limit(limit)
+        result = db.execute(stmt)
+        return list(result.scalars().all())
+
+    def update_market_values(
+        self,
+        db: Session,
+        *,
+        holdings_updates: List[Dict[str, Any]]
+    ) -> int:
+        """Bulk update market values for holdings."""
+        updated_count = 0
+        for holding_update in holdings_updates:
+            stmt = (
+                update(Holding)
+                .where(Holding.id == holding_update["holding_id"])
+                .values(
+                    market_value=holding_update["market_value"],
+                    institution_price=holding_update.get("price"),
+                    updated_at=datetime.now(timezone.utc)
+                )
+            )
+            result = db.execute(stmt)
+            updated_count += result.rowcount
+        
+        db.commit()
+        return updated_count
+
+    def create_holding_snapshot(
+        self,
+        db: Session,
+        *,
+        account_id: str,
+        as_of_date: date,
+        holdings_data: List[Dict[str, Any]]
+    ) -> List[Holding]:
+        """Create a complete holdings snapshot for an account as of a specific date."""
+        holdings = []
+        
+        for holding_data in holdings_data:
+            holding = Holding(
+                account_id=account_id,
+                security_id=holding_data["security_id"],
+                quantity=holding_data["quantity"],
+                cost_basis_per_share=holding_data.get("cost_basis_per_share"),
+                cost_basis_total=holding_data.get("cost_basis_total"),
+                market_value=holding_data.get("market_value"),
+                currency=holding_data["currency"],
+                as_of_date=as_of_date,
+                plaid_account_id=holding_data.get("plaid_account_id"),
+                plaid_security_id=holding_data.get("plaid_security_id"),
+                institution_price=holding_data.get("institution_price"),
+                institution_value=holding_data.get("institution_value")
+            )
+            holdings.append(holding)
+        
+        db.add_all(holdings)
+        db.commit()
+        
+        for holding in holdings:
+            db.refresh(holding)
+        
+        return holdings
+
+    def get_portfolio_allocation(
+        self,
+        db: Session,
+        *,
+        user_id: str,
+        base_currency: str = "USD"
+    ) -> Dict[str, Any]:
+        """Get portfolio allocation across all user accounts."""
+        # You'll need to join with Account table to filter by user_id
+        from app.models.account import Account
+        
+        stmt = (
+            select(Holding)
+            .join(Account, Holding.account_id == Account.id)
+            .options(joinedload(Holding.security))
+            .where(Account.user_id == user_id)
+        )
+        
+        result = db.execute(stmt)
+        all_holdings = list(result.scalars().all())
+        
+        # Get current holdings only (latest per security per account)
+        current_holdings = {}
+        for holding in all_holdings:
+            key = (holding.account_id, holding.security_id)
+            if key not in current_holdings or holding.as_of_date > current_holdings[key].as_of_date:
+                current_holdings[key] = holding
+        
+        holdings = list(current_holdings.values())
+        
+        total_value = sum(h.market_value or Decimal('0') for h in holdings)
+        
+        # Calculate allocations
+        by_asset_type = {}
+        by_currency = {}
+        by_account = {}
+        
+        for holding in holdings:
+            # By asset type
+            asset_type = holding.security.category if holding.security else "unknown"
+            by_asset_type[asset_type] = by_asset_type.get(asset_type, Decimal('0')) + (holding.market_value or Decimal('0'))
+            
+            # By currency
+            currency = holding.currency
+            by_currency[currency] = by_currency.get(currency, Decimal('0')) + (holding.market_value or Decimal('0'))
+            
+            # By account
+            account_id = str(holding.account_id)
+            by_account[account_id] = by_account.get(account_id, Decimal('0')) + (holding.market_value or Decimal('0'))
+        
+        return {
+            "total_portfolio_value": total_value,
             "base_currency": base_currency,
-            "by_asset_type": by_asset_type,
-            "by_sector": by_sector,
-            "by_geography": {"US": 100.0},  # Simplified for now
-            "as_of_date": date.today()
+            "allocation_by_asset_type": by_asset_type,
+            "allocation_by_currency": by_currency,
+            "allocation_by_account": by_account,
+            "total_holdings": len(holdings),
+            "last_updated": datetime.now(timezone.utc)
         }
 
 

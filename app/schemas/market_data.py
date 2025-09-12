@@ -2,7 +2,8 @@ from typing import Optional, List
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
-from app.models.enums import DataProviderCategory
+
+from app.models.enums import DataProviderCategory, SecurityCategory
 
 
 class MarketDataBase(BaseModel):
@@ -15,34 +16,6 @@ class MarketDataBase(BaseModel):
     adjusted_close: Optional[Decimal] = Field(None, description="Adjusted closing price")
     currency: str = Field(..., max_length=3, description="Price currency")
     data_source: DataProviderCategory = Field(..., description="Data source")
-
-    @classmethod
-    def _ensure_currency_upper(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
-
-    @classmethod
-    def _ensure_data_source_lower(cls, v):
-        if isinstance(v, str):
-            return v.lower()
-        return v
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        # Add field validators for currency and data_source
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_currency_upper(v) if v is not None else v,
-            schema
-        )
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_data_source_lower(v) if v is not None else v,
-            schema
-        )
-        return schema
 
 
 class MarketDataCreate(MarketDataBase):
@@ -78,23 +51,6 @@ class PriceHistory(BaseModel):
     symbol: str
     name: str
     currency: str
-
-    @classmethod
-    def _ensure_currency_upper(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_currency_upper(v) if v is not None else v,
-            schema
-        )
-        return schema
     data_points: int
     start_date: date
     end_date: date
@@ -126,33 +82,6 @@ class ExchangeRateBase(BaseModel):
     rate: Decimal = Field(..., description="Exchange rate")
     data_source: DataProviderCategory = Field(..., description="Data source")
 
-    @classmethod
-    def _ensure_currency_upper(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
-
-    @classmethod
-    def _ensure_data_source_lower(cls, v):
-        if isinstance(v, str):
-            return v.lower()
-        return v
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_currency_upper(v) if v is not None else v,
-            schema
-        )
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_data_source_lower(v) if v is not None else v,
-            schema
-        )
-        return schema
-
 
 class ExchangeRateCreate(ExchangeRateBase):
     pass
@@ -164,7 +93,6 @@ class ExchangeRate(ExchangeRateBase):
 
 
 class QuoteData(BaseModel):
-    """Real-time quote data"""
     security_id: UUID4
     symbol: str
     price: float
@@ -236,8 +164,6 @@ class TechnicalIndicators(BaseModel):
     atr_14: Optional[float] = None
 
 
-from app.models.enums import SecurityCategory
-
 class MarketDataStats(BaseModel):
     """Market data coverage statistics"""
     total_securities: int
@@ -248,3 +174,4 @@ class MarketDataStats(BaseModel):
     date_range: dict = Field(default_factory=dict)
     by_source: dict = Field(default_factory=dict)
     by_security_type: dict[SecurityCategory, int] = Field(default_factory=dict)
+    

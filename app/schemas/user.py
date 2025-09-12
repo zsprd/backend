@@ -1,5 +1,6 @@
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, UUID4
+from pydantic import BaseModel, EmailStr, Field, UUID4, field_validator
+from datetime import datetime
 
 class SignUpRequest(BaseModel):
     email: EmailStr = Field(..., description="User email address")
@@ -70,33 +71,6 @@ class UserProfileResponse(BaseModel):
     created_at: str
     last_login_at: Optional[str]
 
-    @classmethod
-    def _ensure_base_currency_upper(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
-
-    @classmethod
-    def _ensure_language_lower(cls, v):
-        if isinstance(v, str):
-            return v.lower()
-        return v
-
-    @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_base_currency_upper(v) if v is not None else v,
-            schema
-        )
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_language_lower(v) if v is not None else v,
-            schema
-        )
-        return schema
-
 
 class UserProfileUpdate(BaseModel):
     full_name: Optional[str] = None
@@ -105,30 +79,80 @@ class UserProfileUpdate(BaseModel):
     language: Optional[str] = None
     theme_preference: Optional[str] = None
 
-    @classmethod
-    def _ensure_base_currency_upper(cls, v):
-        if isinstance(v, str):
-            return v.upper()
-        return v
+class UserCreate(BaseModel):
+    email: EmailStr = Field(..., description="User email address")
+    password: Optional[str] = Field(None, min_length=8, description="Password")
+    full_name: Optional[str] = Field(None, min_length=1, max_length=255, description="Full name")
+    google_id: Optional[str] = Field(None, max_length=255, description="Google OAuth ID")
+    apple_id: Optional[str] = Field(None, max_length=255, description="Apple OAuth ID")
+    base_currency: str = Field("USD", max_length=3, description="Base currency")
+    timezone: str = Field("UTC", max_length=50, description="User timezone")
+    language: str = Field("en", max_length=5, description="Language preference")
+    is_verified: bool = Field(False, description="Email verification status")
 
+    @field_validator('base_currency')
     @classmethod
-    def _ensure_language_lower(cls, v):
-        if isinstance(v, str):
-            return v.lower()
-        return v
+    def validate_currency(cls, v: str) -> str:
+        return v.upper()
 
+    @field_validator('language') 
     @classmethod
-    def __get_pydantic_core_schema__(cls, *args, **kwargs):
-        from pydantic import GetCoreSchemaHandler
-        from pydantic_core import core_schema
-        schema = super().__get_pydantic_core_schema__(*args, **kwargs)
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_base_currency_upper(v) if v is not None else v,
-            schema
-        )
-        schema = core_schema.no_info_after_validator_function(
-            lambda v: cls._ensure_language_lower(v) if v is not None else v,
-            schema
-        )
-        return schema
+    def validate_language(cls, v: str) -> str:
+        return v.lower()
 
+
+class UserUpdate(BaseModel):
+    full_name: Optional[str] = Field(None, min_length=1, max_length=255)
+    base_currency: Optional[str] = Field(None, max_length=3)
+    timezone: Optional[str] = Field(None, max_length=50)
+    language: Optional[str] = Field(None, max_length=5)
+    theme_preference: Optional[str] = Field(None, max_length=20)
+    is_active: Optional[bool] = None
+    is_verified: Optional[bool] = None
+    is_premium: Optional[bool] = None
+
+    @field_validator('base_currency')
+    @classmethod
+    def validate_currency(cls, v: Optional[str]) -> Optional[str]:
+        return v.upper() if v else v
+
+    @field_validator('language')
+    @classmethod
+    def validate_language(cls, v: Optional[str]) -> Optional[str]:
+        return v.lower() if v else v
+
+
+# ===== USER SESSION SCHEMAS =====
+
+class UserSessionCreate(BaseModel):
+    user_id: UUID4 = Field(..., description="User ID")
+    refresh_token: str = Field(..., min_length=1, max_length=500, description="Refresh token")
+    expires_at: datetime = Field(..., description="Token expiration")
+    ip_address: Optional[str] = Field(None, description="Client IP address")
+    user_agent: Optional[str] = Field(None, max_length=500, description="User agent")
+    device_type: Optional[str] = Field("web", max_length=50, description="Device type")
+
+
+class UserSessionUpdate(BaseModel):
+    expires_at: Optional[datetime] = None
+    last_used_at: Optional[datetime] = None
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = Field(None, max_length=500)
+    device_type: Optional[str] = Field(None, max_length=50)
+
+
+class UserSessionResponse(BaseModel):
+    id: UUID4
+    user_id: UUID4
+    refresh_token: str
+    expires_at: datetime
+    created_at: datetime
+    last_used_at: datetime
+    ip_address: Optional[str]
+    user_agent: Optional[str]
+    device_type: Optional[str]
+    is_expired: bool
+    is_active: bool
+    
+    class Config:
+        from_attributes = True

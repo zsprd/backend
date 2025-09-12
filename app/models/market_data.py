@@ -1,11 +1,9 @@
 from typing import TYPE_CHECKING, Optional
-
 from sqlalchemy import String, DECIMAL, Date, BigInteger, UniqueConstraint, ForeignKey, Enum
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models.base import BaseModel
-from app.models.enums import DataProviderCategory
 
 if TYPE_CHECKING:
     from app.models.security import Security
@@ -30,10 +28,7 @@ class MarketData(BaseModel):
 
     # Metadata
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
-    data_provider: Mapped[DataProviderCategory] = mapped_column(
-        Enum(DataProviderCategory, native_enum=False, length=50),
-        nullable=False
-    )
+    data_provider: Mapped[str] = mapped_column(String(50), nullable=False)
 
     # Relationships
     security: Mapped["Security"] = relationship(back_populates="market_data")
@@ -59,10 +54,7 @@ class ExchangeRate(BaseModel):
     rate: Mapped[float] = mapped_column(DECIMAL(15, 6), nullable=False)
 
     # Source
-    data_provider: Mapped[DataProviderCategory] = mapped_column(
-        Enum(DataProviderCategory, native_enum=False, length=50),
-        nullable=False
-    )
+    data_provider: Mapped[str] = mapped_column(String(50), nullable=False)
 
     # Unique constraint - one rate per currency pair per date
     __table_args__ = (
