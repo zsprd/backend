@@ -12,14 +12,15 @@ from pathlib import Path
 import uvicorn
 from sqlalchemy import text
 
+# Import after path setup
+from app.core.config import settings
+from app.core.database import SessionLocal, engine
+from app.models.base import Base
+
 # Add the current directory to Python path
 current_dir = Path(__file__).parent
 sys.path.insert(0, str(current_dir))
 
-# Import after path setup
-from app.core.config import settings
-from app.core.database import engine, SessionLocal
-from app.models.base import Base
 
 # Configure logging
 logging.basicConfig(
@@ -68,12 +69,12 @@ def create_tables():
     try:
         # Import all models to ensure they're registered
         from app.models import (
-            user,
             account,
-            security,
             holding,
-            transaction,
             market_data,
+            security,
+            transaction,
+            user,
         )
 
         # Create tables

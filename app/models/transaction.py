@@ -3,9 +3,9 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, ForeignKey, DECIMAL, Date, Text, Enum
+from sqlalchemy import DECIMAL, Date, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
 
@@ -18,8 +18,17 @@ class Transaction(BaseModel):
     __tablename__ = "transactions"
 
     # Foreign Keys
-    account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
-    security_id: Mapped[Optional[uuid.UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("securities.id", ondelete="SET NULL"), nullable=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("accounts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    security_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("securities.id", ondelete="SET NULL"),
+        nullable=True,
+    )
 
     # Transaction Details
     transaction_category: Mapped[str] = mapped_column(String(50), nullable=False)

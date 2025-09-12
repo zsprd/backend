@@ -1,14 +1,14 @@
+import sys
 from pathlib import Path
+from typing import Optional
 
 from dotenv import load_dotenv
+from pydantic import ValidationError
+from pydantic_settings import BaseSettings
 
 # Always load .env from project root, regardless of working directory
 env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
-
-from typing import Optional
-
-from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -153,8 +153,6 @@ class Settings(BaseSettings):
 settings = Settings()
 
 # --- Startup check for missing required environment variables ---
-import sys
-from pydantic import ValidationError
 
 
 def _check_required_env(settings_obj):

@@ -1,12 +1,13 @@
-from typing import Optional, List
-from sqlalchemy.orm import Session
-from sqlalchemy import select, and_
 from datetime import datetime, timezone
+from typing import List, Optional
 
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.auth import hash_password, verify_password
 from app.crud.base import CRUDBase
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
-from app.core.auth import hash_password, verify_password
 
 
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
@@ -31,14 +32,10 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return result.scalar_one_or_none()
 
     def get_active_users(
-        self, 
-        db: Session, 
-        *, 
-        skip: int = 0, 
-        limit: int = 100
+        self, db: Session, *, skip: int = 0, limit: int = 100
     ) -> List[User]:
         """Get active users with pagination."""
-        stmt = select(User).where(User.is_active == True).offset(skip).limit(limit)
+        stmt = select(User).where(User.is_active).offset(skip).limit(limit)
         result = db.execute(stmt)
         return list(result.scalars().all())
 
@@ -53,7 +50,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         apple_id: Optional[str] = None,
         base_currency: str = "USD",
         timezone: str = "UTC",
-        is_verified: bool = False
+        is_verified: bool = False,
     ) -> User:
         """Create new user with secure password hashing."""
         user_data = {
@@ -67,13 +64,13 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             "is_verified": is_verified,
             "is_premium": False,
             "language": "en",
-            "theme_preference": "system"
+            "theme_preference": "system",
         }
-        
+
         # Hash password if provided
         if password:
             user_data["password_hash"] = hash_password(password)
-        
+
         user = User(**user_data)
         db.add(user)
         db.commit()
@@ -81,33 +78,23 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     def authenticate_user(
-        self, 
-        db: Session, 
-        *, 
-        email: str, 
-        password: str
+        self, db: Session, *, email: str, password: str
     ) -> Optional[User]:
         """Authenticate user with email and password."""
         user = self.get_by_email(db, email=email)
-        
+
         if not user or not user.password_hash:
             return None
-        
-        if not verify_password(password, user.password_hash):
+
+        if not verify_password(password, str(user.password_hash)):
             return None
-        
+
         if not user.is_active:
             return None
-        
+
         return user
 
-    def update_password(
-        self, 
-        db: Session, 
-        *, 
-        user: User, 
-        new_password: str
-    ) -> User:
+    def update_password(self, db: Session, *, user: User, new_password: str) -> User:
         """Update user password with secure hashing."""
         user.password_hash = hash_password(new_password)
         user.updated_at = datetime.now(timezone.utc)
@@ -136,28 +123,25 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.refresh(user)
         return user
 
-    def update_profile(
-        self, 
-        db: Session, 
-        *, 
-        user: User, 
-        update_data: dict
-    ) -> User:
+    def update_profile(self, db: Session, *, user: User, update_data: dict) -> User:
         """Update user profile with safe fields only."""
         allowed_fields = {
-            'full_name', 'base_currency', 'timezone', 
-            'language', 'theme_preference'
+            "full_name",
+            "base_currency",
+            "timezone",
+            "language",
+            "theme_preference",
         }
-        
+
         for field, value in update_data.items():
             if field in allowed_fields and hasattr(user, field):
-                if field == 'base_currency' and value:
+                if field == "base_currency" and value:
                     setattr(user, field, value.upper())
-                elif field == 'language' and value:
+                elif field == "language" and value:
                     setattr(user, field, value.lower())
                 else:
                     setattr(user, field, value)
-        
+
         user.updated_at = datetime.now(timezone.utc)
         db.add(user)
         db.commit()
@@ -176,19 +160,19 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     def count_by_status(
-        self, 
-        db: Session, 
-        *, 
+        self,
+        db: Session,
+        *,
         is_active: Optional[bool] = None,
-        is_verified: Optional[bool] = None
+        is_verified: Optional[bool] = None,
     ) -> int:
         """Count users by status filters."""
         filters = {}
         if is_active is not None:
-            filters['is_active'] = is_active
+            filters["is_active"] = is_active
         if is_verified is not None:
-            filters['is_verified'] = is_verified
-        
+            filters["is_verified"] = is_verified
+
         return self.count(db, filters=filters)
 
     def get_user_stats(self, db: Session) -> dict:
@@ -196,8 +180,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         total_users = self.count(db)
         active_users = self.count_by_status(db, is_active=True)
         verified_users = self.count_by_status(db, is_verified=True)
-        premium_users = self.count(db, filters={'is_premium': True})
-        
+        premium_users = self.count(db, filters={"is_premium": True})
+
         return {
             "total_users": total_users,
             "active_users": active_users,
@@ -206,8 +190,12 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             "unverified_users": total_users - verified_users,
             "premium_users": premium_users,
             "free_users": total_users - premium_users,
-            "verification_rate": round((verified_users / total_users * 100), 2) if total_users > 0 else 0,
-            "premium_conversion_rate": round((premium_users / total_users * 100), 2) if total_users > 0 else 0
+            "verification_rate": (
+                round((verified_users / total_users * 100), 2) if total_users > 0 else 0
+            ),
+            "premium_conversion_rate": (
+                round((premium_users / total_users * 100), 2) if total_users > 0 else 0
+            ),
         }
 
 

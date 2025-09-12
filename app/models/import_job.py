@@ -1,13 +1,14 @@
-from typing import Optional, TYPE_CHECKING
-from sqlalchemy import String, ForeignKey, Integer, BigInteger, Text, JSON, Enum
+from typing import TYPE_CHECKING, Optional
+
+from sqlalchemy import JSON, BigInteger, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.account import Account
+    from app.models.user import User
 
 
 class ImportJob(BaseModel):
@@ -18,17 +19,17 @@ class ImportJob(BaseModel):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
     account_id: Mapped[Optional[UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("accounts.id", ondelete="SET NULL"),
-        nullable=True
+        nullable=True,
     )
 
     # Job Details
     import_category: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), default='pending', nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="pending", nullable=False)
     import_provider: Mapped[str] = mapped_column(String(50), nullable=False)
 
     # File Information
@@ -51,4 +52,3 @@ class ImportJob(BaseModel):
 
     def __repr__(self) -> str:
         return f"<ImportJob(id={self.id}, category={self.import_category}, status={self.status})>"
-    

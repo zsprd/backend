@@ -1,18 +1,19 @@
-from typing import Dict, Any, List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
-from sqlalchemy.orm import Session
-from datetime import datetime, date
+from datetime import UTC, date, datetime
 from decimal import Decimal
+from typing import Any, Dict, List, Optional
+
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.user import get_current_user_id
-from app.crud.transaction import transaction_crud
 from app.crud.account import account_crud
 from app.crud.audit_log import audit_log_crud
+from app.crud.transaction import transaction_crud
 from app.schemas.transaction import (
     TransactionCreate,
+    TransactionResponse,
     TransactionUpdate,
-    TransactionResponse
 )
 
 router = APIRouter()
@@ -22,6 +23,7 @@ router = APIRouter()
 # Transaction CRUD Endpoints
 # ===================================================================
 
+
 @router.get("/", response_model=List[TransactionResponse])
 async def get_user_transactions(
     *,
@@ -30,9 +32,11 @@ async def get_user_transactions(
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
     start_date: Optional[date] = Query(None, description="Start date filter"),
     end_date: Optional[date] = Query(None, description="End date filter"),
-    transaction_category: Optional[str] = Query(None, description="Filter by transaction category"),
+    transaction_category: Optional[str] = Query(
+        None, description="Filter by transaction category"
+    ),
     skip: int = Query(0, description="Skip records", ge=0),
-    limit: int = Query(100, description="Limit records", ge=1, le=500)
+    limit: int = Query(100, description="Limit records", ge=1, le=500),
 ):
     """Get transactions for the current user with filtering and pagination."""
     try:
@@ -44,9 +48,9 @@ async def get_user_transactions(
             if not account:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied or account not found"
+                    detail="Access denied or account not found",
                 )
-            
+
             transactions = transaction_crud.get_by_account(
                 db,
                 account_id=account_id,
@@ -54,7 +58,7 @@ async def get_user_transactions(
                 limit=limit,
                 start_date=start_date,
                 end_date=end_date,
-                transaction_category=transaction_category
+                transaction_category=transaction_category,
             )
         else:
             # Get transactions across all user accounts
@@ -64,9 +68,9 @@ async def get_user_transactions(
                 skip=skip,
                 limit=limit,
                 start_date=start_date,
-                end_date=end_date
+                end_date=end_date,
             )
-        
+
         return [
             TransactionResponse.model_validate(tx, from_attributes=True)
             for tx in transactions
@@ -74,7 +78,7 @@ async def get_user_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving transactions: {str(e)}"
+            detail=f"Error retrieving transactions: {str(e)}",
         )
 
 
@@ -83,53 +87,53 @@ async def get_transaction(
     *,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
-    transaction_id: str
+    transaction_id: str,
 ):
     """Get a specific transaction by ID."""
     transaction = transaction_crud.get(db, id=transaction_id)
-    
+
     if not transaction:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transaction not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
         )
-    
+
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(transaction.account_id)
     )
-    
+
     if not account:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
         )
-    
+
     return TransactionResponse.model_validate(transaction, from_attributes=True)
 
 
-@router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_transaction(
     *,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
-    transaction_data: TransactionCreate
+    transaction_data: TransactionCreate,
 ):
     """Create a new transaction."""
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(transaction_data.account_id)
     )
-    
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied or account not found"
+            detail="Access denied or account not found",
         )
-    
+
     try:
         transaction = transaction_crud.create(db, obj_in=transaction_data)
-        
+
         # Log the creation
         audit_log_crud.log_user_action(
             db,
@@ -137,14 +141,14 @@ async def create_transaction(
             action="create",
             target_category="transaction",
             target_id=str(transaction.id),
-            description=f"Created {transaction.transaction_category} transaction"
+            description=f"Created {transaction.transaction_category} transaction",
         )
-        
+
         return TransactionResponse.model_validate(transaction, from_attributes=True)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error creating transaction: {str(e)}"
+            detail=f"Error creating transaction: {str(e)}",
         )
 
 
@@ -154,33 +158,31 @@ async def update_transaction(
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
     transaction_id: str,
-    transaction_update: TransactionUpdate
+    transaction_update: TransactionUpdate,
 ):
     """Update an existing transaction."""
     transaction = transaction_crud.get(db, id=transaction_id)
-    
+
     if not transaction:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transaction not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
         )
-    
+
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(transaction.account_id)
     )
-    
+
     if not account:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
         )
-    
+
     try:
         updated_transaction = transaction_crud.update(
             db, db_obj=transaction, obj_in=transaction_update
         )
-        
+
         # Log the update
         audit_log_crud.log_data_change(
             db,
@@ -188,14 +190,16 @@ async def update_transaction(
             action="update",
             target_category="transaction",
             target_id=transaction_id,
-            new_values=transaction_update.model_dump(exclude_unset=True)
+            new_values=transaction_update.model_dump(exclude_unset=True),
         )
-        
-        return TransactionResponse.model_validate(updated_transaction, from_attributes=True)
+
+        return TransactionResponse.model_validate(
+            updated_transaction, from_attributes=True
+        )
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error updating transaction: {str(e)}"
+            detail=f"Error updating transaction: {str(e)}",
         )
 
 
@@ -204,31 +208,29 @@ async def delete_transaction(
     *,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
-    transaction_id: str
+    transaction_id: str,
 ):
     """Delete a transaction."""
     transaction = transaction_crud.get(db, id=transaction_id)
-    
+
     if not transaction:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Transaction not found"
+            status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found"
         )
-    
+
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(transaction.account_id)
     )
-    
+
     if not account:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied"
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
         )
-    
+
     try:
         transaction_crud.delete(db, id=transaction_id)
-        
+
         # Log the deletion
         audit_log_crud.log_user_action(
             db,
@@ -236,24 +238,25 @@ async def delete_transaction(
             action="delete",
             target_category="transaction",
             target_id=transaction_id,
-            description=f"Deleted {transaction.transaction_category} transaction"
+            description=f"Deleted {transaction.transaction_category} transaction",
         )
-        
+
         return {
             "message": "Transaction deleted successfully",
             "transaction_id": transaction_id,
-            "deleted_at": datetime.utcnow().isoformat()
+            "deleted_at": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting transaction: {str(e)}"
+            detail=f"Error deleting transaction: {str(e)}",
         )
 
 
 # ===================================================================
 # Transaction Analytics Endpoints
 # ===================================================================
+
 
 @router.get("/accounts/{account_id}/summary")
 async def get_account_transaction_summary(
@@ -262,20 +265,20 @@ async def get_account_transaction_summary(
     current_user_id: str = Depends(get_current_user_id),
     account_id: str,
     start_date: Optional[date] = Query(None, description="Start date"),
-    end_date: Optional[date] = Query(None, description="End date")
+    end_date: Optional[date] = Query(None, description="End date"),
 ):
     """Get transaction summary for a specific account."""
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=account_id
     )
-    
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied or account not found"
+            detail="Access denied or account not found",
         )
-    
+
     try:
         summary = transaction_crud.get_transaction_summary(
             db, account_id=account_id, start_date=start_date, end_date=end_date
@@ -284,7 +287,7 @@ async def get_account_transaction_summary(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving transaction summary: {str(e)}"
+            detail=f"Error retrieving transaction summary: {str(e)}",
         )
 
 
@@ -294,7 +297,7 @@ async def get_portfolio_transaction_summary(
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
     start_date: Optional[date] = Query(None, description="Start date"),
-    end_date: Optional[date] = Query(None, description="End date")
+    end_date: Optional[date] = Query(None, description="End date"),
 ):
     """Get transaction summary across all user accounts."""
     try:
@@ -305,7 +308,7 @@ async def get_portfolio_transaction_summary(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving portfolio transaction summary: {str(e)}"
+            detail=f"Error retrieving portfolio transaction summary: {str(e)}",
         )
 
 
@@ -316,20 +319,22 @@ async def get_monthly_transaction_activity(
     current_user_id: str = Depends(get_current_user_id),
     account_id: str,
     year: int,
-    month: Optional[int] = Query(None, description="Specific month (1-12)", ge=1, le=12)
+    month: Optional[int] = Query(
+        None, description="Specific month (1-12)", ge=1, le=12
+    ),
 ):
     """Get monthly transaction activity for an account."""
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=account_id
     )
-    
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied or account not found"
+            detail="Access denied or account not found",
         )
-    
+
     try:
         activity = transaction_crud.get_monthly_activity(
             db, account_id=account_id, year=year, month=month
@@ -338,7 +343,7 @@ async def get_monthly_transaction_activity(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving monthly activity: {str(e)}"
+            detail=f"Error retrieving monthly activity: {str(e)}",
         )
 
 
@@ -350,7 +355,7 @@ async def get_security_transactions(
     security_id: str,
     account_id: Optional[str] = Query(None, description="Filter by account"),
     start_date: Optional[date] = Query(None, description="Start date"),
-    end_date: Optional[date] = Query(None, description="End date")
+    end_date: Optional[date] = Query(None, description="End date"),
 ):
     """Get all transactions for a specific security."""
     try:
@@ -362,18 +367,18 @@ async def get_security_transactions(
             if not account:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied or account not found"
+                    detail="Access denied or account not found",
                 )
-        
+
         transactions = transaction_crud.get_security_transactions(
             db,
             security_id=security_id,
             account_id=account_id,
             user_id=current_user_id if not account_id else None,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
         )
-        
+
         return [
             TransactionResponse.model_validate(tx, from_attributes=True)
             for tx in transactions
@@ -381,13 +386,14 @@ async def get_security_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving security transactions: {str(e)}"
+            detail=f"Error retrieving security transactions: {str(e)}",
         )
 
 
 # ===================================================================
 # Tax & Reporting Endpoints
 # ===================================================================
+
 
 @router.get("/accounts/{account_id}/realized-gains")
 async def get_realized_gains_losses(
@@ -396,28 +402,25 @@ async def get_realized_gains_losses(
     current_user_id: str = Depends(get_current_user_id),
     account_id: str,
     tax_year: Optional[int] = Query(None, description="Tax year filter"),
-    security_id: Optional[str] = Query(None, description="Filter by security")
+    security_id: Optional[str] = Query(None, description="Filter by security"),
 ):
     """Calculate realized gains/losses for tax reporting."""
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=account_id
     )
-    
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied or account not found"
+            detail="Access denied or account not found",
         )
-    
+
     try:
         gains_losses = transaction_crud.calculate_realized_gains_losses(
-            db,
-            account_id=account_id,
-            security_id=security_id,
-            tax_year=tax_year
+            db, account_id=account_id, security_id=security_id, tax_year=tax_year
         )
-        
+
         # Log tax report access
         audit_log_crud.log_user_action(
             db,
@@ -425,14 +428,14 @@ async def get_realized_gains_losses(
             action="tax_report",
             target_category="transaction",
             target_id=account_id,
-            description=f"Generated realized gains/losses report for {tax_year or 'all years'}"
+            description=f"Generated realized gains/losses report for {tax_year or 'all years'}",
         )
-        
+
         return gains_losses
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error calculating realized gains/losses: {str(e)}"
+            detail=f"Error calculating realized gains/losses: {str(e)}",
         )
 
 
@@ -441,42 +444,43 @@ async def get_tax_summary(
     *,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
-    tax_year: int
+    tax_year: int,
 ):
     """Get comprehensive tax summary across all accounts."""
     try:
         # Get all user accounts
-        from app.models.account import Account
         from sqlalchemy import select
-        
+
+        from app.models.account import Account
+
         stmt = select(Account.id).where(Account.user_id == current_user_id)
         result = db.execute(stmt)
         account_ids = [str(row[0]) for row in result.fetchall()]
-        
+
         if not account_ids:
             return {
                 "tax_year": tax_year,
-                "total_realized_gains": Decimal('0'),
-                "total_realized_losses": Decimal('0'),
-                "net_realized": Decimal('0'),
-                "by_account": {}
+                "total_realized_gains": Decimal("0"),
+                "total_realized_losses": Decimal("0"),
+                "net_realized": Decimal("0"),
+                "by_account": {},
             }
-        
-        total_gains = Decimal('0')
-        total_losses = Decimal('0')
+
+        total_gains = Decimal("0")
+        total_losses = Decimal("0")
         by_account = {}
-        
+
         for account_id in account_ids:
             gains_losses = transaction_crud.calculate_realized_gains_losses(
                 db, account_id=account_id, tax_year=tax_year
             )
-            
+
             by_account[account_id] = gains_losses
-            total_gains += gains_losses.get("realized_gains", Decimal('0'))
-            total_losses += gains_losses.get("realized_losses", Decimal('0'))
-        
+            total_gains += gains_losses.get("realized_gains", Decimal("0"))
+            total_losses += gains_losses.get("realized_losses", Decimal("0"))
+
         net_realized = total_gains - total_losses
-        
+
         # Log tax summary access
         audit_log_crud.log_user_action(
             db,
@@ -484,21 +488,21 @@ async def get_tax_summary(
             action="tax_summary",
             target_category="transaction",
             description=f"Generated tax summary for {tax_year}",
-            metadata={"tax_year": tax_year}
+            metadata={"tax_year": tax_year},
         )
-        
+
         return {
             "tax_year": tax_year,
             "total_realized_gains": total_gains,
             "total_realized_losses": total_losses,
             "net_realized": net_realized,
             "by_account": by_account,
-            "generated_at": datetime.utcnow().isoformat()
+            "generated_at": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error generating tax summary: {str(e)}"
+            detail=f"Error generating tax summary: {str(e)}",
         )
 
 
@@ -506,20 +510,21 @@ async def get_tax_summary(
 # Transaction Import & Bulk Operations
 # ===================================================================
 
+
 @router.post("/bulk-import")
 async def bulk_import_transactions(
     *,
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
-    transactions_data: List[Dict[str, Any]]
+    transactions_data: List[Dict[str, Any]],
 ):
     """Bulk import transactions."""
     if not transactions_data:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No transaction data provided"
+            detail="No transaction data provided",
         )
-    
+
     try:
         # Verify user owns all accounts referenced
         account_ids = set()
@@ -527,7 +532,7 @@ async def bulk_import_transactions(
             account_id = tx_data.get("account_id")
             if account_id:
                 account_ids.add(account_id)
-        
+
         for account_id in account_ids:
             account = account_crud.get_by_user_and_id(
                 db, user_id=current_user_id, account_id=account_id
@@ -535,13 +540,13 @@ async def bulk_import_transactions(
             if not account:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Access denied for account {account_id}"
+                    detail=f"Access denied for account {account_id}",
                 )
-        
+
         transactions = transaction_crud.bulk_import_transactions(
             db, transactions_data=transactions_data
         )
-        
+
         # Log bulk import
         audit_log_crud.log_user_action(
             db,
@@ -551,20 +556,20 @@ async def bulk_import_transactions(
             description=f"Bulk imported {len(transactions)} transactions",
             metadata={
                 "imported_count": len(transactions),
-                "account_ids": list(account_ids)
-            }
+                "account_ids": list(account_ids),
+            },
         )
-        
+
         return {
             "message": "Transactions imported successfully",
             "imported_count": len(transactions),
             "account_ids": list(account_ids),
-            "imported_at": datetime.utcnow().isoformat()
+            "imported_at": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error importing transactions: {str(e)}"
+            detail=f"Error importing transactions: {str(e)}",
         )
 
 
@@ -574,35 +579,34 @@ async def upload_transactions_csv(
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
     account_id: str = Query(..., description="Target account ID"),
-    file: UploadFile = File(..., description="CSV file with transactions")
+    file: UploadFile = File(..., description="CSV file with transactions"),
 ):
     """Upload and process transactions from CSV file."""
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=account_id
     )
-    
+
     if not account:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied or account not found"
+            detail="Access denied or account not found",
         )
-    
-    if not file.filename or not file.filename.endswith('.csv'):
+
+    if not file.filename or not file.filename.endswith(".csv"):
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="File must be a CSV"
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File must be a CSV"
         )
-    
+
     try:
         # Read CSV content
         import csv
         import io
-        
+
         content = await file.read()
-        csv_content = content.decode('utf-8')
+        csv_content = content.decode("utf-8")
         csv_reader = csv.DictReader(io.StringIO(csv_content))
-        
+
         transactions_data = []
         for row in csv_reader:
             # Basic CSV parsing - you may need to customize based on CSV format
@@ -611,23 +615,25 @@ async def upload_transactions_csv(
                 "transaction_category": row.get("category", "other"),
                 "transaction_side": row.get("side", "buy"),
                 "amount": Decimal(row.get("amount", "0")),
-                "trade_date": datetime.strptime(row.get("date") or "1970-01-01", "%Y-%m-%d").date(),
+                "trade_date": datetime.strptime(
+                    row.get("date") or "1970-01-01", "%Y-%m-%d"
+                ).date(),
                 "transaction_currency": row.get("currency", "USD"),
                 "description": row.get("description"),
                 # Add other fields as needed
             }
             transactions_data.append(tx_data)
-        
+
         if not transactions_data:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="No valid transactions found in CSV"
+                detail="No valid transactions found in CSV",
             )
-        
+
         transactions = transaction_crud.bulk_import_transactions(
             db, transactions_data=transactions_data
         )
-        
+
         # Log CSV import
         audit_log_crud.log_user_action(
             db,
@@ -636,29 +642,27 @@ async def upload_transactions_csv(
             target_category="transaction",
             target_id=account_id,
             description=f"Imported {len(transactions)} transactions from CSV",
-            metadata={
-                "filename": file.filename,
-                "imported_count": len(transactions)
-            }
+            metadata={"filename": file.filename, "imported_count": len(transactions)},
         )
-        
+
         return {
             "message": "CSV transactions imported successfully",
             "filename": file.filename,
             "imported_count": len(transactions),
             "account_id": account_id,
-            "imported_at": datetime.utcnow().isoformat()
+            "imported_at": datetime.now(UTC).isoformat(),
         }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error processing CSV: {str(e)}"
+            detail=f"Error processing CSV: {str(e)}",
         )
 
 
 # ===================================================================
 # Search & Filter Endpoints
 # ===================================================================
+
 
 @router.get("/search")
 async def search_transactions(
@@ -669,7 +673,7 @@ async def search_transactions(
     account_id: Optional[str] = Query(None, description="Filter by account"),
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
-    limit: int = Query(50, description="Maximum results", ge=1, le=200)
+    limit: int = Query(50, description="Maximum results", ge=1, le=200),
 ):
     """Search transactions by description, amount, or other criteria."""
     try:
@@ -681,16 +685,16 @@ async def search_transactions(
             if not account:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied or account not found"
+                    detail="Access denied or account not found",
                 )
-            
+
             transactions = transaction_crud.get_by_account(
                 db,
                 account_id=account_id,
                 start_date=start_date,
                 end_date=end_date,
                 skip=0,
-                limit=limit
+                limit=limit,
             )
         else:
             transactions = transaction_crud.get_by_user(
@@ -699,31 +703,36 @@ async def search_transactions(
                 start_date=start_date,
                 end_date=end_date,
                 skip=0,
-                limit=limit
+                limit=limit,
             )
-        
+
         # Filter by search term (simple text matching)
         filtered_transactions = []
         search_lower = q.lower()
-        
+
         for tx in transactions:
-            if (tx.transaction_category and search_lower in tx.transaction_category.lower()) or \
-               (tx.transaction_side and search_lower in tx.transaction_side.lower()) or \
-               str(tx.amount) == q:
+            if (
+                (
+                    tx.transaction_category
+                    and search_lower in tx.transaction_category.lower()
+                )
+                or (tx.transaction_side and search_lower in tx.transaction_side.lower())
+                or str(tx.amount) == q
+            ):
                 filtered_transactions.append(tx)
-        
+
         return {
             "transactions": [
                 TransactionResponse.model_validate(tx, from_attributes=True)
                 for tx in filtered_transactions
             ],
             "query": q,
-            "count": len(filtered_transactions)
+            "count": len(filtered_transactions),
         }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error searching transactions: {str(e)}"
+            detail=f"Error searching transactions: {str(e)}",
         )
 
 
@@ -731,19 +740,20 @@ async def search_transactions(
 # Health Check
 # ===================================================================
 
+
 @router.get("/health")
 async def transactions_health():
     """Health check for transactions service."""
     return {
         "status": "healthy",
         "service": "transactions",
-        "timestamp": datetime.utcnow().isoformat(),
+        "timestamp": datetime.now(UTC).isoformat(),
         "features": [
             "transaction_management",
-            "analytics_and_reporting", 
+            "analytics_and_reporting",
             "tax_calculations",
             "bulk_import",
             "csv_upload",
-            "search_and_filtering"
-        ]
+            "search_and_filtering",
+        ],
     }

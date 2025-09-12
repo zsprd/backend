@@ -1,5 +1,6 @@
-from typing import Optional, TYPE_CHECKING
-from sqlalchemy import String, ForeignKey, Text, JSON, Enum
+from typing import TYPE_CHECKING, Optional
+
+from sqlalchemy import JSON, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -17,7 +18,7 @@ class AuditLog(BaseModel):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
-        index=True
+        index=True,
     )
 
     # Action Details
@@ -25,12 +26,16 @@ class AuditLog(BaseModel):
     description: Mapped[Optional[str]] = mapped_column(Text)
 
     # Target Information
-    target_category: Mapped[str] = mapped_column(String(50), nullable=False)  # 'account', 'transaction', 'user'
+    target_category: Mapped[str] = mapped_column(
+        String(50), nullable=False
+    )  # 'account', 'transaction', 'user'
     target_id: Mapped[Optional[str]] = mapped_column(String(255))
 
     # Request Information
     request_path: Mapped[Optional[str]] = mapped_column(String(500))
-    request_method: Mapped[Optional[str]] = mapped_column(String(10))  # GET, POST, PUT, DELETE
+    request_method: Mapped[Optional[str]] = mapped_column(
+        String(10)
+    )  # GET, POST, PUT, DELETE
 
     # Changed: metadata -> request_metadata (metadata is reserved in SQLAlchemy)
     request_metadata: Mapped[Optional[dict]] = mapped_column(JSON)

@@ -1,8 +1,9 @@
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import Optional
 import logging
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+from typing import Optional
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -13,7 +14,7 @@ class EmailService:
     Email service for sending verification and password reset emails.
     Currently configured for Gmail SMTP for development.
     """
-    
+
     def __init__(self):
         # Email configuration (add these to your .env file)
         self.smtp_server = settings.SMTP_HOST
@@ -22,65 +23,69 @@ class EmailService:
         self.smtp_password = settings.SMTP_PASSWORD
         self.from_email = settings.FROM_EMAIL
         self.from_name = settings.FROM_NAME
-        
+
         # Frontend URL for links
         self.frontend_url = settings.FRONTEND_URL
 
     def send_email(
-        self, 
-        to_email: str, 
-        subject: str, 
-        html_content: str, 
-        text_content: Optional[str] = None
+        self,
+        to_email: str,
+        subject: str,
+        html_content: str,
+        text_content: Optional[str] = None,
     ) -> bool:
         """
         Send an email with both HTML and text content.
-        
+
         Args:
             to_email: Recipient email address
             subject: Email subject
             html_content: HTML email content
             text_content: Plain text email content (optional)
-            
+
         Returns:
             bool: True if email sent successfully, False otherwise
         """
         try:
             # Create message
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = subject
-            msg['From'] = f"{self.from_name} <{self.from_email}>"
-            msg['To'] = to_email
-            
+            msg = MIMEMultipart("alternative")
+            msg["Subject"] = subject
+            msg["From"] = f"{self.from_name} <{self.from_email}>"
+            msg["To"] = to_email
+
             # Add text content if provided
             if text_content:
-                text_part = MIMEText(text_content, 'plain')
+                text_part = MIMEText(text_content, "plain")
                 msg.attach(text_part)
-            
+
             # Add HTML content
-            html_part = MIMEText(html_content, 'html')
+            html_part = MIMEText(html_content, "html")
             msg.attach(html_part)
-            
+
             # Send email
             if not self.smtp_server or not self.smtp_port:
-                raise ValueError("SMTP server and port must be set in the configuration.")
+                raise ValueError(
+                    "SMTP server and port must be set in the configuration."
+                )
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()
                 if self.smtp_username and self.smtp_password:
                     server.login(self.smtp_username, self.smtp_password)
                 server.send_message(msg)
-            
+
             logger.info(f"Email sent successfully to {to_email}")
             return True
-            
+
         except Exception as e:
             logger.error(f"Failed to send email to {to_email}: {str(e)}")
             return False
 
-    def get_verification_email_template(self, name: str, verification_link: str) -> tuple[str, str]:
+    def get_verification_email_template(
+        self, name: str, verification_link: str
+    ) -> tuple[str, str]:
         """
         Get email verification template.
-        
+
         Returns:
             tuple: (html_content, text_content)
         """
@@ -137,7 +142,7 @@ class EmailService:
         </body>
         </html>
         """
-        
+
         text_content = f"""
         Welcome to ZSPRD Portfolio Analytics!
         
@@ -155,13 +160,15 @@ class EmailService:
         --
         ZSPRD Portfolio Analytics Team
         """
-        
+
         return html_content, text_content
 
-    def get_password_reset_email_template(self, name: str, reset_link: str) -> tuple[str, str]:
+    def get_password_reset_email_template(
+        self, name: str, reset_link: str
+    ) -> tuple[str, str]:
         """
         Get password reset email template.
-        
+
         Returns:
             tuple: (html_content, text_content)
         """
@@ -179,7 +186,7 @@ class EmailService:
                 .button {{ 
                     display: inline-block; 
                     background: #d32f2f; 
-                    color: white; 
+                    color: white;
                     padding: 12px 30px; 
                     text-decoration: none; 
                     border-radius: 5px; 
@@ -224,7 +231,7 @@ class EmailService:
         </body>
         </html>
         """
-        
+
         text_content = f"""
         Password Reset Request - ZSPRD Portfolio Analytics
         
@@ -243,7 +250,7 @@ class EmailService:
         --
         ZSPRD Portfolio Analytics Team
         """
-        
+
         return html_content, text_content
 
 
@@ -255,65 +262,63 @@ email_service = EmailService()
 async def send_verification_email(email: str, name: str, token: str) -> bool:
     """
     Send email verification email.
-    
+
     Args:
         email: User's email address
         name: User's name
         token: Verification token
-        
+
     Returns:
         bool: True if email sent successfully
     """
     verification_link = f"{email_service.frontend_url}/auth/confirm?token={token}"
-    
+
     html_content, text_content = email_service.get_verification_email_template(
-        name=name,
-        verification_link=verification_link
+        name=name, verification_link=verification_link
     )
-    
+
     return email_service.send_email(
         to_email=email,
         subject="Please verify your email - ZSPRD Portfolio Analytics",
         html_content=html_content,
-        text_content=text_content
+        text_content=text_content,
     )
 
 
 async def send_password_reset_email(email: str, name: str, token: str) -> bool:
     """
     Send password reset email.
-    
+
     Args:
         email: User's email address
-        name: User's name  
+        name: User's name
         token: Password reset token
-        
+
     Returns:
         bool: True if email sent successfully
     """
     reset_link = f"{email_service.frontend_url}/auth/reset-password?token={token}"
-    
+
     html_content, text_content = email_service.get_password_reset_email_template(
-        name=name,
-        reset_link=reset_link
+        name=name, reset_link=reset_link
     )
-    
+
     return email_service.send_email(
         to_email=email,
         subject="Reset your password - ZSPRD Portfolio Analytics",
         html_content=html_content,
-        text_content=text_content
+        text_content=text_content,
     )
 
 
 async def send_welcome_email(email: str, name: str) -> bool:
     """
     Send welcome email after email verification.
-    
+
     Args:
         email: User's email address
         name: User's name
-        
+
     Returns:
         bool: True if email sent successfully
     """
@@ -371,9 +376,9 @@ async def send_welcome_email(email: str, name: str) -> bool:
     </body>
     </html>
     """
-    
+
     return email_service.send_email(
         to_email=email,
         subject="Welcome to ZSPRD Portfolio Analytics! 🎉",
-        html_content=html_content
+        html_content=html_content,
     )

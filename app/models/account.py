@@ -1,16 +1,16 @@
 import uuid
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Boolean, ForeignKey, Enum
+from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.holding import Holding
     from app.models.transaction import Transaction
+    from app.models.user import User
 
 
 class Institution(BaseModel):
@@ -23,9 +23,15 @@ class Institution(BaseModel):
     primary_color: Mapped[Optional[str]] = mapped_column(String(7))  # Hex color code
 
     # Plaid integration
-    plaid_institution_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
-    supports_investments: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    supports_transactions: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    plaid_institution_id: Mapped[Optional[str]] = mapped_column(
+        String(255), unique=True
+    )
+    supports_investments: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
+    supports_transactions: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False
+    )
 
     # Relationships
     accounts: Mapped[list["Account"]] = relationship(back_populates="institution")
@@ -39,25 +45,29 @@ class Account(BaseModel):
 
     # Foreign Keys
     user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), 
-        ForeignKey("users.id", ondelete="CASCADE"), 
-        nullable=False, 
-        index=True
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
     institution_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), 
-        ForeignKey("institutions.id", ondelete="SET NULL"), 
-        nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("institutions.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     # Account Details
     name: Mapped[str] = mapped_column(String(255), nullable=False)
-    official_name: Mapped[Optional[str]] = mapped_column(String(255))  # Official name from institution
+    official_name: Mapped[Optional[str]] = mapped_column(
+        String(255)
+    )  # Official name from institution
 
     account_category: Mapped[str] = mapped_column(String(50), nullable=False)
     account_subtype: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
-    
-    mask: Mapped[Optional[str]] = mapped_column(String(4))  # Last 4 digits of account number
+
+    mask: Mapped[Optional[str]] = mapped_column(
+        String(4)
+    )  # Last 4 digits of account number
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
 
     # Status
@@ -68,14 +78,14 @@ class Account(BaseModel):
 
     # Relationships
     user: Mapped["User"] = relationship(back_populates="accounts")
-    institution: Mapped[Optional["Institution"]] = relationship(back_populates="accounts")
+    institution: Mapped[Optional["Institution"]] = relationship(
+        back_populates="accounts"
+    )
     holdings: Mapped[list["Holding"]] = relationship(
-        back_populates="account", 
-        cascade="all, delete-orphan"
+        back_populates="account", cascade="all, delete-orphan"
     )
     transactions: Mapped[list["Transaction"]] = relationship(
-        back_populates="account", 
-        cascade="all, delete-orphan"
+        back_populates="account", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

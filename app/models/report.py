@@ -1,9 +1,10 @@
-from sqlalchemy import String, ForeignKey, BigInteger, Text, JSON, Enum
+from typing import TYPE_CHECKING, Optional
+
+from sqlalchemy import JSON, BigInteger, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from app.models.base import BaseModel
 
-from typing import Optional, TYPE_CHECKING
+from app.models.base import BaseModel
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -17,7 +18,7 @@ class Report(BaseModel):
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
-        index=True
+        index=True,
     )
 
     # Report Details
@@ -43,4 +44,3 @@ class Report(BaseModel):
 
     def __repr__(self) -> str:
         return f"<Report(id={self.id}, name={self.title}, category={self.report_category}, status={self.status})>"
-    

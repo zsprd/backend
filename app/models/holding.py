@@ -3,9 +3,9 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, ForeignKey, DECIMAL, Date, UniqueConstraint
+from sqlalchemy import DECIMAL, Date, ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
 
@@ -19,8 +19,18 @@ class Holding(BaseModel):
 
     # Foreign Keys
 
-    account_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True)
-    security_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("securities.id", ondelete="CASCADE"), nullable=False, index=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("accounts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    security_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("securities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     # Holding Details
     quantity: Mapped[Decimal] = mapped_column(DECIMAL(15, 6), nullable=False)
@@ -42,7 +52,9 @@ class Holding(BaseModel):
 
     # Unique constraint to prevent duplicate holdings for same account/security/date
     __table_args__ = (
-        UniqueConstraint("account_id", "security_id", "as_of_date", name="_account_security_date_uc"),
+        UniqueConstraint(
+            "account_id", "security_id", "as_of_date", name="_account_security_date_uc"
+        ),
     )
 
     def __repr__(self) -> str:

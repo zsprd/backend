@@ -3,7 +3,7 @@
 ## Project Overview
 
 -   **Domain:** Professional portfolio analytics for high-net-worth individuals
--   **Stack:** FastAPI (Python 3.11+), SQLAlchemy ORM, Alembic migrations, PostgreSQL, JWT Auth, Alpha Vantage integration
+- **Stack:** FastAPI (Python 3.13+), SQLAlchemy ORM, Alembic migrations, PostgreSQL, JWT Auth, Alpha Vantage integration
 -   **API Structure:** Versioned under `/api/v1/` (see `app/api/v1/`)
 -   **Major Components:**
     -   `app/core/`: Config, DB, Auth
@@ -16,10 +16,6 @@
 
 ## Key Patterns & Conventions
 
--   **Enum Handling:**
-    -   All enums (e.g., `AccountCategory`) use lowercase string values for DB and API compatibility.
-    -   Pydantic schemas use model-level validators to coerce string values to enums.
-    -   When returning ORM objects, always convert to Pydantic models using `model_validate(obj, from_attributes=True)` to ensure enum and type correctness.
 -   **Authentication:**
     -   JWT tokens required for all endpoints except health checks.
     -   User ID is extracted from the JWT `sub` claim (see `app/core/user.py`).
@@ -36,13 +32,16 @@
 
 ## Developer Workflows
 
--   **Run API:** `uvicorn main:app --reload --host 0.0.0.0 --port 8000`
+- **Run API:** `uvicorn main:app --reload --host 127.0.0.1 --port 8000`
 -   **Run Tests:** `pytest -v`
 -   **Migrations:**
     -   `alembic revision --autogenerate -m "msg"`
     -   `alembic upgrade head`
 -   **Environment:**
-    -   Copy `.env.example` to `.env` and fill in secrets (see README)
+    - Copy `.env.example` to `.env` and fill in all required secrets and environment-specific values.
+    - All required environment variables are documented in `.env.example` at the project root. If you add new variables
+      in code, update `.env.example` accordingly.
+    - See `app/core/config.py` for how environment variables are loaded and used.
 
 ## Integration Points
 
@@ -51,7 +50,6 @@
 
 ## Examples
 
--   **Enum pattern:** See `app/models/enums.py` and `app/schemas/account.py`
 -   **Account endpoint:** See `app/api/v1/accounts.py` for explicit ORM→Pydantic conversion
 
 ## Special Notes
@@ -62,4 +60,4 @@
 
 ---
 
-For more, see `README.md` and code comments in each module.
+For more, see `README.md`, `.env.example`, and code comments in each module.`

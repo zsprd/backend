@@ -10,6 +10,7 @@ from sqlalchemy.sql import func
 
 class Base(DeclarativeBase):
     """Declarative base for all models."""
+
     pass
 
 
@@ -17,6 +18,7 @@ class BaseModel(Base):
     """
     Abstract base model that provides common fields for all models.
     """
+
     __abstract__ = True
 
     id: Mapped[uuid.UUID] = mapped_column(

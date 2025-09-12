@@ -18,7 +18,7 @@ async def get_performance_analytics(
     account_ids: Optional[List[str]] = Query(None, description="Filter by account IDs"),
     start_date: Optional[date] = Query(None, description="Start date for analysis"),
     end_date: Optional[date] = Query(None, description="End date for analysis"),
-    base_currency: str = Query("USD", description="Base currency for calculations")
+    base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """
     Get portfolio performance analytics.
@@ -59,7 +59,7 @@ async def get_risk_analytics(
     current_user_id: str = Depends(get_current_user_id),
     account_ids: Optional[List[str]] = Query(None, description="Filter by account IDs"),
     confidence_level: float = Query(95.0, description="VaR confidence level"),
-    base_currency: str = Query("USD", description="Base currency for calculations")
+    base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """
     Get portfolio risk analytics.
@@ -90,7 +90,7 @@ async def get_exposure_analytics(
     db: Session = Depends(get_db),
     current_user_id: str = Depends(get_current_user_id),
     account_ids: Optional[List[str]] = Query(None, description="Filter by account IDs"),
-    base_currency: str = Query("USD", description="Base currency for calculations")
+    base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """
     Get portfolio exposure analytics (allocation breakdown).
@@ -142,7 +142,7 @@ async def get_performance_attribution(
     current_user_id: str = Depends(get_current_user_id),
     account_ids: Optional[List[str]] = Query(None, description="Filter by account IDs"),
     start_date: Optional[date] = Query(None, description="Start date for analysis"),
-    end_date: Optional[date] = Query(None, description="End date for analysis")
+    end_date: Optional[date] = Query(None, description="End date for analysis"),
 ):
     """
     Get performance attribution analysis.

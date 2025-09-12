@@ -1,14 +1,14 @@
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Boolean, Enum
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy import Boolean, String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
     from app.models.holding import Holding
-    from app.models.transaction import Transaction
     from app.models.market_data import MarketData
+    from app.models.transaction import Transaction
 
 
 class Security(BaseModel):
@@ -21,22 +21,30 @@ class Security(BaseModel):
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
 
     # Market Information
-    exchange: Mapped[Optional[str]] = mapped_column(String(10))  # e.g., NASDAQ, NYSE, LSE
-    country: Mapped[Optional[str]] = mapped_column(String(2))    # ISO country code
+    exchange: Mapped[Optional[str]] = mapped_column(
+        String(10)
+    )  # e.g., NASDAQ, NYSE, LSE
+    country: Mapped[Optional[str]] = mapped_column(String(2))  # ISO country code
 
     # Classification
     sector: Mapped[Optional[str]] = mapped_column(String(100))
     industry: Mapped[Optional[str]] = mapped_column(String(100))
 
     # Identifiers
-    cusip: Mapped[Optional[str]] = mapped_column(String(9))      # US securities identifier
-    isin: Mapped[Optional[str]] = mapped_column(String(12))      # International securities identifier
-    sedol: Mapped[Optional[str]] = mapped_column(String(7))      # Stock Exchange Daily Official List
+    cusip: Mapped[Optional[str]] = mapped_column(String(9))  # US securities identifier
+    isin: Mapped[Optional[str]] = mapped_column(
+        String(12)
+    )  # International securities identifier
+    sedol: Mapped[Optional[str]] = mapped_column(
+        String(7)
+    )  # Stock Exchange Daily Official List
 
     # External Integration
     plaid_security_id: Mapped[Optional[str]] = mapped_column(String(255))
     alphavantage_symbol: Mapped[Optional[str]] = mapped_column(String(20))
-    data_provider_category: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    data_provider_category: Mapped[Optional[str]] = mapped_column(
+        String(50), nullable=True
+    )
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
@@ -44,7 +52,9 @@ class Security(BaseModel):
     # Relationships
     holdings: Mapped[list["Holding"]] = relationship(back_populates="security")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="security")
-    market_data: Mapped[list["MarketData"]] = relationship(back_populates="security", cascade="all, delete-orphan")
+    market_data: Mapped[list["MarketData"]] = relationship(
+        back_populates="security", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Security(id={self.id}, symbol={self.symbol}, name={self.name})>"

@@ -1,21 +1,29 @@
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import String, Boolean, Text, ForeignKey, DateTime, Enum
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.models.base import BaseModel
 
-from typing import Optional, TYPE_CHECKING
-
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.alert import Alert
+    from app.models.user import User
+
 
 class Notification(BaseModel):
     __tablename__ = "notifications"
 
     # Foreign Keys
-    user_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    alert_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True), ForeignKey("alerts.id", ondelete="SET NULL"), nullable=True)
+    user_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    alert_id: Mapped[Optional[UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("alerts.id", ondelete="SET NULL"), nullable=True
+    )
 
     # Notification Details
     notification_category: Mapped[str] = mapped_column(String(50), nullable=False)
@@ -31,8 +39,12 @@ class Notification(BaseModel):
     read_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
 
     # Priority
-    priority: Mapped[str] = mapped_column(String(20), default="normal")  # low, normal, high, urgent
+    priority: Mapped[str] = mapped_column(
+        String(20), default="normal"
+    )  # low, normal, high, urgent
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="notifications")
-    alert: Mapped[Optional["Alert"]] = relationship("Alert", back_populates="notifications")
+    alert: Mapped[Optional["Alert"]] = relationship(
+        "Alert", back_populates="notifications"
+    )

@@ -1,7 +1,15 @@
 from typing import TYPE_CHECKING, Optional
-from sqlalchemy import String, DECIMAL, Date, BigInteger, UniqueConstraint, ForeignKey, Enum
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+
+from sqlalchemy import (
+    DECIMAL,
+    BigInteger,
+    Date,
+    ForeignKey,
+    String,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import BaseModel
 
@@ -13,7 +21,12 @@ class MarketData(BaseModel):
     __tablename__ = "market_data"
 
     # Foreign Key
-    security_id: Mapped[UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("securities.id", ondelete="CASCADE"), nullable=False, index=True)
+    security_id: Mapped[UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("securities.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
 
     # Date
     price_date: Mapped[Date] = mapped_column(Date, nullable=False, index=True)
@@ -58,7 +71,12 @@ class ExchangeRate(BaseModel):
 
     # Unique constraint - one rate per currency pair per date
     __table_args__ = (
-        UniqueConstraint("base_currency", "quote_currency", "rate_date", name="_currency_pair_rate_date_uc"),
+        UniqueConstraint(
+            "base_currency",
+            "quote_currency",
+            "rate_date",
+            name="_currency_pair_rate_date_uc",
+        ),
     )
 
     def __repr__(self) -> str:
