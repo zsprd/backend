@@ -3,8 +3,6 @@ from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
 
-from app.models.enums import DataProviderCategory, SecurityCategory
-
 
 class MarketDataBase(BaseModel):
     as_of_date: date = Field(..., description="Market data date")
@@ -15,7 +13,7 @@ class MarketDataBase(BaseModel):
     volume: Optional[int] = Field(None, description="Trading volume")
     adjusted_close: Optional[Decimal] = Field(None, description="Adjusted closing price")
     currency: str = Field(..., max_length=3, description="Price currency")
-    data_source: DataProviderCategory = Field(..., description="Data source")
+    data_source: str = Field(..., description="Data source")
 
 
 class MarketDataCreate(MarketDataBase):
@@ -80,7 +78,7 @@ class ExchangeRateBase(BaseModel):
     quote_currency: str = Field(..., max_length=3, description="Quote currency")
     as_of_date: date = Field(..., description="Exchange rate date")
     rate: Decimal = Field(..., description="Exchange rate")
-    data_source: DataProviderCategory = Field(..., description="Data source")
+    data_source: str = Field(..., description="Data source")
 
 
 class ExchangeRateCreate(ExchangeRateBase):
@@ -173,5 +171,5 @@ class MarketDataStats(BaseModel):
     data_points_total: int
     date_range: dict = Field(default_factory=dict)
     by_source: dict = Field(default_factory=dict)
-    by_security_type: dict[SecurityCategory, int] = Field(default_factory=dict)
+    by_security_type: dict[str, int] = Field(default_factory=dict)
     

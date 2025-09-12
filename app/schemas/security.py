@@ -2,13 +2,11 @@ from typing import Optional
 from pydantic import BaseModel, Field, UUID4
 from datetime import datetime
 
-from app.models.enums import SecurityCategory
-
 
 class SecurityBase(BaseModel):
     symbol: str = Field(..., max_length=20, description="Trading symbol")
     name: str = Field(..., max_length=255, description="Security name")
-    category: SecurityCategory = Field(..., description="Security category (equity, etf, etc.)")
+    category: str = Field(..., description="Security category (equity, etf, etc.)")
     currency: str = Field("USD", max_length=3, description="Trading currency")
     exchange: Optional[str] = Field(None, max_length=10, description="Exchange code")
     country: Optional[str] = Field(None, max_length=2, description="Country code")
@@ -55,7 +53,7 @@ class SecurityBasicInfo(BaseModel):
     id: UUID4
     symbol: str
     name: str
-    category: SecurityCategory
+    category: str
     currency: str
     exchange: Optional[str]
     sector: Optional[str]

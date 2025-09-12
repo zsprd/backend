@@ -4,7 +4,7 @@ from datetime import datetime, date
 from decimal import Decimal
 
 from app.schemas.security import SecurityBasicInfo
-from app.models.enums import SecurityCategory
+
 
 
 class HoldingBase(BaseModel):
@@ -62,7 +62,7 @@ class HoldingSummaryResponse(BaseModel):
     total_unrealized_gain_loss: Decimal
     total_unrealized_gain_loss_percent: Decimal
     base_currency: str
-    by_asset_type: dict[SecurityCategory, Decimal]
+    by_asset_type: dict[str, Decimal]
     by_sector: dict
     by_geography: dict
     as_of_date: date

@@ -4,12 +4,11 @@ from datetime import datetime, date
 from decimal import Decimal
 
 from app.schemas.security import SecurityBasicInfo
-from app.models.enums import TransactionCategory, TransactionSideCategory
 
 
 class TransactionBase(BaseModel):
-    transaction_category: TransactionCategory = Field(..., description="Transaction category")
-    transaction_side: Optional[TransactionSideCategory] = Field(None, description="Buy or sell side")
+    transaction_category: str = Field(..., description="Transaction category")
+    transaction_side: Optional[str] = Field(None, description="Buy or sell side")
     quantity: Optional[Decimal] = Field(None, description="Quantity of securities")
     price: Optional[Decimal] = Field(None, description="Price per unit")
     amount: Decimal = Field(..., description="Total transaction amount")
@@ -32,8 +31,8 @@ class TransactionCreate(TransactionBase):
 
 
 class TransactionUpdate(BaseModel):
-    transaction_category: Optional[TransactionCategory] = None
-    transaction_side: Optional[TransactionSideCategory] = None
+    transaction_category: Optional[str] = None
+    transaction_side: Optional[str] = None
     quantity: Optional[Decimal] = None
     price: Optional[Decimal] = None
     amount: Optional[Decimal] = None
