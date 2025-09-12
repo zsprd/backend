@@ -4,12 +4,12 @@ ZSPRD Portfolio Analytics Backend - Development Server
 This script starts the FastAPI development server with proper configuration.
 """
 
-import os
-import sys
 import asyncio
-import uvicorn
 import logging
+import sys
 from pathlib import Path
+
+import uvicorn
 from sqlalchemy import text
 
 # Add the current directory to Python path
@@ -24,29 +24,27 @@ from app.models.base import Base
 # Configure logging
 logging.basicConfig(
     level=getattr(logging, settings.LOG_LEVEL.upper()),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
 
 def check_environment():
     """Check if all required environment variables are set."""
-    required_vars = [
-        "SECRET_KEY",
-        "ALPHA_VANTAGE_API_KEY",
-        "DATABASE_URL"
-    ]
-    
+    required_vars = ["SECRET_KEY", "ALPHA_VANTAGE_API_KEY", "DATABASE_URL"]
+
     missing_vars = []
     for var in required_vars:
         if not getattr(settings, var, None):
             missing_vars.append(var)
-    
+
     if missing_vars:
-        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
+        logger.error(
+            f"Missing required environment variables: {', '.join(missing_vars)}"
+        )
         logger.error("Please check your .env file")
         return False
-    
+
     return True
 
 
@@ -69,8 +67,15 @@ def create_tables():
     """Create database tables if they don't exist."""
     try:
         # Import all models to ensure they're registered
-        from app.models import user, account, security, holding, transaction, market_data
-        
+        from app.models import (
+            user,
+            account,
+            security,
+            holding,
+            transaction,
+            market_data,
+        )
+
         # Create tables
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database tables created/verified")
@@ -82,15 +87,15 @@ def create_tables():
 
 def print_startup_info():
     """Print startup information."""
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print("🚀 ZSPRD Portfolio Analytics Backend")
-    print("="*60)
+    print("=" * 60)
     print(f"Environment: {settings.ENVIRONMENT}")
     print(f"Debug Mode: {settings.DEBUG}")
     print(f"Database: {settings.POSTGRES_DB}@{settings.POSTGRES_HOST}")
     print(f"API Version: {settings.API_VERSION}")
     print(f"CORS Origins: {settings.CORS_ORIGINS}")
-    print("="*60)
+    print("=" * 60)
     print("\n📋 Available Endpoints:")
     print("  • Health Check: http://localhost:8000/health")
     print("  • API Docs: http://localhost:8000/api/v1/docs")
@@ -108,41 +113,41 @@ def print_startup_info():
     print("  • Use the interactive API docs to test endpoints")
     print("  • Check logs for any issues during startup")
     print("  • Ensure your frontend is configured to use these endpoints")
-    print("="*60 + "\n")
+    print("=" * 60 + "\n")
 
 
 async def main():
     """Main startup function."""
     print("🔧 Starting ZSPRD Portfolio Analytics Backend...")
-    
+
     # Check environment
     if not check_environment():
         sys.exit(1)
-    
+
     # Test database
     if not test_database_connection():
         sys.exit(1)
-    
+
     # Create tables
     if not create_tables():
         sys.exit(1)
-    
+
     # Print startup info
     print_startup_info()
-    
+
     # Start server
     config = uvicorn.Config(
         app="main:app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8000,
         reload=settings.DEBUG,
         log_level=settings.LOG_LEVEL.lower(),
         access_log=True,
-        reload_dirs=[str(current_dir)] if settings.DEBUG else None
+        reload_dirs=[str(current_dir)] if settings.DEBUG else None,
     )
-    
+
     server = uvicorn.Server(config)
-    
+
     try:
         logger.info("🚀 Starting FastAPI server...")
         await server.serve()
@@ -167,15 +172,19 @@ def run_development_server():
 if __name__ == "__main__":
     # Check if we're in the right directory
     if not Path("main.py").exists():
-        print("❌ Error: main.py not found. Please run this script from the project root directory.")
+        print(
+            "❌ Error: main.py not found. Please run this script from the project root directory."
+        )
         sys.exit(1)
-    
+
     # Check if .env file exists
     if not Path(".env").exists():
-        print("⚠️  Warning: .env file not found. Please create one based on .env.example")
-        if input("Continue anyway? (y/N): ").lower() != 'y':
+        print(
+            "⚠️  Warning: .env file not found. Please create one based on .env.example"
+        )
+        if input("Continue anyway? (y/N): ").lower() != "y":
             sys.exit(1)
-    
+
     run_development_server()
 
 
@@ -183,7 +192,7 @@ if __name__ == "__main__":
 def create_test_user():
     """Create a test user for development."""
     from app.crud.user import user_crud
-    
+
     db = SessionLocal()
     try:
         # Check if test user exists
@@ -191,19 +200,19 @@ def create_test_user():
         if existing_user:
             logger.info("Test user already exists")
             return
-        
+
         # Create test user
         user_data = {
             "email": "test@zsprd.com",
             "full_name": "Test User",
             "is_active": True,
             "is_verified": True,
-            "base_currency": "USD"
+            "base_currency": "USD",
         }
-        
+
         user = user_crud.create_from_dict(db, obj_in=user_data)
         logger.info(f"Created test user: {user.email} (ID: {user.id})")
-        
+
     except Exception as e:
         logger.error(f"Failed to create test user: {e}")
     finally:
@@ -213,7 +222,7 @@ def create_test_user():
 def create_sample_data():
     """Create sample data for development and testing."""
     logger.info("Creating sample data...")
-    
+
     # This would create sample accounts, securities, holdings, etc.
     # For now, just create a test user
     create_test_user()
@@ -222,19 +231,25 @@ def create_sample_data():
 # CLI interface
 if __name__ == "__main__":
     import argparse
-    
+
     parser = argparse.ArgumentParser(description="ZSPRD Backend Development Server")
-    parser.add_argument("--create-sample-data", action="store_true", 
-                       help="Create sample data for testing")
-    parser.add_argument("--check-only", action="store_true",
-                       help="Only check environment and database, don't start server")
-    
+    parser.add_argument(
+        "--create-sample-data",
+        action="store_true",
+        help="Create sample data for testing",
+    )
+    parser.add_argument(
+        "--check-only",
+        action="store_true",
+        help="Only check environment and database, don't start server",
+    )
+
     args = parser.parse_args()
-    
+
     if args.create_sample_data:
         create_sample_data()
         sys.exit(0)
-    
+
     if args.check_only:
         if check_environment() and test_database_connection():
             print("✅ All checks passed!")
@@ -242,5 +257,5 @@ if __name__ == "__main__":
         else:
             print("❌ Some checks failed")
             sys.exit(1)
-    
+
     run_development_server()

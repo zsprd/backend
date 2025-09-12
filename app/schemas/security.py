@@ -1,6 +1,8 @@
-from typing import Optional
-from pydantic import BaseModel, Field, UUID4
 from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class SecurityBase(BaseModel):
@@ -32,7 +34,7 @@ class SecurityUpdate(BaseModel):
 
 
 class SecurityResponse(SecurityBase):
-    id: UUID4
+    id: UUID
     cusip: Optional[str]
     isin: Optional[str]
     sedol: Optional[str]
@@ -43,14 +45,15 @@ class SecurityResponse(SecurityBase):
     is_delisted: bool
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 
 
 class SecurityBasicInfo(BaseModel):
     """Lightweight security info for nested responses"""
-    id: UUID4
+
+    id: UUID
     symbol: str
     name: str
     category: str

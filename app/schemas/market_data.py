@@ -1,7 +1,9 @@
-from typing import Optional, List
-from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
+from typing import Optional, List
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 
 class MarketDataBase(BaseModel):
@@ -11,13 +13,15 @@ class MarketDataBase(BaseModel):
     low: Optional[Decimal] = Field(None, description="Low price")
     close: Decimal = Field(..., description="Closing price")
     volume: Optional[int] = Field(None, description="Trading volume")
-    adjusted_close: Optional[Decimal] = Field(None, description="Adjusted closing price")
+    adjusted_close: Optional[Decimal] = Field(
+        None, description="Adjusted closing price"
+    )
     currency: str = Field(..., max_length=3, description="Price currency")
     data_source: str = Field(..., description="Data source")
 
 
 class MarketDataCreate(MarketDataBase):
-    security_id: UUID4 = Field(..., description="Security ID")
+    security_id: UUID = Field(..., description="Security ID")
 
 
 class MarketDataUpdate(BaseModel):
@@ -31,13 +35,14 @@ class MarketDataUpdate(BaseModel):
 
 
 class MarketData(MarketDataBase):
-    id: UUID4
-    security_id: UUID4
+    id: UUID
+    security_id: UUID
     created_at: datetime
 
 
 class PricePoint(BaseModel):
     """Single price point for charting"""
+
     date: date
     price: float
     volume: Optional[int] = None
@@ -45,7 +50,8 @@ class PricePoint(BaseModel):
 
 class PriceHistory(BaseModel):
     """Historical price data for a security"""
-    security_id: UUID4
+
+    security_id: UUID
     symbol: str
     name: str
     currency: str
@@ -57,6 +63,7 @@ class PriceHistory(BaseModel):
 
 class OHLCV(BaseModel):
     """OHLCV data point"""
+
     date: date
     open: float
     high: float
@@ -67,7 +74,8 @@ class OHLCV(BaseModel):
 
 class CandlestickData(BaseModel):
     """Candlestick chart data"""
-    security_id: UUID4
+
+    security_id: UUID
     symbol: str
     timeframe: str  # daily, weekly, monthly
     data: List[OHLCV]
@@ -86,12 +94,12 @@ class ExchangeRateCreate(ExchangeRateBase):
 
 
 class ExchangeRate(ExchangeRateBase):
-    id: UUID4
+    id: UUID
     created_at: datetime
 
 
 class QuoteData(BaseModel):
-    security_id: UUID4
+    security_id: UUID
     symbol: str
     price: float
     change: float
@@ -107,7 +115,8 @@ class QuoteData(BaseModel):
 
 class MarketDataRefreshStatus(BaseModel):
     """Status of market data refresh operation"""
-    security_id: UUID4
+
+    security_id: UUID
     symbol: str
     status: str  # pending, in_progress, completed, failed
     last_updated: Optional[datetime] = None
@@ -117,6 +126,7 @@ class MarketDataRefreshStatus(BaseModel):
 
 class BulkRefreshResult(BaseModel):
     """Result of bulk market data refresh"""
+
     total_securities: int
     successful_refreshes: int
     failed_refreshes: int
@@ -126,10 +136,13 @@ class BulkRefreshResult(BaseModel):
 
 class MarketSummary(BaseModel):
     """Market summary statistics"""
+
     date: date
     total_securities: int
     securities_updated: int
-    price_changes: dict = Field(default_factory=dict, description="Price change distribution")
+    price_changes: dict = Field(
+        default_factory=dict, description="Price change distribution"
+    )
     volume_stats: dict = Field(default_factory=dict, description="Volume statistics")
     top_gainers: List[dict] = Field(default_factory=list)
     top_losers: List[dict] = Field(default_factory=list)
@@ -138,23 +151,24 @@ class MarketSummary(BaseModel):
 
 class TechnicalIndicators(BaseModel):
     """Technical analysis indicators"""
-    security_id: UUID4
+
+    security_id: UUID
     symbol: str
     date: date
-    
+
     # Moving averages
     sma_20: Optional[float] = None
     sma_50: Optional[float] = None
     sma_200: Optional[float] = None
     ema_12: Optional[float] = None
     ema_26: Optional[float] = None
-    
+
     # Momentum indicators
     rsi_14: Optional[float] = None
     macd: Optional[float] = None
     macd_signal: Optional[float] = None
     macd_histogram: Optional[float] = None
-    
+
     # Volatility indicators
     bollinger_upper: Optional[float] = None
     bollinger_middle: Optional[float] = None
@@ -164,6 +178,7 @@ class TechnicalIndicators(BaseModel):
 
 class MarketDataStats(BaseModel):
     """Market data coverage statistics"""
+
     total_securities: int
     securities_with_data: int
     coverage_percentage: float
@@ -172,4 +187,3 @@ class MarketDataStats(BaseModel):
     date_range: dict = Field(default_factory=dict)
     by_source: dict = Field(default_factory=dict)
     by_security_type: dict[str, int] = Field(default_factory=dict)
-    

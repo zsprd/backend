@@ -5,9 +5,9 @@ services:
     db:
         image: postgres:15-alpine
         environment:
-            POSTGRES_DB: zsprd_dev
-            POSTGRES_USER: zsprd_dev
-            POSTGRES_PASSWORD: secure
+          POSTGRES_DB: ${POSTGRES_DB}
+          POSTGRES_USER: ${POSTGRES_USER}
+          POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
         ports:
             - '5432:5432'
         volumes:
@@ -38,10 +38,10 @@ services:
         ports:
             - '8000:8000'
         environment:
-            - DATABASE_URL=postgresql://zsprd_dev:secure@db:5432/zsprd_dev
-            - REDIS_URL=redis://redis:6379/0
-            - DEBUG=True
-            - ENVIRONMENT=development
+          - DATABASE_URL=${DATABASE_URL}
+          - REDIS_URL=${REDIS_URL}
+          - DEBUG=${DEBUG}
+          - ENVIRONMENT=${ENVIRONMENT}
         env_file:
             - .env
         depends_on:

@@ -1,6 +1,9 @@
-from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, UUID4, field_validator
 from datetime import datetime
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
 
 class SignUpRequest(BaseModel):
     email: EmailStr = Field(..., description="User email address")
@@ -10,7 +13,7 @@ class SignUpRequest(BaseModel):
 
 class SignUpResponse(BaseModel):
     message: str
-    user_id: UUID4
+    user_id: UUID
     email_verification_required: bool = True
     user: dict
 
@@ -79,23 +82,28 @@ class UserProfileUpdate(BaseModel):
     language: Optional[str] = None
     theme_preference: Optional[str] = None
 
+
 class UserCreate(BaseModel):
     email: EmailStr = Field(..., description="User email address")
     password: Optional[str] = Field(None, min_length=8, description="Password")
-    full_name: Optional[str] = Field(None, min_length=1, max_length=255, description="Full name")
-    google_id: Optional[str] = Field(None, max_length=255, description="Google OAuth ID")
+    full_name: Optional[str] = Field(
+        None, min_length=1, max_length=255, description="Full name"
+    )
+    google_id: Optional[str] = Field(
+        None, max_length=255, description="Google OAuth ID"
+    )
     apple_id: Optional[str] = Field(None, max_length=255, description="Apple OAuth ID")
     base_currency: str = Field("USD", max_length=3, description="Base currency")
     timezone: str = Field("UTC", max_length=50, description="User timezone")
     language: str = Field("en", max_length=5, description="Language preference")
     is_verified: bool = Field(False, description="Email verification status")
 
-    @field_validator('base_currency')
+    @field_validator("base_currency")
     @classmethod
     def validate_currency(cls, v: str) -> str:
         return v.upper()
 
-    @field_validator('language') 
+    @field_validator("language")
     @classmethod
     def validate_language(cls, v: str) -> str:
         return v.lower()
@@ -111,12 +119,12 @@ class UserUpdate(BaseModel):
     is_verified: Optional[bool] = None
     is_premium: Optional[bool] = None
 
-    @field_validator('base_currency')
+    @field_validator("base_currency")
     @classmethod
     def validate_currency(cls, v: Optional[str]) -> Optional[str]:
         return v.upper() if v else v
 
-    @field_validator('language')
+    @field_validator("language")
     @classmethod
     def validate_language(cls, v: Optional[str]) -> Optional[str]:
         return v.lower() if v else v
@@ -124,9 +132,12 @@ class UserUpdate(BaseModel):
 
 # ===== USER SESSION SCHEMAS =====
 
+
 class UserSessionCreate(BaseModel):
-    user_id: UUID4 = Field(..., description="User ID")
-    refresh_token: str = Field(..., min_length=1, max_length=500, description="Refresh token")
+    user_id: UUID = Field(..., description="User ID")
+    refresh_token: str = Field(
+        ..., min_length=1, max_length=500, description="Refresh token"
+    )
     expires_at: datetime = Field(..., description="Token expiration")
     ip_address: Optional[str] = Field(None, description="Client IP address")
     user_agent: Optional[str] = Field(None, max_length=500, description="User agent")
@@ -142,8 +153,8 @@ class UserSessionUpdate(BaseModel):
 
 
 class UserSessionResponse(BaseModel):
-    id: UUID4
-    user_id: UUID4
+    id: UUID
+    user_id: UUID
     refresh_token: str
     expires_at: datetime
     created_at: datetime
@@ -153,6 +164,6 @@ class UserSessionResponse(BaseModel):
     device_type: Optional[str]
     is_expired: bool
     is_active: bool
-    
+
     class Config:
         from_attributes = True

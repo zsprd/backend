@@ -36,17 +36,15 @@ pip install -r requirements.txt
 cp .env.example .env
 ```
 
-2. Update your `.env` file:
+2. Open `.env` and fill in all required secrets and configuration values. **Do not use example or default secrets in
+   production.**
 
-```env
-# Add your Alpha Vantage API key
-ALPHA_VANTAGE_API_KEY=your-actual-api-key-here
+Example `.env` (do not commit this file):
 
-# Generate a secure secret key
-SECRET_KEY=your-super-secret-key-change-this
-
-# Verify database credentials
-DATABASE_URL=postgresql://zsprd_dev:secure@localhost:5432/zsprd_dev
+```
+ALPHA_VANTAGE_API_KEY=your-alpha-vantage-key
+SECRET_KEY=your-super-secret-key
+DATABASE_URL=postgresql://<user>:<password>@localhost:5432/<db>
 ```
 
 ### Step 4: Test Database Connection

@@ -1,7 +1,9 @@
-from typing import Optional, List
-from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
+from typing import Optional, List
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 from app.schemas.security import SecurityBasicInfo
 
@@ -16,16 +18,22 @@ class TransactionBase(BaseModel):
     tax: Optional[Decimal] = Field(None, description="Tax amount")
     trade_date: date = Field(..., description="Trade execution date")
     settlement_date: Optional[date] = Field(None, description="Settlement date")
-    transaction_currency: str = Field(..., max_length=3, description="Transaction currency")
-    fx_rate: Optional[Decimal] = Field(None, description="FX rate if currency conversion")
+    transaction_currency: str = Field(
+        ..., max_length=3, description="Transaction currency"
+    )
+    fx_rate: Optional[Decimal] = Field(
+        None, description="FX rate if currency conversion"
+    )
     description: Optional[str] = Field(None, description="Transaction description")
     memo: Optional[str] = Field(None, description="Additional notes")
-    subcategory: Optional[str] = Field(None, max_length=100, description="Transaction subcategory")
+    subcategory: Optional[str] = Field(
+        None, max_length=100, description="Transaction subcategory"
+    )
 
 
 class TransactionCreate(TransactionBase):
-    account_id: UUID4 = Field(..., description="Account ID")
-    security_id: Optional[UUID4] = Field(None, description="Security ID (if applicable)")
+    account_id: UUID = Field(..., description="Account ID")
+    security_id: Optional[UUID] = Field(None, description="Security ID (if applicable)")
     plaid_transaction_id: Optional[str] = Field(None, max_length=255)
     data_provider: str = Field("manual", description="Data provider source")
 
@@ -46,23 +54,23 @@ class TransactionUpdate(BaseModel):
 
 
 class TransactionResponse(TransactionBase):
-    id: UUID4
-    account_id: UUID4
-    security_id: Optional[UUID4]
+    id: UUID
+    account_id: UUID
+    security_id: Optional[UUID]
     plaid_transaction_id: Optional[str]
     data_provider: str
     created_at: datetime
     updated_at: datetime
-    
+
     # Nested relationships
     security: Optional[SecurityBasicInfo] = None
-    
+
     class Config:
         from_attributes = True
 
 
 class TransactionSummaryResponse(BaseModel):
-    account_id: Optional[UUID4]
+    account_id: Optional[UUID]
     total_transactions: int
     total_invested: Decimal
     total_fees: Decimal

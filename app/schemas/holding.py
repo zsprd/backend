@@ -1,15 +1,18 @@
-from typing import Optional
-from pydantic import BaseModel, Field, UUID4
 from datetime import datetime, date
 from decimal import Decimal
+from typing import Optional
+from uuid import UUID
+
+from pydantic import BaseModel, Field
 
 from app.schemas.security import SecurityBasicInfo
 
 
-
 class HoldingBase(BaseModel):
     quantity: Decimal = Field(..., description="Number of shares/units held")
-    cost_basis_per_share: Optional[Decimal] = Field(None, description="Average cost per share")
+    cost_basis_per_share: Optional[Decimal] = Field(
+        None, description="Average cost per share"
+    )
     cost_basis_total: Optional[Decimal] = Field(None, description="Total cost basis")
     market_value: Optional[Decimal] = Field(None, description="Current market value")
     currency: str = Field(..., max_length=3, description="Currency of the holding")
@@ -17,12 +20,16 @@ class HoldingBase(BaseModel):
 
 
 class HoldingCreate(HoldingBase):
-    account_id: UUID4 = Field(..., description="Account ID")
-    security_id: UUID4 = Field(..., description="Security ID")
+    account_id: UUID = Field(..., description="Account ID")
+    security_id: UUID = Field(..., description="Security ID")
     plaid_account_id: Optional[str] = Field(None, max_length=255)
     plaid_security_id: Optional[str] = Field(None, max_length=255)
-    institution_price: Optional[Decimal] = Field(None, description="Price from institution")
-    institution_value: Optional[Decimal] = Field(None, description="Value from institution")
+    institution_price: Optional[Decimal] = Field(
+        None, description="Price from institution"
+    )
+    institution_value: Optional[Decimal] = Field(
+        None, description="Value from institution"
+    )
 
 
 class HoldingUpdate(BaseModel):
@@ -37,25 +44,25 @@ class HoldingUpdate(BaseModel):
 
 
 class HoldingResponse(HoldingBase):
-    id: UUID4
-    account_id: UUID4
-    security_id: UUID4
+    id: UUID
+    account_id: UUID
+    security_id: UUID
     plaid_account_id: Optional[str]
     plaid_security_id: Optional[str]
     institution_price: Optional[Decimal]
     institution_value: Optional[Decimal]
     created_at: datetime
     updated_at: datetime
-    
+
     # Nested relationships
     security: Optional[SecurityBasicInfo] = None
-    
+
     class Config:
         from_attributes = True
 
 
 class HoldingSummaryResponse(BaseModel):
-    account_id: UUID4
+    account_id: UUID
     total_holdings: int
     total_market_value: Decimal
     total_cost_basis: Decimal
