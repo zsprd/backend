@@ -10,8 +10,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.account import Account
-    from app.models.security import Security
+    from app.models.core.account import Account
+    from app.models.security.security import Security
 
 
 class Holding(BaseModel):
@@ -58,4 +58,6 @@ class Holding(BaseModel):
     )
 
     def __repr__(self) -> str:
-        return f"<Holding(id={self.id}, account_id={self.account_id}, security_id={self.security_id})>"
+        return (
+            f"<Holding(id={self.id}, account_id={self.account_id}, security_id={self.security_id})>"
+        )

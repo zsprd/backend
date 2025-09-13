@@ -5,7 +5,7 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.crud.base import CRUDBase
-from app.models.audit_log import AuditLog
+from app.models.system.audit_log import AuditLog
 
 
 class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
@@ -198,9 +198,7 @@ class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
         end_date: Optional[datetime] = None,
     ) -> List[AuditLog]:
         """Get login/logout history."""
-        stmt = select(AuditLog).where(
-            AuditLog.action.in_(["login", "logout", "login_failed"])
-        )
+        stmt = select(AuditLog).where(AuditLog.action.in_(["login", "logout", "login_failed"]))
 
         if user_id:
             stmt = stmt.where(AuditLog.user_id == user_id)
@@ -294,9 +292,9 @@ class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
         # Unique users (if not filtered by user)
         unique_users = 0
         if not user_id:
-            users_stmt = select(
-                func.count(func.distinct(AuditLog.user_id))
-            ).select_from(base_stmt.subquery())
+            users_stmt = select(func.count(func.distinct(AuditLog.user_id))).select_from(
+                base_stmt.subquery()
+            )
             users_result = db.execute(users_stmt)
             unique_users = users_result.scalar() or 0
 
@@ -351,9 +349,7 @@ class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
 
         # Count logs to be deleted
-        count_stmt = select(func.count(AuditLog.id)).where(
-            AuditLog.created_at < cutoff_date
-        )
+        count_stmt = select(func.count(AuditLog.id)).where(AuditLog.created_at < cutoff_date)
         count_result = db.execute(count_stmt)
         count_to_delete = count_result.scalar() or 0
 

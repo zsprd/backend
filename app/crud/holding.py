@@ -109,13 +109,9 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
 
         for holding in holdings:
             # Allocation by asset type (from security)
-            asset_type = (
-                holding.security.security_category if holding.security else "unknown"
-            )
+            asset_type = holding.security.security_category if holding.security else "unknown"
             current_value = allocation_by_type.get(asset_type, Decimal("0"))
-            allocation_by_type[asset_type] = current_value + (
-                holding.market_value or Decimal("0")
-            )
+            allocation_by_type[asset_type] = current_value + (holding.market_value or Decimal("0"))
 
             # Allocation by currency
             currency = holding.currency
@@ -171,9 +167,7 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         account_uuid = self._to_uuid(account_id)
         security_uuid = self._to_uuid(security_id)
         stmt = select(Holding).where(
-            and_(
-                Holding.account_id == account_uuid, Holding.security_id == security_uuid
-            )
+            and_(Holding.account_id == account_uuid, Holding.security_id == security_uuid)
         )
 
         if start_date:
@@ -185,9 +179,7 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         result = db.execute(stmt)
         return list(result.scalars().all())
 
-    def update_market_values(
-        self, db: Session, *, holdings_updates: List[Dict[str, Any]]
-    ) -> int:
+    def update_market_values(self, db: Session, *, holdings_updates: List[Dict[str, Any]]) -> int:
         """Bulk update market values for holdings."""
         updated_count = 0
         for holding_update in holdings_updates:
@@ -253,7 +245,7 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
     ) -> Dict[str, Any]:
         """Get portfolio allocation across all user accounts."""
         # You'll need to join with Account table to filter by user_id
-        from app.models.account import Account
+        from app.models.core.account import Account
 
         user_uuid = self._to_uuid(user_id)
         stmt = (
@@ -270,10 +262,7 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         current_holdings = {}
         for holding in all_holdings:
             key = (holding.account_id, holding.security_id)
-            if (
-                key not in current_holdings
-                or holding.as_of_date > current_holdings[key].as_of_date
-            ):
+            if key not in current_holdings or holding.as_of_date > current_holdings[key].as_of_date:
                 current_holdings[key] = holding
 
         holdings = list(current_holdings.values())
@@ -300,9 +289,9 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
 
             # By account
             account_id_str = str(holding.account_id)
-            by_account[account_id_str] = by_account.get(
-                account_id_str, Decimal("0")
-            ) + (holding.market_value or Decimal("0"))
+            by_account[account_id_str] = by_account.get(account_id_str, Decimal("0")) + (
+                holding.market_value or Decimal("0")
+            )
 
         return {
             "total_portfolio_value": total_value,

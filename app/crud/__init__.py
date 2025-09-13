@@ -14,15 +14,15 @@ from app.crud.transaction import transaction_crud
 # Import all CRUD instances
 from app.crud.user import user_crud
 from app.crud.user_session import user_session_crud
-from app.models.account import Account
-from app.models.audit_log import AuditLog
-from app.models.holding import Holding
-from app.models.security import Security
-from app.models.transaction import Transaction
+from app.models.core.account import Account
 
 # Import models for type checking
-from app.models.user import User
-from app.models.user_session import UserSession
+from app.models.core.user import User
+from app.models.holding import Holding
+from app.models.security.security import Security
+from app.models.system.audit_log import AuditLog
+from app.models.system.user_session import UserSession
+from app.models.transaction import Transaction
 
 T = TypeVar("T")
 

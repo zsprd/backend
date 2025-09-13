@@ -55,7 +55,7 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         end_date: Optional[date] = None,
     ) -> List[Transaction]:
         """Get transactions for all user accounts."""
-        from app.models.account import Account
+        from app.models.core.account import Account
 
         stmt = (
             select(Transaction)
@@ -126,9 +126,7 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
                 total_fees += abs(t.fees)
 
         # Recent transactions (last 10)
-        recent_transactions = sorted(
-            transactions, key=lambda x: x.trade_date, reverse=True
-        )[:10]
+        recent_transactions = sorted(transactions, key=lambda x: x.trade_date, reverse=True)[:10]
 
         return {
             "account_id": account_id,
@@ -142,12 +140,8 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
             "by_category": by_category,
             "by_security": by_security,
             "date_range": {
-                "start": (
-                    min(t.trade_date for t in transactions) if transactions else None
-                ),
-                "end": (
-                    max(t.trade_date for t in transactions) if transactions else None
-                ),
+                "start": (min(t.trade_date for t in transactions) if transactions else None),
+                "end": (max(t.trade_date for t in transactions) if transactions else None),
             },
             "recent_transactions": recent_transactions,
         }
@@ -161,7 +155,7 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         end_date: Optional[date] = None,
     ) -> Dict[str, Any]:
         """Get transaction summary across all user accounts."""
-        from app.models.account import Account
+        from app.models.core.account import Account
 
         stmt = (
             select(Transaction)
@@ -221,12 +215,8 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
             "total_dividends": total_dividends,
             "by_account": by_account,
             "date_range": {
-                "start": (
-                    min(t.trade_date for t in transactions) if transactions else None
-                ),
-                "end": (
-                    max(t.trade_date for t in transactions) if transactions else None
-                ),
+                "start": (min(t.trade_date for t in transactions) if transactions else None),
+                "end": (max(t.trade_date for t in transactions) if transactions else None),
             },
         }
 
@@ -297,7 +287,7 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         if account_id:
             stmt = stmt.where(Transaction.account_id == account_id)
         elif user_id:
-            from app.models.account import Account
+            from app.models.core.account import Account
 
             stmt = stmt.join(Account, Transaction.account_id == Account.id).where(
                 Account.user_id == user_id

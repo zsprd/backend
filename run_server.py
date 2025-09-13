@@ -40,9 +40,7 @@ def check_environment():
             missing_vars.append(var)
 
     if missing_vars:
-        logger.error(
-            f"Missing required environment variables: {', '.join(missing_vars)}"
-        )
+        logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
         logger.error("Please check your .env file")
         return False
 
@@ -69,13 +67,12 @@ def create_tables():
     try:
         # Import all models to ensure they're registered
         from app.models import (
-            account,
             holding,
-            market_data,
             security,
             transaction,
-            user,
         )
+        from app.models.core import account, user
+        from app.models.security import market_data
 
         # Create tables
         Base.metadata.create_all(bind=engine)
@@ -180,9 +177,7 @@ if __name__ == "__main__":
 
     # Check if .env file exists
     if not Path(".env").exists():
-        print(
-            "⚠️  Warning: .env file not found. Please create one based on .env.example"
-        )
+        print("⚠️  Warning: .env file not found. Please create one based on .env.example")
         if input("Continue anyway? (y/N): ").lower() != "y":
             sys.exit(1)
 

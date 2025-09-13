@@ -5,29 +5,22 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.user import get_current_user_id
 from app.crud.account import account_crud
 from app.crud.audit_log import audit_log_crud
 from app.crud.holding import holding_crud
+from app.crud.user import user_crud
 from app.schemas.holding import HoldingCreate, HoldingResponse, HoldingUpdate
 
 router = APIRouter()
-
-
-# ===================================================================
-# Holdings CRUD Endpoints
-# ===================================================================
 
 
 @router.get("/", response_model=List[HoldingResponse])
 async def get_user_holdings(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
-    as_of_date: Optional[date] = Query(
-        None, description="Holdings as of specific date"
-    ),
+    as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
     skip: int = Query(0, description="Skip records", ge=0),
     limit: int = Query(100, description="Limit records", ge=1, le=500),
 ):
@@ -44,14 +37,12 @@ async def get_user_holdings(
                     detail="Access denied or account not found",
                 )
 
-            holdings = holding_crud.get_by_account(
-                db, account_id=account_id, as_of_date=as_of_date
-            )
+            holdings = holding_crud.get_by_account(db, account_id=account_id, as_of_date=as_of_date)
         else:
             # Get holdings across all user accounts
             from sqlalchemy import select
 
-            from app.models.account import Account
+            from app.models.core.account import Account
 
             # Get all user account IDs
             stmt = select(Account.id).where(Account.user_id == current_user_id)
@@ -86,16 +77,14 @@ async def get_user_holdings(
 async def get_holding(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     holding_id: str,
 ):
     """Get a specific holding by ID."""
     holding = holding_crud.get(db, id=holding_id)
 
     if not holding:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found")
 
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
@@ -103,9 +92,7 @@ async def get_holding(
     )
 
     if not account:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     return HoldingResponse.model_validate(holding, from_attributes=True)
 
@@ -114,7 +101,7 @@ async def get_holding(
 async def create_holding(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     holding_data: HoldingCreate,
 ):
     """Create a new holding."""
@@ -154,7 +141,7 @@ async def create_holding(
 async def update_holding(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     holding_id: str,
     holding_update: HoldingUpdate,
 ):
@@ -162,9 +149,7 @@ async def update_holding(
     holding = holding_crud.get(db, id=holding_id)
 
     if not holding:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found")
 
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
@@ -172,9 +157,7 @@ async def update_holding(
     )
 
     if not account:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     try:
         updated_holding = holding_crud.update(db, db_obj=holding, obj_in=holding_update)
@@ -201,16 +184,14 @@ async def update_holding(
 async def delete_holding(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     holding_id: str,
 ):
     """Delete a holding."""
     holding = holding_crud.get(db, id=holding_id)
 
     if not holding:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found"
-        )
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Holding not found")
 
     # Verify user owns the account
     account = account_crud.get_by_user_and_id(
@@ -218,9 +199,7 @@ async def delete_holding(
     )
 
     if not account:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     try:
         holding_crud.delete(db, id=holding_id)
@@ -247,29 +226,18 @@ async def delete_holding(
         )
 
 
-# ===================================================================
-# Holdings Summary & Analytics Endpoints
-# ===================================================================
-
-
-@router.get("/accounts/{account_id}", response_model=List[HoldingResponse])
+@router.get("/{account_id}", response_model=List[HoldingResponse])
 async def get_account_holdings(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     account_id: str,
-    as_of_date: Optional[date] = Query(
-        None, description="Holdings as of specific date"
-    ),
-    current_only: bool = Query(
-        True, description="Get only current holdings (non-zero positions)"
-    ),
+    as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
+    current_only: bool = Query(True, description="Get only current holdings (non-zero positions)"),
 ):
     """Get holdings for a specific account."""
     # Verify user owns the account
-    account = account_crud.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
-    )
+    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
         raise HTTPException(
@@ -279,17 +247,12 @@ async def get_account_holdings(
 
     try:
         if current_only:
-            holdings = holding_crud.get_current_holdings_by_account(
-                db, account_id=account_id
-            )
+            holdings = holding_crud.get_current_holdings_by_account(db, account_id=account_id)
         else:
-            holdings = holding_crud.get_by_account(
-                db, account_id=account_id, as_of_date=as_of_date
-            )
+            holdings = holding_crud.get_by_account(db, account_id=account_id, as_of_date=as_of_date)
 
         return [
-            HoldingResponse.model_validate(holding, from_attributes=True)
-            for holding in holdings
+            HoldingResponse.model_validate(holding, from_attributes=True) for holding in holdings
         ]
     except Exception as e:
         raise HTTPException(
@@ -298,19 +261,17 @@ async def get_account_holdings(
         )
 
 
-@router.get("/accounts/{account_id}/summary")
+@router.get("/{account_id}/summary")
 async def get_account_holdings_summary(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     account_id: str,
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """Get comprehensive holdings summary for a specific account."""
     # Verify user owns the account
-    account = account_crud.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
-    )
+    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
         raise HTTPException(
@@ -334,7 +295,7 @@ async def get_account_holdings_summary(
 async def get_portfolio_allocation(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """Get portfolio allocation across all user accounts."""
@@ -354,7 +315,7 @@ async def get_portfolio_allocation(
 async def get_holding_history(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     security_id: str,
     account_id: Optional[str] = Query(None, description="Filter by account"),
     start_date: Optional[date] = Query(None, description="Start date"),
@@ -386,7 +347,7 @@ async def get_holding_history(
             # Get holdings across all user accounts for this security
             from sqlalchemy import select
 
-            from app.models.account import Account
+            from app.models.core.account import Account
 
             # Get all user account IDs
             stmt = select(Account.id).where(Account.user_id == current_user_id)
@@ -409,8 +370,7 @@ async def get_holding_history(
         holdings = sorted(holdings, key=lambda x: x.as_of_date, reverse=True)[:limit]
 
         return [
-            HoldingResponse.model_validate(holding, from_attributes=True)
-            for holding in holdings
+            HoldingResponse.model_validate(holding, from_attributes=True) for holding in holdings
         ]
     except Exception as e:
         raise HTTPException(
@@ -419,16 +379,11 @@ async def get_holding_history(
         )
 
 
-# ===================================================================
-# Holdings Management Endpoints
-# ===================================================================
-
-
 @router.post("/bulk-update-prices")
 async def bulk_update_market_values(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     holdings_updates: List[Dict[str, Any]],
 ):
     """Bulk update market values for holdings."""
@@ -458,9 +413,7 @@ async def bulk_update_market_values(
                     detail=f"Access denied for holding {holding_id}",
                 )
 
-        updated_count = holding_crud.update_market_values(
-            db, holdings_updates=holdings_updates
-        )
+        updated_count = holding_crud.update_market_values(db, holdings_updates=holdings_updates)
 
         # Log bulk update
         audit_log_crud.log_user_action(
@@ -484,20 +437,18 @@ async def bulk_update_market_values(
         )
 
 
-@router.post("/accounts/{account_id}/snapshot")
+@router.post("/{account_id}/snapshot")
 async def create_holdings_snapshot(
     *,
     db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user_id),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
     account_id: str,
     as_of_date: date = Query(..., description="Snapshot date"),
     holdings_data: List[Dict[str, Any]],
 ):
     """Create a complete holdings snapshot for an account."""
     # Verify user owns the account
-    account = account_crud.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
-    )
+    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
         raise HTTPException(
@@ -547,11 +498,6 @@ async def create_holdings_snapshot(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating holdings snapshot: {str(e)}",
         )
-
-
-# ===================================================================
-# Health Check
-# ===================================================================
 
 
 @router.get("/health")

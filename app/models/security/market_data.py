@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import (
@@ -14,7 +15,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.security import Security
+    from app.models.security.security import Security
 
 
 class MarketData(BaseModel):
@@ -38,6 +39,9 @@ class MarketData(BaseModel):
     close_price: Mapped[float] = mapped_column(DECIMAL(15, 4), nullable=False)
     volume: Mapped[Optional[int]] = mapped_column(BigInteger)
     adjusted_close: Mapped[Optional[float]] = mapped_column(DECIMAL(15, 4))
+
+    # Calculated Fields
+    daily_return: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 6))  # Daily return %
 
     # Metadata
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
@@ -64,7 +68,7 @@ class ExchangeRate(BaseModel):
 
     # Date and Rate
     rate_date: Mapped[Date] = mapped_column(Date, nullable=False, index=True)
-    rate: Mapped[float] = mapped_column(DECIMAL(15, 6), nullable=False)
+    rate: Mapped[Decimal] = mapped_column(DECIMAL(15, 6), nullable=False)
 
     # Source
     data_provider: Mapped[str] = mapped_column(String(50), nullable=False)

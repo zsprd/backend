@@ -10,8 +10,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.account import Account
-    from app.models.security import Security
+    from app.models.core.account import Account
+    from app.models.security.security import Security
 
 
 class Transaction(BaseModel):

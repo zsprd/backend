@@ -5,8 +5,8 @@ from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
-from app.models.market_data import ExchangeRate, MarketData
-from app.models.security import Security
+from app.models.security.market_data import ExchangeRate, MarketData
+from app.models.security.security import Security
 from app.schemas.market_data import (
     ExchangeRateCreate,
     MarketDataCreate,
@@ -39,9 +39,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
             query = query.limit(limit)
         return query.scalars().all()
 
-    def get_latest_price(
-        self, db: Session, *, security_id: str
-    ) -> Optional[MarketData]:
+    def get_latest_price(self, db: Session, *, security_id: str) -> Optional[MarketData]:
         """Get the latest price for a security."""
         return (
             db.query(MarketData)
@@ -50,9 +48,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
             .first()
         )
 
-    def get_latest_prices_bulk(
-        self, db: Session, *, security_ids: List[str]
-    ) -> List[MarketData]:
+    def get_latest_prices_bulk(self, db: Session, *, security_ids: List[str]) -> List[MarketData]:
         """Get latest prices for multiple securities."""
         # Get the latest date for each security
         subquery = (
@@ -140,9 +136,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
             if historical_price:
                 historical_close = float(historical_price.close_price)
                 if historical_close > 0:
-                    return_pct = (
-                        (current_close - historical_close) / historical_close
-                    ) * 100
+                    return_pct = ((current_close - historical_close) / historical_close) * 100
                     returns[f"return_{period}d"] = return_pct
                 else:
                     returns[f"return_{period}d"] = None
@@ -151,9 +145,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
 
         return returns
 
-    def get_volatility(
-        self, db: Session, *, security_id: str, days: int = 30
-    ) -> Optional[float]:
+    def get_volatility(self, db: Session, *, security_id: str, days: int = 30) -> Optional[float]:
         """Calculate volatility over the specified period."""
         price_data = self.get_price_history(db, security_id=security_id, days=days)
 
@@ -164,9 +156,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         returns = []
         for i in range(1, len(price_data)):
             prev_price = float(price_data[i].close_price)
-            curr_price = float(
-                price_data[i - 1].close_price
-            )  # Note: data is in desc order
+            curr_price = float(price_data[i - 1].close_price)  # Note: data is in desc order
 
             if prev_price > 0:
                 daily_return = (curr_price - prev_price) / prev_price
@@ -190,9 +180,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
 
         # Get securities with old or missing data
         subquery = (
-            db.query(MarketData.security_id)
-            .filter(MarketData.price_date >= cutoff_date)
-            .subquery()
+            db.query(MarketData.security_id).filter(MarketData.price_date >= cutoff_date).subquery()
         )
 
         securities_needing_update = (
@@ -250,9 +238,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
             target_date = date.today()
 
         # Get all market data for the date
-        market_data = (
-            db.query(MarketData).filter(MarketData.price_date == target_date).all()
-        )
+        market_data = db.query(MarketData).filter(MarketData.price_date == target_date).all()
 
         if not market_data:
             return {"date": target_date, "message": "No market data available"}
@@ -287,20 +273,14 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
             "gainers": len(gainers),
             "losers": len(losers),
             "unchanged": total_securities - len(price_changes),
-            "avg_change": (
-                sum(price_changes) / len(price_changes) if price_changes else 0
-            ),
+            "avg_change": (sum(price_changes) / len(price_changes) if price_changes else 0),
         }
 
-    def delete_old_data(
-        self, db: Session, *, older_than_days: int = 730  # 2 years
-    ) -> int:
+    def delete_old_data(self, db: Session, *, older_than_days: int = 730) -> int:  # 2 years
         """Delete market data older than specified days."""
         cutoff_date = date.today() - timedelta(days=older_than_days)
 
-        deleted_count = (
-            db.query(MarketData).filter(MarketData.price_date < cutoff_date).delete()
-        )
+        deleted_count = db.query(MarketData).filter(MarketData.price_date < cutoff_date).delete()
 
         db.commit()
         return deleted_count
@@ -350,9 +330,7 @@ class CRUDExchangeRate(CRUDBase[ExchangeRate, ExchangeRateCreate, None]):
             .first()
         )
 
-    def get_latest_rates(
-        self, db: Session, *, base_currency: str
-    ) -> List[ExchangeRate]:
+    def get_latest_rates(self, db: Session, *, base_currency: str) -> List[ExchangeRate]:
         """Get latest exchange rates for a base currency."""
         subquery = (
             db.query(

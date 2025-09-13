@@ -6,7 +6,7 @@ from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
-from app.models.user_session import UserSession
+from app.models.system.user_session import UserSession
 from app.schemas.user import UserSessionCreate, UserSessionUpdate
 
 
@@ -110,15 +110,11 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
         db.commit()
         return result.rowcount > 0
 
-    def revoke_all_user_sessions(
-        self, db: Session, *, user_id: Union[str, UUIDType]
-    ) -> int:
+    def revoke_all_user_sessions(self, db: Session, *, user_id: Union[str, UUIDType]) -> int:
         """Revoke all sessions for a user using SQLAlchemy 2.0 syntax."""
         user_uuid = self._to_uuid(user_id)
         # First count the sessions
-        count_stmt = select(func.count(UserSession.id)).where(
-            UserSession.user_id == user_uuid
-        )
+        count_stmt = select(func.count(UserSession.id)).where(UserSession.user_id == user_uuid)
         count_result = db.execute(count_stmt)
         count = count_result.scalar() or 0
 
@@ -158,9 +154,7 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
         """Clean up expired sessions using SQLAlchemy 2.0 syntax."""
         # Count expired sessions
         now = datetime.now(timezone.utc)
-        count_stmt = select(func.count(UserSession.id)).where(
-            UserSession.expires_at <= now
-        )
+        count_stmt = select(func.count(UserSession.id)).where(UserSession.expires_at <= now)
         count_result = db.execute(count_stmt)
         count = count_result.scalar() or 0
 
@@ -174,9 +168,7 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
     def get_session_stats(self, db: Session, *, user_id: Union[str, UUIDType]) -> dict:
         """Get session statistics for a user."""
         user_uuid = self._to_uuid(user_id)
-        total_stmt = select(func.count(UserSession.id)).where(
-            UserSession.user_id == user_uuid
-        )
+        total_stmt = select(func.count(UserSession.id)).where(UserSession.user_id == user_uuid)
         total_result = db.execute(total_stmt)
         total_sessions = total_result.scalar() or 0
 
@@ -208,9 +200,9 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
         active_sessions = active_result.scalar() or 0
 
         # Get unique active users
-        unique_users_stmt = select(
-            func.count(func.distinct(UserSession.user_id))
-        ).where(UserSession.expires_at > datetime.now(timezone.utc))
+        unique_users_stmt = select(func.count(func.distinct(UserSession.user_id))).where(
+            UserSession.expires_at > datetime.now(timezone.utc)
+        )
         unique_users_result = db.execute(unique_users_stmt)
         unique_active_users = unique_users_result.scalar() or 0
 

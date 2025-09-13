@@ -4,15 +4,13 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
-from app.models.security import Security
+from app.models.security.security import Security
 from app.schemas.security import SecurityCreate, SecurityUpdate
 
 
 class CRUDSecurity(CRUDBase[Security, SecurityCreate, SecurityUpdate]):
 
-    def search_securities(
-        self, db: Session, *, query: str, limit: int = 50
-    ) -> List[Security]:
+    def search_securities(self, db: Session, *, query: str, limit: int = 50) -> List[Security]:
         """Search securities by symbol or name."""
         stmt = (
             select(Security)
@@ -33,9 +31,7 @@ class CRUDSecurity(CRUDBase[Security, SecurityCreate, SecurityUpdate]):
 
     def get_by_symbol(self, db: Session, *, symbol: str) -> Optional[Security]:
         """Get security by symbol."""
-        stmt = select(Security).where(
-            and_(Security.symbol == symbol.upper(), Security.is_active)
-        )
+        stmt = select(Security).where(and_(Security.symbol == symbol.upper(), Security.is_active))
         result = db.execute(stmt)
         return result.scalar_one_or_none()
 

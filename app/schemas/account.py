@@ -10,20 +10,14 @@ from pydantic import BaseModel, Field
 class InstitutionBase(BaseModel):
     name: str = Field(..., max_length=255, description="Institution name")
     country: str = Field(..., max_length=2, description="ISO country code")
-    website_url: Optional[str] = Field(
-        None, max_length=255, description="Institution website"
-    )
+    website_url: Optional[str] = Field(None, max_length=255, description="Institution website")
     logo_url: Optional[str] = Field(None, max_length=500, description="Logo URL")
-    primary_color: Optional[str] = Field(
-        None, max_length=7, description="Hex color code"
-    )
+    primary_color: Optional[str] = Field(None, max_length=7, description="Hex color code")
 
 
 class InstitutionCreate(InstitutionBase):
     plaid_institution_id: Optional[str] = Field(None, max_length=255)
-    supports_investments: bool = Field(
-        False, description="Supports investment accounts"
-    )
+    supports_investments: bool = Field(False, description="Supports investment accounts")
     supports_transactions: bool = Field(False, description="Supports transaction sync")
 
 
@@ -41,9 +35,7 @@ class InstitutionResponse(InstitutionBase):
 
 class AccountBase(BaseModel):
     name: str = Field(..., max_length=255, description="Account display name")
-    official_name: Optional[str] = Field(
-        None, max_length=255, description="Official account name"
-    )
+    official_name: Optional[str] = Field(None, max_length=255, description="Official account name")
     account_category: str = Field(..., description="Account category")
     account_subtype: Optional[str] = Field(None, description="Account subtype")
     mask: Optional[str] = Field(None, max_length=4, description="Last 4 digits")

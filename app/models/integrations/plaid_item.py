@@ -7,8 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.account import Institution
-    from app.models.user import User
+    from app.models.core.account import Institution
+    from app.models.core.user import User
 
 
 class PlaidItem(BaseModel):
@@ -33,9 +33,7 @@ class PlaidItem(BaseModel):
     status: Mapped[str] = mapped_column(String(50), default="good", nullable=False)
 
     # Connection Information
-    available_products: Mapped[Optional[str]] = mapped_column(
-        Text
-    )  # JSON array as text
+    available_products: Mapped[Optional[str]] = mapped_column(Text)  # JSON array as text
     billed_products: Mapped[Optional[str]] = mapped_column(Text)  # JSON array as text
     consent_expiration_time: Mapped[Optional[str]] = mapped_column(String(50))
 
@@ -48,4 +46,6 @@ class PlaidItem(BaseModel):
     institution: Mapped[Optional["Institution"]] = relationship("Institution")
 
     def __repr__(self) -> str:
-        return f"<PlaidItem(id={self.id}, plaid_item_id={self.plaid_item_id}, status={self.status})>"
+        return (
+            f"<PlaidItem(id={self.id}, plaid_item_id={self.plaid_item_id}, status={self.status})>"
+        )

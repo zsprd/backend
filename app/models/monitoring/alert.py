@@ -15,8 +15,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.notification import Notification
-    from app.models.user import User
+    from app.models.core.user import User
+    from app.models.system.notification import Notification
 
 
 # Note: Need to add these enums to enums.py
@@ -38,9 +38,7 @@ class Alert(BaseModel):
     description: Mapped[Optional[str]] = mapped_column(Text)
 
     # Target and Conditions
-    target_type: Mapped[Optional[str]] = mapped_column(
-        String(50)
-    )  # portfolio, security, account
+    target_type: Mapped[Optional[str]] = mapped_column(String(50))  # portfolio, security, account
     target_id: Mapped[Optional[UUID]] = mapped_column(UUID(as_uuid=True))
     metric: Mapped[Optional[str]] = mapped_column(
         String(100)
@@ -52,12 +50,8 @@ class Alert(BaseModel):
     threshold_percent: Mapped[Optional[float]] = mapped_column(DECIMAL(5, 2))
 
     # Frequency and Status
-    frequency: Mapped[Optional[str]] = mapped_column(
-        String(20), default="DAILY", nullable=True
-    )
-    status: Mapped[Optional[str]] = mapped_column(
-        String(20), default="ACTIVE", nullable=True
-    )
+    frequency: Mapped[Optional[str]] = mapped_column(String(20), default="DAILY", nullable=True)
+    status: Mapped[Optional[str]] = mapped_column(String(20), default="ACTIVE", nullable=True)
 
     # Configuration
     conditions: Mapped[Optional[dict]] = mapped_column(JSONB)
@@ -65,9 +59,7 @@ class Alert(BaseModel):
 
     # Status Tracking
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    last_triggered_at: Mapped[Optional[DateTime]] = mapped_column(
-        DateTime(timezone=True)
-    )
+    last_triggered_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
     trigger_count: Mapped[int] = mapped_column(Integer, default=0)
 
     # Relationships

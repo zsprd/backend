@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.user import User
+    from app.models.core.user import User
 
 
 class AuditLog(BaseModel):
@@ -33,9 +33,7 @@ class AuditLog(BaseModel):
 
     # Request Information
     request_path: Mapped[Optional[str]] = mapped_column(String(500))
-    request_method: Mapped[Optional[str]] = mapped_column(
-        String(10)
-    )  # GET, POST, PUT, DELETE
+    request_method: Mapped[Optional[str]] = mapped_column(String(10))  # GET, POST, PUT, DELETE
 
     # Changed: metadata -> request_metadata (metadata is reserved in SQLAlchemy)
     request_metadata: Mapped[Optional[dict]] = mapped_column(JSON)

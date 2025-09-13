@@ -7,8 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.alert import Alert
-    from app.models.user import User
+    from app.models.core.user import User
+    from app.models.monitoring.alert import Alert
 
 
 class Notification(BaseModel):
@@ -39,12 +39,8 @@ class Notification(BaseModel):
     read_at: Mapped[Optional[DateTime]] = mapped_column(DateTime(timezone=True))
 
     # Priority
-    priority: Mapped[str] = mapped_column(
-        String(20), default="normal"
-    )  # low, normal, high, urgent
+    priority: Mapped[str] = mapped_column(String(20), default="normal")  # low, normal, high, urgent
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="notifications")
-    alert: Mapped[Optional["Alert"]] = relationship(
-        "Alert", back_populates="notifications"
-    )
+    alert: Mapped[Optional["Alert"]] = relationship("Alert", back_populates="notifications")

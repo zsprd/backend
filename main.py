@@ -1,9 +1,11 @@
 import logging
+import os
 import time
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 
@@ -22,9 +24,21 @@ app = FastAPI(
     openapi_url=f"/api/{settings.API_VERSION}/openapi.json",
     docs_url=f"/api/{settings.API_VERSION}/docs",
     redoc_url=f"/api/{settings.API_VERSION}/redoc",
+    swagger_favicon_url="/static/favicon.ico",
 )
 
-# # Add CORS middleware
+# Mount static files
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+# Favicon endpoint
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse("static/favicon.ico")
+
+
+# Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
@@ -96,7 +110,7 @@ if __name__ == "__main__":
 
     uvicorn.run(
         "main:app",
-        host="0.0.0.0",
+        host="127.0.0.1",
         port=8000,
         reload=settings.DEBUG,
         log_level=settings.LOG_LEVEL.lower(),

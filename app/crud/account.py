@@ -6,7 +6,7 @@ from sqlalchemy import and_, or_, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.crud.base import CRUDBase
-from app.models.account import Account
+from app.models.core.account import Account
 from app.schemas.account import AccountCreate, AccountUpdate
 
 
@@ -97,9 +97,7 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
             "last_updated": account.updated_at,
         }
 
-    def soft_delete(
-        self, db: Session, *, account_id: str, user_id: str
-    ) -> Optional[Account]:
+    def soft_delete(self, db: Session, *, account_id: str, user_id: str) -> Optional[Account]:
         """Soft delete an account by setting is_active to False."""
         account = self.get_by_user_and_id(db, user_id=user_id, account_id=account_id)
         if account:
@@ -116,9 +114,7 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
 
         accounts_with_balances = []
         for account in accounts:
-            summary = self.get_account_summary(
-                db, account_id=str(account.id), user_id=user_id
-            )
+            summary = self.get_account_summary(db, account_id=str(account.id), user_id=user_id)
             if summary:
                 accounts_with_balances.append({**summary, "account": account})
 
@@ -164,9 +160,7 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
     ) -> List[Account]:
         """Get accounts filtered by category/type."""
         query = db.query(Account).filter(
-            and_(
-                Account.user_id == user_id, Account.account_category == account_category
-            )
+            and_(Account.user_id == user_id, Account.account_category == account_category)
         )
 
         if not include_inactive:
@@ -187,9 +181,7 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
         account_summaries = []
 
         for account in accounts:
-            summary = self.get_account_summary(
-                db, account_id=str(account.id), user_id=user_id
-            )
+            summary = self.get_account_summary(db, account_id=str(account.id), user_id=user_id)
 
             if summary:
                 account_summaries.append({"account": account, "summary": summary})
@@ -242,9 +234,7 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
             "last_updated": datetime.now(timezone.utc),
         }
 
-    def get_user_account_statistics(
-        self, db: Session, *, user_id: str
-    ) -> Dict[str, Any]:
+    def get_user_account_statistics(self, db: Session, *, user_id: str) -> Dict[str, Any]:
         """Get comprehensive account statistics for a user."""
         accounts = self.get_multi_by_user(db, user_id=user_id, include_inactive=True)
 
@@ -278,12 +268,8 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
             "inactive_accounts": inactive_accounts,
             "recent_accounts_30d": len(recent_accounts),
             "by_category": by_category,
-            "oldest_account": (
-                min(accounts, key=lambda x: x.created_at) if accounts else None
-            ),
-            "newest_account": (
-                max(accounts, key=lambda x: x.created_at) if accounts else None
-            ),
+            "oldest_account": (min(accounts, key=lambda x: x.created_at) if accounts else None),
+            "newest_account": (max(accounts, key=lambda x: x.created_at) if accounts else None),
         }
 
     def search_by_name(

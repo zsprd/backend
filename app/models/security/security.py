@@ -7,7 +7,7 @@ from app.models.base import BaseModel
 
 if TYPE_CHECKING:
     from app.models.holding import Holding
-    from app.models.market_data import MarketData
+    from app.models.security.market_data import MarketData
     from app.models.transaction import Transaction
 
 
@@ -18,33 +18,29 @@ class Security(BaseModel):
     symbol: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     security_category: Mapped[str] = mapped_column(String(50), nullable=False)
-    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
 
     # Market Information
-    exchange: Mapped[Optional[str]] = mapped_column(
-        String(10)
-    )  # e.g., NASDAQ, NYSE, LSE
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    exchange: Mapped[Optional[str]] = mapped_column(String(10))  # e.g., NASDAQ, NYSE, LSE
     country: Mapped[Optional[str]] = mapped_column(String(2))  # ISO country code
 
     # Classification
     sector: Mapped[Optional[str]] = mapped_column(String(100))
     industry: Mapped[Optional[str]] = mapped_column(String(100))
 
-    # Identifiers
-    cusip: Mapped[Optional[str]] = mapped_column(String(9))  # US securities identifier
-    isin: Mapped[Optional[str]] = mapped_column(
-        String(12)
-    )  # International securities identifier
-    sedol: Mapped[Optional[str]] = mapped_column(
-        String(7)
-    )  # Stock Exchange Daily Official List
+    # External Identifiers
+    cusip: Mapped[Optional[str]] = mapped_column(String(9), unique=True)  # US/Canada
+    isin: Mapped[Optional[str]] = mapped_column(String(12), unique=True)  # International
+    sedol: Mapped[Optional[str]] = mapped_column(String(7), unique=True)  # UK
+    ric: Mapped[Optional[str]] = mapped_column(String(20))  # Reuters
+    bloomberg_ticker: Mapped[Optional[str]] = mapped_column(String(50))  # Bloomberg
 
     # External Integration
-    plaid_security_id: Mapped[Optional[str]] = mapped_column(String(255))
+    # Data Provider Integration
     alphavantage_symbol: Mapped[Optional[str]] = mapped_column(String(20))
-    data_provider_category: Mapped[Optional[str]] = mapped_column(
-        String(50), nullable=True
-    )
+    yahoo_symbol: Mapped[Optional[str]] = mapped_column(String(20))
+    morningstar_id: Mapped[Optional[str]] = mapped_column(String(50))
+    plaid_security_id: Mapped[Optional[str]] = mapped_column(String(255))
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -1,15 +1,14 @@
 import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 from fastapi import Request
-from jose import jwt  # Use python-jose for JWT
+from jose import jwt
 from jose.exceptions import JWTError
 from passlib.context import CryptContext
 
 from app.core.config import settings
 
-# Updated security settings for fintech
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # Token types
@@ -57,8 +56,7 @@ def create_refresh_token(user_id: str) -> str:
     to_encode = {
         "sub": user_id,
         "type": TOKEN_TYPE_REFRESH,
-        "exp": datetime.now(timezone.utc)
-        + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
+        "exp": datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS),
         "iat": datetime.now(timezone.utc),
         "jti": secrets.token_urlsafe(16),
     }
@@ -95,9 +93,7 @@ def create_password_reset_token(email: str) -> str:
 def verify_token(token: str, token_type: str) -> Optional[Dict[str, Any]]:
     """Verify JWT token and return payload."""
     try:
-        payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
-        )
+        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
 
         if payload.get("type") != token_type:
             return None

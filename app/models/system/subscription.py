@@ -7,7 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
-    from app.models.user import User
+    from app.models.core.user import User
 
 
 class Subscription(BaseModel):
@@ -22,20 +22,14 @@ class Subscription(BaseModel):
     )
 
     # Stripe Integration
-    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(
-        String(255), unique=True
-    )
+    stripe_subscription_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
     stripe_customer_id: Mapped[Optional[str]] = mapped_column(String(255))
     stripe_product_id: Mapped[Optional[str]] = mapped_column(String(255))
     stripe_price_id: Mapped[Optional[str]] = mapped_column(String(255))
 
     # Plan Details
-    plan_name: Mapped[str] = mapped_column(
-        String(50), nullable=False
-    )  # e.g., 'basic', 'premium'
-    billing_cycle: Mapped[Optional[str]] = mapped_column(
-        String(20)
-    )  # 'monthly', 'yearly'
+    plan_name: Mapped[str] = mapped_column(String(50), nullable=False)  # e.g., 'basic', 'premium'
+    billing_cycle: Mapped[Optional[str]] = mapped_column(String(20))  # 'monthly', 'yearly'
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
 
     # Billing Periods

@@ -4,16 +4,16 @@ python-dotenv
 # FastAPI and ASGI
 fastapi==0.116.1
 uvicorn==0.35.0
-starlette==0.47.3
+starlette==0.48.0
 #gunicorn==21.2.0
 
 # Database
-sqlalchemy==2.0.43
+SQLAlchemy==2.0.43
 psycopg2==2.9.10
 alembic==1.16.5
 
 # Pydantic and validation
-pydantic==2.11.7
+pydantic==2.11.8
 pydantic-settings==2.10.1
 email-validator==2.3.0
 
@@ -34,6 +34,9 @@ requests==2.32.5
 numpy==2.3.3
 pandas==2.3.2
 scipy==1.16.2
+pyfolio-reloaded==0.9.9
+empyrical-reloaded==0.5.12
+scikit-learn==1.7.2
 
 # Development tools
 black==25.1.0

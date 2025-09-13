@@ -1,385 +1,339 @@
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional
+import logging
+from datetime import date, datetime, timedelta
+from typing import Dict, List
 
-import numpy as np
-import pandas as pd
+from sqlalchemy import and_, desc, select
 from sqlalchemy.orm import Session
 
-from app.models.account import Account
+from app.models.analytics.exposure import AnalyticsExposure
+from app.models.analytics.performance import AnalyticsPerformance
+from app.models.analytics.risk import AnalyticsRisk
+from app.models.analytics.value import AccountValue
+from app.models.core.account import Account
 from app.models.holding import Holding
-from app.models.market_data import MarketData
-from app.models.security import Security
-from app.utils.calculations import (
-    calculate_beta,
-    calculate_max_drawdown,
-    calculate_returns,
-    calculate_sharpe_ratio,
-    calculate_var,
-    calculate_volatility,
-)
+from app.utils.exposure_calculations import ExposureCalculations
+from app.utils.performance_calculations import PerformanceCalculations
+from app.utils.risk_calculations import RiskCalculations
+
+logger = logging.getLogger(__name__)
 
 
-class AnalyticsService:
+class AnalyticsCalculationService:
     """
-    Service for calculating portfolio analytics including performance, risk, and allocation metrics.
+    Service for orchestrating analytics calculations and storing results.
+    All calculation logic is delegated to utility modules.
     """
 
     def __init__(self, db: Session):
         self.db = db
 
-    def get_portfolio_performance(
-        self,
-        user_id: str,
-        account_ids: Optional[List[str]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> Dict:
+    async def calculate_daily_portfolio_values(
+        self, account_id: str, calculation_date: date
+    ) -> bool:
         """
-        Calculate comprehensive portfolio performance metrics.
+        Calculate and store daily portfolio value for an account.
+        Delegates calculation to utility function.
         """
-        if not end_date:
-            end_date = datetime.now()
-        if not start_date:
-            start_date = end_date - timedelta(days=365)  # Default to 1 year
+        try:
+            account = self.db.query(Account).filter(Account.id == account_id).first()
+            if not account:
+                logger.error(f"Account {account_id} not found")
+                return False
 
-        # Get portfolio data
-        portfolio_data = self._get_portfolio_data(
-            user_id, account_ids, start_date, end_date
-        )
+            holdings = self._get_holdings_as_of_date(account_id, calculation_date)
+            if not holdings:
+                logger.warning(f"No holdings found for account {account_id} on {calculation_date}")
+                return False
 
-        if portfolio_data.empty:
-            return self._empty_performance_response()
-
-        # Calculate returns
-        returns = calculate_returns(portfolio_data["total_value"])
-
-        # Performance metrics
-        total_return = (
-            (
-                portfolio_data["total_value"].iloc[-1]
-                / portfolio_data["total_value"].iloc[0]
-            )
-            - 1
-        ) * 100
-        annualized_return = (
-            (
-                portfolio_data["total_value"].iloc[-1]
-                / portfolio_data["total_value"].iloc[0]
-            )
-            ** (365 / len(portfolio_data))
-            - 1
-        ) * 100
-        volatility = calculate_volatility(returns) * 100
-        sharpe_ratio = calculate_sharpe_ratio(returns)
-        max_drawdown = calculate_max_drawdown(portfolio_data["total_value"]) * 100
-
-        # Value at Risk (95% confidence)
-        var_95 = calculate_var(returns, confidence=0.95) * 100
-
-        return {
-            "total_return": round(total_return, 2),
-            "annualized_return": round(annualized_return, 2),
-            "volatility": round(volatility, 2),
-            "sharpe_ratio": round(sharpe_ratio, 3),
-            "max_drawdown": round(max_drawdown, 2),
-            "value_at_risk_95": round(var_95, 2),
-            "current_value": float(portfolio_data["total_value"].iloc[-1]),
-            "start_value": float(portfolio_data["total_value"].iloc[0]),
-            "data_points": len(portfolio_data),
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
-        }
-
-    def get_risk_metrics(
-        self,
-        user_id: str,
-        account_ids: Optional[List[str]] = None,
-        benchmark_symbol: str = "SPY",
-    ) -> Dict:
-        """
-        Calculate risk metrics including beta, correlation, and various risk measures.
-        """
-        # Get portfolio returns
-        portfolio_data = self._get_portfolio_data(user_id, account_ids)
-        if portfolio_data.empty:
-            return self._empty_risk_response()
-
-        portfolio_returns = calculate_returns(portfolio_data["total_value"])
-
-        # Get benchmark returns
-        benchmark_returns = self._get_benchmark_returns(benchmark_symbol)
-
-        # Align data
-        aligned_data = pd.concat(
-            [portfolio_returns, benchmark_returns], axis=1, join="inner"
-        )
-        aligned_data.columns = ["portfolio", "benchmark"]
-
-        if len(aligned_data) < 30:  # Need at least 30 data points
-            return self._empty_risk_response()
-
-        # Risk calculations
-        beta = calculate_beta(aligned_data["portfolio"], aligned_data["benchmark"])
-        correlation = aligned_data["portfolio"].corr(aligned_data["benchmark"])
-
-        # Downside risk metrics
-        downside_returns = portfolio_returns[portfolio_returns < 0]
-        downside_deviation = (
-            downside_returns.std() * np.sqrt(252) if len(downside_returns) > 0 else 0
-        )
-
-        # Sortino ratio (assuming 0% risk-free rate)
-        sortino_ratio = (
-            (portfolio_returns.mean() * 252) / downside_deviation
-            if downside_deviation > 0
-            else 0
-        )
-
-        # Value at Risk at different confidence levels
-        var_90 = calculate_var(portfolio_returns, confidence=0.90) * 100
-        var_95 = calculate_var(portfolio_returns, confidence=0.95) * 100
-        var_99 = calculate_var(portfolio_returns, confidence=0.99) * 100
-
-        return {
-            "beta": round(beta, 3),
-            "correlation_with_benchmark": round(correlation, 3),
-            "downside_deviation": round(downside_deviation * 100, 2),
-            "sortino_ratio": round(sortino_ratio, 3),
-            "value_at_risk": {
-                "var_90": round(var_90, 2),
-                "var_95": round(var_95, 2),
-                "var_99": round(var_99, 2),
-            },
-            "benchmark_symbol": benchmark_symbol,
-        }
-
-    def get_allocation_breakdown(
-        self, user_id: str, account_ids: Optional[List[str]] = None
-    ) -> Dict:
-        """
-        Calculate portfolio allocation breakdown by various dimensions.
-        """
-        # Get current holdings with security details
-        holdings_query = (
-            self.db.query(Holding, Security, Account)
-            .join(Security, Holding.security_id == Security.id)
-            .join(Account, Holding.account_id == Account.id)
-            .filter(
-                Account.user_id == user_id,
-                Account.is_active,
-                Holding.quantity > 0,
-            )
-        )
-
-        if account_ids:
-            holdings_query = holdings_query.filter(Account.id.in_(account_ids))
-
-        holdings = holdings_query.all()
-
-        if not holdings:
-            return self._empty_allocation_response()
-
-        # Create DataFrame for easier calculations
-        data = []
-        for holding, security, account in holdings:
-            market_value = holding.market_value or (
-                holding.quantity * (holding.cost_basis_per_share or 0)
-            )
-            data.append(
-                {
-                    "security_id": security.id,
-                    "symbol": security.symbol,
-                    "name": security.name,
-                    "type": security.type,
-                    "sector": security.sector,
-                    "country": security.country,
-                    "currency": security.currency,
-                    "market_value": market_value,
-                    "account_id": account.id,
-                    "account_name": account.name,
-                    "account_type": account.type,
-                }
+            # Delegate calculation to utility
+            market_value, cost_basis, cash_value = (
+                await PerformanceCalculations.calculate_portfolio_values(
+                    holdings, calculation_date, account.currency, self.db
+                )
             )
 
-        df = pd.DataFrame(data)
-        total_value = df["market_value"].sum()
+            daily_return = await PerformanceCalculations.calculate_daily_return(
+                account_id, calculation_date, market_value, self.db
+            )
 
-        if total_value == 0:
-            return self._empty_allocation_response()
+            daily_value = AccountValue(
+                account_id=account_id,
+                value_date=calculation_date,
+                market_value=market_value,
+                cost_basis=cost_basis,
+                cash_value=cash_value,
+                daily_return=daily_return,
+                unrealized_pnl=market_value - cost_basis,
+                currency=account.currency,
+                calculation_source="holdings",
+            )
 
-        # Asset type allocation
-        by_asset_type = df.groupby("type")["market_value"].sum().to_dict()
-        by_asset_type = {
-            k: round((v / total_value) * 100, 2) for k, v in by_asset_type.items()
-        }
+            existing = (
+                self.db.query(AccountValue)
+                .filter(
+                    and_(
+                        AccountValue.account_id == account_id,
+                        AccountValue.value_date == calculation_date,
+                    )
+                )
+                .first()
+            )
 
-        # Sector allocation (exclude cash and other non-equity types)
-        equity_df = df[df["type"].isin(["equity", "etf"])]
-        if not equity_df.empty:
-            by_sector = equity_df.groupby("sector")["market_value"].sum().to_dict()
-            by_sector = {
-                k: round((v / total_value) * 100, 2) for k, v in by_sector.items() if k
-            }
-        else:
-            by_sector = {}
+            if existing:
+                existing.market_value = market_value
+                existing.cost_basis = cost_basis
+                existing.cash_value = cash_value
+                existing.daily_return = daily_return
+                existing.unrealized_pnl = market_value - cost_basis
+                existing.updated_at = datetime.now()
+            else:
+                self.db.add(daily_value)
 
-        # Geographic allocation
-        by_geography = df.groupby("country")["market_value"].sum().to_dict()
-        by_geography = {
-            k: round((v / total_value) * 100, 2) for k, v in by_geography.items() if k
-        }
+            self.db.commit()
+            logger.info(
+                f"Calculated daily value for account {account_id} on {calculation_date}: ${market_value}"
+            )
+            return True
 
-        # Currency allocation
-        by_currency = df.groupby("currency")["market_value"].sum().to_dict()
-        by_currency = {
-            k: round((v / total_value) * 100, 2) for k, v in by_currency.items()
-        }
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error calculating daily portfolio value for {account_id}: {str(e)}")
+            return False
 
-        # Account allocation
-        by_account = (
-            df.groupby(["account_id", "account_name"])["market_value"].sum().to_dict()
-        )
-        by_account_formatted = {}
-        for (account_id, account_name), value in by_account.items():
-            by_account_formatted[account_name] = round((value / total_value) * 100, 2)
-
-        # Top holdings
-        top_holdings = df.nlargest(10, "market_value")[
-            ["symbol", "name", "market_value"]
-        ].to_dict("records")
-        for holding in top_holdings:
-            holding["weight"] = round((holding["market_value"] / total_value) * 100, 2)
-
-        return {
-            "total_portfolio_value": round(total_value, 2),
-            "by_asset_type": by_asset_type,
-            "by_sector": by_sector,
-            "by_geography": by_geography,
-            "by_currency": by_currency,
-            "by_account": by_account_formatted,
-            "top_holdings": top_holdings,
-            "concentration": {
-                "top_5_weight": sum([h["weight"] for h in top_holdings[:5]]),
-                "top_10_weight": sum([h["weight"] for h in top_holdings]),
-                "number_of_positions": len(df),
-            },
-        }
-
-    def _get_portfolio_data(
-        self,
-        user_id: str,
-        account_ids: Optional[List[str]] = None,
-        start_date: Optional[datetime] = None,
-        end_date: Optional[datetime] = None,
-    ) -> pd.DataFrame:
+    async def calculate_performance_analytics(
+        self, account_id: str, calculation_date: date, period_days: int = 730
+    ) -> bool:
         """
-        Get historical portfolio data for calculations.
+        Calculate comprehensive performance analytics using utility module.
         """
-        # This is a simplified version - in production, you'd want to store
-        # daily portfolio snapshots for faster calculations
+        try:
+            daily_values = self._get_daily_values_series(account_id, calculation_date, period_days)
+            if len(daily_values) < 30:
+                logger.warning(
+                    f"Insufficient data for performance analytics: {len(daily_values)} days"
+                )
+                return False
 
-        # For now, we'll calculate from current holdings and assume static allocation
-        # TODO: Implement proper historical portfolio value tracking
+            # Delegate calculation to utility
+            performance_result = PerformanceCalculations.calculate_performance_metrics(
+                daily_values, calculation_date, period_days, self.db
+            )
+            if not performance_result or not performance_result.get("success", True):
+                logger.warning(f"Performance calculation failed for account {account_id}")
+                return False
 
-        holdings_query = (
-            self.db.query(Holding, Account)
-            .join(Account, Holding.account_id == Account.id)
-            .filter(Account.user_id == user_id, Account.is_active)
-        )
+            performance_record = AnalyticsPerformance(
+                account_id=account_id,
+                calculation_date=calculation_date,
+                period_days=period_days,
+                **performance_result["metrics"],
+                calculation_status="completed",
+                time_series_data=performance_result.get("time_series_data", {}),
+            )
 
-        if account_ids:
-            holdings_query = holdings_query.filter(Account.id.in_(account_ids))
+            existing = (
+                self.db.query(AnalyticsPerformance)
+                .filter(
+                    and_(
+                        AnalyticsPerformance.account_id == account_id,
+                        AnalyticsPerformance.calculation_date == calculation_date,
+                    )
+                )
+                .first()
+            )
 
-        holdings = holdings_query.all()
+            if existing:
+                for field, value in performance_record.__dict__.items():
+                    if not field.startswith("_") and field != "id":
+                        setattr(existing, field, value)
+                existing.updated_at = datetime.now()
+            else:
+                self.db.add(performance_record)
 
-        # Create synthetic historical data (this should be replaced with real historical snapshots)
-        dates = pd.date_range(
-            start=start_date or datetime.now() - timedelta(days=365),
-            end=end_date or datetime.now(),
-            freq="D",
-        )
+            self.db.commit()
+            logger.info(f"Calculated performance analytics for account {account_id}")
+            return True
 
-        total_values = []
-        for date in dates:
-            total_value = sum([h.market_value or 0 for h, a in holdings])
-            # Add some synthetic variation (remove this in production)
-            variation = np.random.normal(0, 0.02)  # 2% daily volatility
-            total_value *= 1 + variation
-            total_values.append(total_value)
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error calculating performance analytics for {account_id}: {str(e)}")
+            error_record = AnalyticsPerformance(
+                account_id=account_id,
+                calculation_date=calculation_date,
+                calculation_status="error",
+                error_message=str(e)[:500],
+            )
+            self.db.add(error_record)
+            self.db.commit()
+            return False
 
-        return pd.DataFrame({"date": dates, "total_value": total_values}).set_index(
-            "date"
-        )
-
-    def _get_benchmark_returns(self, symbol: str) -> pd.Series:
+    async def calculate_risk_analytics(self, account_id: str, calculation_date: date) -> bool:
         """
-        Get benchmark returns for comparison.
+        Calculate comprehensive risk analytics using utility module.
         """
-        # Get benchmark security
-        benchmark = self.db.query(Security).filter(Security.symbol == symbol).first()
-        if not benchmark:
-            # Return empty series if benchmark not found
-            return pd.Series(dtype=float)
+        try:
+            daily_values = self._get_daily_values_series(account_id, calculation_date, 730)
+            if len(daily_values) < 60:
+                logger.warning(f"Insufficient data for risk analytics: {len(daily_values)} days")
+                return False
 
-        # Get market data
-        market_data = (
-            self.db.query(MarketData)
-            .filter(MarketData.security_id == benchmark.id)
-            .order_by(MarketData.price_date)
-            .all()
+            # Delegate calculation to utility
+            risk_result = RiskCalculations.calculate_risk_metrics(
+                daily_values, calculation_date, self.db
+            )
+            if not risk_result or not risk_result.get("success", True):
+                logger.warning(f"Risk calculation failed for account {account_id}")
+                return False
+
+            risk_record = AnalyticsRisk(
+                account_id=account_id,
+                calculation_date=calculation_date,
+                **risk_result["metrics"],
+                calculation_status="completed",
+            )
+
+            existing = (
+                self.db.query(AnalyticsRisk)
+                .filter(
+                    and_(
+                        AnalyticsRisk.account_id == account_id,
+                        AnalyticsRisk.calculation_date == calculation_date,
+                    )
+                )
+                .first()
+            )
+
+            if existing:
+                for field, value in risk_record.__dict__.items():
+                    if not field.startswith("_") and field != "id":
+                        setattr(existing, field, value)
+                existing.updated_at = datetime.now()
+            else:
+                self.db.add(risk_record)
+
+            self.db.commit()
+            logger.info(f"Calculated risk analytics for account {account_id}")
+            return True
+
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error calculating risk analytics for {account_id}: {str(e)}")
+            return False
+
+    async def calculate_exposure_analytics(self, account_id: str, calculation_date: date) -> bool:
+        """
+        Calculate exposure and allocation analytics using utility module.
+        """
+        try:
+            holdings_data = await self._get_holdings_with_security_data(
+                account_id, calculation_date
+            )
+            if not holdings_data:
+                logger.warning(f"No holdings data for exposure analytics: account {account_id}")
+                return False
+
+            # Delegate calculation to utility
+            exposure_result = ExposureCalculations.calculate_exposure_metrics(
+                holdings_data, calculation_date, self.db
+            )
+            if not exposure_result or not exposure_result.get("success", True):
+                logger.warning(f"Exposure calculation failed for account {account_id}")
+                return False
+
+            exposure_record = AnalyticsExposure(
+                account_id=account_id,
+                calculation_date=calculation_date,
+                **exposure_result["metrics"],
+                calculation_status="completed",
+            )
+
+            existing = (
+                self.db.query(AnalyticsExposure)
+                .filter(
+                    and_(
+                        AnalyticsExposure.account_id == account_id,
+                        AnalyticsExposure.calculation_date == calculation_date,
+                    )
+                )
+                .first()
+            )
+
+            if existing:
+                for field, value in exposure_record.__dict__.items():
+                    if not field.startswith("_") and field != "id":
+                        setattr(existing, field, value)
+                existing.updated_at = datetime.now()
+            else:
+                self.db.add(exposure_record)
+
+            self.db.commit()
+            logger.info(f"Calculated exposure analytics for account {account_id}")
+            return True
+
+        except Exception as e:
+            self.db.rollback()
+            logger.error(f"Error calculating exposure analytics for {account_id}: {str(e)}")
+            return False
+
+    # Helper methods (unchanged, only data fetching/structuring)
+    def _get_holdings_as_of_date(self, account_id: str, as_of_date: date) -> List[Holding]:
+        stmt = (
+            select(Holding)
+            .where(
+                and_(
+                    Holding.account_id == account_id,
+                    Holding.as_of_date <= as_of_date,
+                    Holding.quantity > 0,
+                )
+            )
+            .order_by(desc(Holding.as_of_date))
         )
+        result = self.db.execute(stmt)
+        holdings = list(result.scalars().all())
+        latest_holdings = {}
+        for holding in holdings:
+            key = holding.security_id
+            if key not in latest_holdings or holding.as_of_date > latest_holdings[key].as_of_date:
+                latest_holdings[key] = holding
+        return list(latest_holdings.values())
 
-        if not market_data:
-            return pd.Series(dtype=float)
+    def _get_daily_values_series(
+        self, account_id: str, end_date: date, days_back: int
+    ) -> List[AccountValue]:
+        start_date = end_date - timedelta(days=days_back)
+        stmt = (
+            select(AccountValue)
+            .where(
+                and_(
+                    AccountValue.account_id == account_id,
+                    AccountValue.value_date >= start_date,
+                    AccountValue.value_date <= end_date,
+                )
+            )
+            .order_by(AccountValue.value_date)
+        )
+        result = self.db.execute(stmt)
+        return list(result.scalars().all())
 
-        # Convert to DataFrame and calculate returns
-        df = pd.DataFrame(
-            [(md.price_date, md.close_price) for md in market_data],
-            columns=["date", "close"],
-        ).set_index("date")
-
-        return calculate_returns(df["close"])
-
-    def _empty_performance_response(self) -> Dict:
-        """Return empty performance response when no data is available."""
-        return {
-            "total_return": 0.0,
-            "annualized_return": 0.0,
-            "volatility": 0.0,
-            "sharpe_ratio": 0.0,
-            "max_drawdown": 0.0,
-            "value_at_risk_95": 0.0,
-            "current_value": 0.0,
-            "start_value": 0.0,
-            "data_points": 0,
-            "start_date": None,
-            "end_date": None,
-        }
-
-    def _empty_risk_response(self) -> Dict:
-        """Return empty risk response when no data is available."""
-        return {
-            "beta": 0.0,
-            "correlation_with_benchmark": 0.0,
-            "downside_deviation": 0.0,
-            "sortino_ratio": 0.0,
-            "value_at_risk": {"var_90": 0.0, "var_95": 0.0, "var_99": 0.0},
-            "benchmark_symbol": "SPY",
-        }
-
-    def _empty_allocation_response(self) -> Dict:
-        """Return empty allocation response when no data is available."""
-        return {
-            "total_portfolio_value": 0.0,
-            "by_asset_type": {},
-            "by_sector": {},
-            "by_geography": {},
-            "by_currency": {},
-            "by_account": {},
-            "top_holdings": [],
-            "concentration": {
-                "top_5_weight": 0.0,
-                "top_10_weight": 0.0,
-                "number_of_positions": 0,
-            },
-        }
+    async def _get_holdings_with_security_data(
+        self, account_id: str, calculation_date: date
+    ) -> List[Dict]:
+        holdings = self._get_holdings_as_of_date(account_id, calculation_date)
+        holdings_data = []
+        for holding in holdings:
+            if holding.security:
+                holdings_data.append(
+                    {
+                        "symbol": holding.security.symbol,
+                        "name": holding.security.name,
+                        "security_category": holding.security.security_category,
+                        "sector": holding.security.sector,
+                        "industry": holding.security.industry,
+                        "country": holding.security.country,
+                        "currency": holding.security.currency,
+                        "market_value": float(holding.market_value or 0),
+                        "cost_basis": float(holding.cost_basis_total or 0),
+                        "quantity": float(holding.quantity),
+                    }
+                )
+        return holdings_data

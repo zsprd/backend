@@ -5,12 +5,18 @@ from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.models.analytics import (
+    AccountValue,
+    AnalyticsExposure,
+    AnalyticsPerformance,
+    AnalyticsRisk,
+)
 from app.models.base import BaseModel
 
 if TYPE_CHECKING:
+    from app.models.core.user import User
     from app.models.holding import Holding
     from app.models.transaction import Transaction
-    from app.models.user import User
 
 
 class Institution(BaseModel):
@@ -23,15 +29,9 @@ class Institution(BaseModel):
     primary_color: Mapped[Optional[str]] = mapped_column(String(7))  # Hex color code
 
     # Plaid integration
-    plaid_institution_id: Mapped[Optional[str]] = mapped_column(
-        String(255), unique=True
-    )
-    supports_investments: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
-    supports_transactions: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    plaid_institution_id: Mapped[Optional[str]] = mapped_column(String(255), unique=True)
+    supports_investments: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    supports_transactions: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationships
     accounts: Mapped[list["Account"]] = relationship(back_populates="institution")
@@ -65,9 +65,7 @@ class Account(BaseModel):
     account_category: Mapped[str] = mapped_column(String(50), nullable=False)
     account_subtype: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
 
-    mask: Mapped[Optional[str]] = mapped_column(
-        String(4)
-    )  # Last 4 digits of account number
+    mask: Mapped[Optional[str]] = mapped_column(String(4))  # Last 4 digits of account number
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
 
     # Status
@@ -78,14 +76,24 @@ class Account(BaseModel):
 
     # Relationships
     user: Mapped["User"] = relationship(back_populates="accounts")
-    institution: Mapped[Optional["Institution"]] = relationship(
-        back_populates="accounts"
-    )
+    institution: Mapped[Optional["Institution"]] = relationship(back_populates="accounts")
     holdings: Mapped[list["Holding"]] = relationship(
         back_populates="account", cascade="all, delete-orphan"
     )
     transactions: Mapped[list["Transaction"]] = relationship(
         back_populates="account", cascade="all, delete-orphan"
+    )
+
+    # Analytics Relationships
+    daily_values: Mapped[list["AccountValue"]] = relationship(
+        back_populates="account", cascade="all, delete-orphan"
+    )
+    performance_analytics: Mapped[list["AnalyticsPerformance"]] = relationship(
+        cascade="all, delete-orphan"
+    )
+    risk_analytics: Mapped[list["AnalyticsRisk"]] = relationship(cascade="all, delete-orphan")
+    exposure_analytics: Mapped[list["AnalyticsExposure"]] = relationship(
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

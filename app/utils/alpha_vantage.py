@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.crud.base import CRUDBase
-from app.models.market_data import MarketData
-from app.models.security import Security
+from app.models.security.market_data import MarketData
+from app.models.security.security import Security
 from app.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
@@ -66,9 +66,7 @@ class AlphaVantageClient:
 
         return await self._make_request(params)
 
-    async def fetch_crypto_data(
-        self, symbol: str, market: str = "USD"
-    ) -> Optional[Dict[str, Any]]:
+    async def fetch_crypto_data(self, symbol: str, market: str = "USD") -> Optional[Dict[str, Any]]:
         """
         Fetch cryptocurrency data.
 
@@ -85,9 +83,7 @@ class AlphaVantageClient:
 
         return await self._make_request(params)
 
-    async def fetch_fx_rate(
-        self, from_currency: str, to_currency: str
-    ) -> Optional[Dict[str, Any]]:
+    async def fetch_fx_rate(self, from_currency: str, to_currency: str) -> Optional[Dict[str, Any]]:
         """
         Fetch foreign exchange rate.
 
@@ -148,9 +144,7 @@ class AlphaVantageClient:
 
                         # Check for API errors
                         if "Error Message" in data:
-                            logger.error(
-                                f"Alpha Vantage API error: {data['Error Message']}"
-                            )
+                            logger.error(f"Alpha Vantage API error: {data['Error Message']}")
                             return None
 
                         if "Note" in data:
@@ -160,9 +154,7 @@ class AlphaVantageClient:
 
                         return data
                     else:
-                        logger.error(
-                            f"HTTP error {response.status}: {await response.text()}"
-                        )
+                        logger.error(f"HTTP error {response.status}: {await response.text()}")
                         return None
 
         except Exception as e:
@@ -180,9 +172,7 @@ class MarketDataService:
         self.client = AlphaVantageClient()
         self.market_data_crud = CRUDBase(MarketData)
 
-    async def update_security_data(
-        self, security_id: str, force_refresh: bool = False
-    ) -> bool:
+    async def update_security_data(self, security_id: str, force_refresh: bool = False) -> bool:
         """
         Update market data for a specific security.
 
@@ -205,9 +195,7 @@ class MarketDataService:
                 .first()
             )
 
-            if latest_data and latest_data.date >= datetime.now().date() - timedelta(
-                days=1
-            ):
+            if latest_data and latest_data.date >= datetime.now().date() - timedelta(days=1):
                 logger.info(f"Market data for {security.symbol} is up to date")
                 return True
 
@@ -224,9 +212,7 @@ class MarketDataService:
             logger.error(f"Failed to update data for {security.symbol}: {str(e)}")
             return False
 
-    async def _process_stock_data(
-        self, security: Security, data: Optional[Dict[str, Any]]
-    ) -> bool:
+    async def _process_stock_data(self, security: Security, data: Optional[Dict[str, Any]]) -> bool:
         """Process and store stock/ETF market data."""
         if not data or "Time Series (Daily)" not in data:
             logger.error(f"Invalid stock data format for {security.symbol}")
@@ -241,9 +227,7 @@ class MarketDataService:
                 # Check if data already exists
                 existing = (
                     self.db.query(MarketData)
-                    .filter(
-                        MarketData.security_id == security.id, MarketData.date == date
-                    )
+                    .filter(MarketData.security_id == security.id, MarketData.date == date)
                     .first()
                 )
 
@@ -291,9 +275,7 @@ class MarketDataService:
                 # Check if data already exists
                 existing = (
                     self.db.query(MarketData)
-                    .filter(
-                        MarketData.security_id == security.id, MarketData.date == date
-                    )
+                    .filter(MarketData.security_id == security.id, MarketData.date == date)
                     .first()
                 )
 
