@@ -67,12 +67,11 @@ def create_tables():
     try:
         # Import all models to ensure they're registered
         from app.models import (
-            holding,
-            security,
-            transaction,
+            users,
         )
-        from app.models.core import account, user
-        from app.models.security import market_data
+        from app.models.portfolios import account, holding, transaction
+        from app.models.securities import reference
+        from app.models.securities.reference import price
 
         # Create tables
         Base.metadata.create_all(bind=engine)
@@ -186,18 +185,18 @@ if __name__ == "__main__":
 
 # Additional utility functions for development
 def create_test_user():
-    """Create a test user for development."""
+    """Create a test users for development."""
     from app.crud.user import user_crud
 
     db = SessionLocal()
     try:
-        # Check if test user exists
+        # Check if test users exists
         existing_user = user_crud.get_by_email(db, email="test@zsprd.com")
         if existing_user:
-            logger.info("Test user already exists")
+            logger.info("Test users already exists")
             return
 
-        # Create test user
+        # Create test users
         user_data = {
             "email": "test@zsprd.com",
             "full_name": "Test User",
@@ -207,10 +206,10 @@ def create_test_user():
         }
 
         user = user_crud.create_from_dict(db, obj_in=user_data)
-        logger.info(f"Created test user: {user.email} (ID: {user.id})")
+        logger.info(f"Created test users: {user.email} (ID: {user.id})")
 
     except Exception as e:
-        logger.error(f"Failed to create test user: {e}")
+        logger.error(f"Failed to create test users: {e}")
     finally:
         db.close()
 
@@ -220,7 +219,7 @@ def create_sample_data():
     logger.info("Creating sample data...")
 
     # This would create sample accounts, securities, holdings, etc.
-    # For now, just create a test user
+    # For now, just create a test users
     create_test_user()
 
 

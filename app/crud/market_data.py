@@ -5,8 +5,7 @@ from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
-from app.models.security.market_data import ExchangeRate, MarketData
-from app.models.security.security import Security
+from app.models.securities.reference import ExchangeRate, MarketData, SecurityReference
 from app.schemas.market_data import (
     ExchangeRateCreate,
     MarketDataCreate,
@@ -25,7 +24,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         end_date: Optional[date] = None,
         limit: Optional[int] = None,
     ) -> List[MarketData]:
-        """Get market data for a specific security."""
+        """Get market data for a specific securities."""
         query = db.query(MarketData).filter(MarketData.security_id == security_id)
 
         if start_date:
@@ -40,7 +39,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         return query.scalars().all()
 
     def get_latest_price(self, db: Session, *, security_id: str) -> Optional[MarketData]:
-        """Get the latest price for a security."""
+        """Get the latest price for a securities."""
         return (
             db.query(MarketData)
             .filter(MarketData.security_id == security_id)
@@ -50,7 +49,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
 
     def get_latest_prices_bulk(self, db: Session, *, security_ids: List[str]) -> List[MarketData]:
         """Get latest prices for multiple securities."""
-        # Get the latest date for each security
+        # Get the latest date for each securities
         subquery = (
             db.query(
                 MarketData.security_id,
@@ -78,7 +77,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
     def get_price_on_date(
         self, db: Session, *, security_id: str, target_date: date
     ) -> Optional[MarketData]:
-        """Get price for a security on a specific date, or closest available."""
+        """Get price for a securities on a specific date, or closest available."""
         # Try exact date first
         exact_match = (
             db.query(MarketData)
@@ -175,7 +174,7 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
     def get_securities_needing_update(
         self, db: Session, *, max_age_days: int = 1, limit: int = 100
     ) -> List[str]:
-        """Get security IDs that need market data updates."""
+        """Get securities IDs that need market data updates."""
         cutoff_date = date.today() - timedelta(days=max_age_days)
 
         # Get securities with old or missing data
@@ -184,8 +183,8 @@ class CRUDMarketData(CRUDBase[MarketData, MarketDataCreate, MarketDataUpdate]):
         )
 
         securities_needing_update = (
-            db.query(Security.id)
-            .filter(and_(Security.is_active, ~Security.id.in_(subquery)))
+            db.query(SecurityReference.id)
+            .filter(and_(SecurityReference.is_active, ~SecurityReference.id.in_(subquery)))
             .limit(limit)
             .all()
         )

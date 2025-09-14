@@ -6,11 +6,11 @@ from sqlalchemy import and_, or_, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.crud.base import CRUDBase
-from app.models.core.account import Account
-from app.schemas.account import AccountCreate, AccountUpdate
+from app.models.portfolios.account import PortfolioAccount
+from app.schemas.portfolio_accounts import AccountCreate, AccountUpdate
 
 
-class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
+class CRUDAccount(CRUDBase[PortfolioAccount, AccountCreate, AccountUpdate]):
 
     def get_multi_by_user(
         self,
@@ -20,33 +20,33 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
         skip: int = 0,
         limit: int = 100,
         include_inactive: bool = False,
-    ) -> List[Account]:
-        """Get multiple accounts for a specific user with optional filters."""
+    ) -> List[PortfolioAccount]:
+        """Get multiple accounts for a specific users with optional filters."""
         query = (
-            db.query(Account)
-            .options(joinedload(Account.institution))
-            .filter(Account.user_id == user_id)
+            db.query(PortfolioAccount)
+            .options(joinedload(PortfolioAccount.institution))
+            .filter(PortfolioAccount.user_id == user_id)
         )
 
         if not include_inactive:
-            query = query.filter(Account.is_active)
+            query = query.filter(PortfolioAccount.is_active)
 
         return query.offset(skip).limit(limit).all()
 
     def get_by_user_and_id(
         self, db: Session, *, user_id: str, account_id: str
-    ) -> Optional[Account]:
-        """Get a specific account for a user."""
+    ) -> Optional[PortfolioAccount]:
+        """Get a specific account for a users."""
         return (
-            db.query(Account)
-            .options(joinedload(Account.institution))
-            .filter(and_(Account.id == account_id, Account.user_id == user_id))
+            db.query(PortfolioAccount)
+            .options(joinedload(PortfolioAccount.institution))
+            .filter(and_(PortfolioAccount.id == account_id, PortfolioAccount.user_id == user_id))
             .first()
         )
 
     def count_by_user(self, db: Session, *, user_id: str) -> int:
-        """Count total accounts for a user."""
-        return db.query(Account).filter(Account.user_id == user_id).count()
+        """Count total accounts for a users."""
+        return db.query(PortfolioAccount).filter(PortfolioAccount.user_id == user_id).count()
 
     def get_account_summary(
         self, db: Session, *, account_id: str, user_id: str
@@ -77,11 +77,11 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
         cash_balance = sum(
             t.amount
             for t in transactions
-            if getattr(t, "category", None) in ["deposit", "interest"]
+            if getattr(t, "security_type", None) in ["deposit", "interest"]
         ) - sum(
             abs(t.amount)
             for t in transactions
-            if getattr(t, "category", None) in ["withdrawal", "purchase"]
+            if getattr(t, "security_type", None) in ["withdrawal", "purchase"]
         )
         cash_balance = float(max(cash_balance, Decimal("0")))
         return {
@@ -97,7 +97,9 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
             "last_updated": account.updated_at,
         }
 
-    def soft_delete(self, db: Session, *, account_id: str, user_id: str) -> Optional[Account]:
+    def soft_delete(
+        self, db: Session, *, account_id: str, user_id: str
+    ) -> Optional[PortfolioAccount]:
         """Soft delete an account by setting is_active to False."""
         account = self.get_by_user_and_id(db, user_id=user_id, account_id=account_id)
         if account:
@@ -127,7 +129,7 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
         account_id: str,
         user_id: str,
         sync_status: Optional[str] = "completed",
-    ) -> Optional[Account]:
+    ) -> Optional[PortfolioAccount]:
         """Update account last sync timestamp and status."""
         account = self.get_by_user_and_id(db, user_id=user_id, account_id=account_id)
         if account:
@@ -142,36 +144,36 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
     ) -> int:
         """Bulk update sync status for multiple accounts."""
         stmt = (
-            update(Account)
-            .where(and_(Account.user_id == user_id, Account.id.in_(account_ids)))
+            update(PortfolioAccount)
+            .where(and_(PortfolioAccount.user_id == user_id, PortfolioAccount.id.in_(account_ids)))
             .values(sync_status=sync_status, updated_at=datetime.now(timezone.utc))
         )
         result = db.execute(stmt)
         db.commit()
         return result.rowcount
 
-    def get_multi_by_category(
+    def get_multi_by_type(
         self,
         db: Session,
         *,
         user_id: str,
-        account_category: str,
+        account_type: str,
         include_inactive: bool = False,
-    ) -> List[Account]:
-        """Get accounts filtered by category/type."""
-        query = db.query(Account).filter(
-            and_(Account.user_id == user_id, Account.account_category == account_category)
+    ) -> List[PortfolioAccount]:
+        """Get accounts filtered by security_type/type."""
+        query = db.query(PortfolioAccount).filter(
+            and_(PortfolioAccount.user_id == user_id, PortfolioAccount.account_type == account_type)
         )
 
         if not include_inactive:
-            query = query.filter(Account.is_active)
+            query = query.filter(PortfolioAccount.is_active)
 
         return query.all()
 
     def get_portfolio_overview(
         self, db: Session, *, user_id: str, base_currency: str = "USD"
     ) -> Dict[str, Any]:
-        """Get comprehensive portfolio overview across all accounts."""
+        """Get comprehensive portfolios overview across all accounts."""
         accounts = self.get_multi_by_user(db, user_id=user_id)
 
         total_value = Decimal("0")
@@ -194,7 +196,7 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
                 total_cost_basis += cost_basis
 
                 # Group by account type
-                account_type = account.account_category
+                account_type = account.account_type
                 if account_type not in by_account_type:
                     by_account_type[account_type] = {
                         "count": 0,
@@ -235,17 +237,17 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
         }
 
     def get_user_account_statistics(self, db: Session, *, user_id: str) -> Dict[str, Any]:
-        """Get comprehensive account statistics for a user."""
+        """Get comprehensive account statistics for a users."""
         accounts = self.get_multi_by_user(db, user_id=user_id, include_inactive=True)
 
         total_accounts = len(accounts)
         active_accounts = len([a for a in accounts if a.is_active])
         inactive_accounts = total_accounts - active_accounts
 
-        # Group by account category
+        # Group by account security_type
         by_category = {}
         for account in accounts:
-            category = account.account_category
+            category = account.account_type
             if category not in by_category:
                 by_category[category] = {"active": 0, "inactive": 0, "total": 0}
 
@@ -274,20 +276,16 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
 
     def search_by_name(
         self, db: Session, *, user_id: str, search_term: str, limit: int = 10
-    ) -> List[Account]:
-        """Search user accounts by name or official name."""
-        from sqlalchemy import or_
+    ) -> List[PortfolioAccount]:
+        """Search users accounts by name or official name."""
 
         query = (
-            db.query(Account)
+            db.query(PortfolioAccount)
             .filter(
                 and_(
-                    Account.user_id == user_id,
-                    Account.is_active,
-                    or_(
-                        Account.name.ilike(f"%{search_term}%"),
-                        Account.official_name.ilike(f"%{search_term}%"),
-                    ),
+                    PortfolioAccount.user_id == user_id,
+                    PortfolioAccount.is_active,
+                    PortfolioAccount.name.ilike(f"%{search_term}%"),
                 )
             )
             .limit(limit)
@@ -297,24 +295,26 @@ class CRUDAccount(CRUDBase[Account, AccountCreate, AccountUpdate]):
 
     def get_stale_accounts(
         self, db: Session, *, user_id: Optional[str] = None, hours_since_sync: int = 24
-    ) -> List[Account]:
+    ) -> List[PortfolioAccount]:
         """Get accounts that haven't been synced recently."""
         from datetime import timedelta
 
         sync_cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_since_sync)
 
-        query = db.query(Account).filter(
+        query = db.query(PortfolioAccount).filter(
             and_(
-                Account.is_active,
-                or_(Account.updated_at < sync_cutoff, Account.updated_at.is_(None)),
+                PortfolioAccount.is_active,
+                or_(
+                    PortfolioAccount.updated_at < sync_cutoff, PortfolioAccount.updated_at.is_(None)
+                ),
             )
         )
 
         if user_id:
-            query = query.filter(Account.user_id == user_id)
+            query = query.filter(PortfolioAccount.user_id == user_id)
 
         return query.all()
 
 
 # Create instance
-account_crud = CRUDAccount(Account)
+account_crud = CRUDAccount(PortfolioAccount)

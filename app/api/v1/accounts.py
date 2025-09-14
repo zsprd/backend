@@ -8,7 +8,7 @@ from app.core.database import get_db
 from app.crud.account import account_crud
 from app.crud.audit_log import audit_log_crud
 from app.crud.user import user_crud
-from app.schemas.account import AccountCreate, AccountResponse, AccountUpdate
+from app.schemas.portfolio_accounts import AccountCreate, AccountResponse, AccountUpdate
 
 router = APIRouter()
 
@@ -20,7 +20,7 @@ async def get_portfolio_overview(
     current_user_id: str = Depends(user_crud.get_current_user_id),
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
-    """Get comprehensive portfolio overview across all user accounts."""
+    """Get comprehensive portfolios overview across all users accounts."""
     try:
         overview = account_crud.get_portfolio_overview(
             db, user_id=current_user_id, base_currency=base_currency
@@ -29,7 +29,7 @@ async def get_portfolio_overview(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving portfolio overview: {str(e)}",
+            detail=f"Error retrieving portfolios overview: {str(e)}",
         )
 
 
@@ -65,7 +65,7 @@ async def search_accounts(
     q: str = Query(..., description="Search term", min_length=2),
     limit: int = Query(20, description="Maximum results", ge=1, le=100),
 ):
-    """Search user accounts by name or official name."""
+    """Search users accounts by name or official name."""
     try:
         accounts = account_crud.search_accounts(
             db, user_id=current_user_id, search_term=q, limit=limit
@@ -93,7 +93,7 @@ async def get_account_statistics(
     db: Session = Depends(get_db),
     current_user_id: str = Depends(user_crud.get_current_user_id),
 ):
-    """Get comprehensive account statistics for the current user."""
+    """Get comprehensive account statistics for the current users."""
     try:
         stats = account_crud.get_user_account_statistics(db, user_id=current_user_id)
         return stats
@@ -131,15 +131,15 @@ async def get_user_accounts(
     skip: int = Query(0, description="Skip records", ge=0),
     limit: int = Query(100, description="Limit records", ge=1, le=500),
     include_inactive: bool = Query(False, description="Include inactive accounts"),
-    account_category: Optional[str] = Query(None, description="Filter by account category"),
+    account_type: Optional[str] = Query(None, description="Filter by account security_type"),
 ):
-    """Get all accounts for the current user with pagination and filtering."""
+    """Get all accounts for the current users with pagination and filtering."""
     try:
-        if account_category:
+        if account_type:
             accounts = account_crud.get_accounts_by_type(
                 db,
                 user_id=current_user_id,
-                account_category=account_category,
+                account_type=account_type,
                 include_inactive=include_inactive,
             )
             # Apply manual pagination for filtered results
@@ -185,7 +185,9 @@ async def get_account(
     account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioAccount not found"
+        )
 
     return AccountResponse.model_validate(account, from_attributes=True)
 
@@ -197,7 +199,7 @@ async def create_account(
     current_user_id: str = Depends(user_crud.get_current_user_id),
     account_data: AccountCreate,
 ):
-    """Create a new account for the current user."""
+    """Create a new account for the current users."""
     try:
         # Add user_id to the account data
         create_data = account_data.model_dump()
@@ -235,14 +237,16 @@ async def update_account(
     account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioAccount not found"
+        )
 
     try:
         # Store old values for audit
         old_values = {
             "name": account.name,
             "official_name": account.official_name,
-            "account_category": account.account_category,
+            "account_type": account.account_type,
         }
 
         updated_account = account_crud.update(db, db_obj=account, obj_in=account_update)
@@ -278,19 +282,21 @@ async def delete_account(
     account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioAccount not found"
+        )
 
     try:
         if hard_delete:
             # Permanent deletion (use with caution)
             account_crud.delete(db, id=account_id)
             action = "delete"
-            message = "Account permanently deleted"
+            message = "PortfolioAccount permanently deleted"
         else:
             # Soft delete (recommended)
             account_crud.soft_delete(db, account_id=account_id, user_id=current_user_id)
             action = "deactivate"
-            message = "Account deactivated"
+            message = "PortfolioAccount deactivated"
 
         # Log the action
         audit_log_crud.log_user_action(
@@ -325,7 +331,9 @@ async def get_account_summary(
     account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioAccount not found"
+        )
 
     try:
         summary = account_crud.get_account_summary(
@@ -335,7 +343,7 @@ async def get_account_summary(
         if not summary:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="Account summary not available",
+                detail="PortfolioAccount summary not available",
             )
 
         return summary

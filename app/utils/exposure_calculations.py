@@ -6,8 +6,8 @@ import pandas as pd
 
 class ExposureCalculations:
     """
-    Provides exposure and allocation analytics for a portfolio, including asset class, sector, country, region, currency, and position concentration metrics.
-    Accepts a DataFrame or list of holdings with columns: symbol, name, security_category, sector, industry, country, currency, market_value, cost_basis, quantity.
+    Provides exposure and allocation analytics for a portfolios, including asset class, sector, country, region, currency, and position concentration metrics.
+    Accepts a DataFrame or list of holdings with columns: symbol, name, security_type, sector, industry, country, currency, market_value, cost_basis, quantity.
     """
 
     def __init__(self, holdings_data: List[Dict[str, Any]]):
@@ -20,7 +20,7 @@ class ExposureCalculations:
     def allocation_by_asset_class(self) -> Dict[str, float]:
         if self.df.empty:
             return {}
-        by_asset_class = self.df.groupby("security_category")["market_value"].sum()
+        by_asset_class = self.df.groupby("security_type")["market_value"].sum()
         return {
             k: round((v / self.total_market_value) * 100, 2)
             for k, v in by_asset_class.to_dict().items()
@@ -29,7 +29,7 @@ class ExposureCalculations:
     def allocation_by_sector(self) -> Dict[str, float]:
         if self.df.empty:
             return {}
-        equity_df = self.df[self.df["security_category"].isin(["equity", "etf"])]
+        equity_df = self.df[self.df["security_type"].isin(["equity", "etf"])]
         if equity_df.empty:
             return {}
         by_sector = equity_df.groupby("sector")["market_value"].sum()

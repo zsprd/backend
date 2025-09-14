@@ -13,11 +13,11 @@ psycopg2==2.9.10
 alembic==1.16.5
 
 # Pydantic and validation
-pydantic==2.11.8
+pydantic==2.11.9
 pydantic-settings==2.10.1
 email-validator==2.3.0
 
-# Authentication and security
+# Authentication and securities
 python-jose==3.5.0
 passlib[bcrypt]==1.7.4
 cryptography==45.0.7
@@ -44,3 +44,7 @@ isort==6.0.1
 flake8==7.3.0
 pytest==8.4.2
 mypy==1.18.1
+
+# Third-party services
+yfinance==0.2.65
+rapidfuzz==3.14.1

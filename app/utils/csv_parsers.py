@@ -9,7 +9,7 @@ import pandas as pd
 COMMON_FIELD_MAP = {
     "date": ["date", "transaction date", "trade date", "settlement date"],
     "type": ["type", "transaction type", "activity", "description"],
-    "symbol": ["symbol", "investment", "asset", "security", "ticker", "code", "asset code"],
+    "symbol": ["symbol", "investment", "asset", "securities", "ticker", "code", "asset code"],
     "quantity": ["quantity", "no. shares", "units", "shares", "qty"],
     "price": [
         "price",

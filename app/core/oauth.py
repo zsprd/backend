@@ -1,5 +1,5 @@
 import logging
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
 
 import httpx
 from authlib.integrations.starlette_client import OAuth
@@ -69,10 +69,8 @@ class OAuthManager:
     #         print(f"Error generating Apple client secret: {e}")
     #         return ""
 
-    async def get_user_info(
-        self, provider: str, token: str
-    ) -> Optional[Dict[str, Any]]:
-        """Get user info from OAuth provider."""
+    async def get_user_info(self, provider: str, token: str) -> Optional[Dict[str, Any]]:
+        """Get users info from OAuth provider."""
         if provider == "google":
             return await self._get_google_user_info(token)
         elif provider == "apple":
@@ -80,7 +78,7 @@ class OAuthManager:
         return None
 
     async def _get_google_user_info(self, token: str) -> Optional[Dict[str, Any]]:
-        """Get user info from Google."""
+        """Get users info from Google."""
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
@@ -90,13 +88,13 @@ class OAuthManager:
                 if response.status_code == 200:
                     return response.json()
         except Exception as e:
-            logger.error(f"Error getting Google user info: {e}")
+            logger.error(f"Error getting Google users info: {e}")
         return None
 
     async def _get_apple_user_info(self, id_token: str) -> Optional[Dict[str, Any]]:
-        """Get user info from Apple ID token. Note: Signature verification is skipped!"""
+        """Get users info from Apple ID token. Note: Signature verification is skipped!"""
         try:
-            # Apple returns user info in the ID token
+            # Apple returns users info in the ID token
             decoded = jwt.decode(id_token, key="", options={"verify_signature": False})
             return {
                 "id": decoded.get("sub"),

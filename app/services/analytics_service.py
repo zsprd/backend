@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from app.models.analytics.exposure import AnalyticsExposure
 from app.models.analytics.performance import AnalyticsPerformance
 from app.models.analytics.risk import AnalyticsRisk
-from app.models.analytics.value import AccountValue
-from app.models.core.account import Account
-from app.models.holding import Holding
+from app.models.analytics.summary import AnalyticsSummary
+from app.models.portfolios.account import PortfolioAccount
+from app.models.portfolios.holding import PortfolioHolding
 from app.utils.exposure_calculations import ExposureCalculations
 from app.utils.performance_calculations import PerformanceCalculations
 from app.utils.risk_calculations import RiskCalculations
@@ -31,11 +31,13 @@ class AnalyticsCalculationService:
         self, account_id: str, calculation_date: date
     ) -> bool:
         """
-        Calculate and store daily portfolio value for an account.
+        Calculate and store daily portfolios value for an account.
         Delegates calculation to utility function.
         """
         try:
-            account = self.db.query(Account).filter(Account.id == account_id).first()
+            account = (
+                self.db.query(PortfolioAccount).filter(PortfolioAccount.id == account_id).first()
+            )
             if not account:
                 logger.error(f"Account {account_id} not found")
                 return False
@@ -56,7 +58,7 @@ class AnalyticsCalculationService:
                 account_id, calculation_date, market_value, self.db
             )
 
-            daily_value = AccountValue(
+            daily_value = AnalyticsSummary(
                 account_id=account_id,
                 value_date=calculation_date,
                 market_value=market_value,
@@ -69,11 +71,11 @@ class AnalyticsCalculationService:
             )
 
             existing = (
-                self.db.query(AccountValue)
+                self.db.query(AnalyticsSummary)
                 .filter(
                     and_(
-                        AccountValue.account_id == account_id,
-                        AccountValue.value_date == calculation_date,
+                        AnalyticsSummary.account_id == account_id,
+                        AnalyticsSummary.value_date == calculation_date,
                     )
                 )
                 .first()
@@ -97,7 +99,7 @@ class AnalyticsCalculationService:
 
         except Exception as e:
             self.db.rollback()
-            logger.error(f"Error calculating daily portfolio value for {account_id}: {str(e)}")
+            logger.error(f"Error calculating daily portfolios value for {account_id}: {str(e)}")
             return False
 
     async def calculate_performance_analytics(
@@ -276,17 +278,17 @@ class AnalyticsCalculationService:
             return False
 
     # Helper methods (unchanged, only data fetching/structuring)
-    def _get_holdings_as_of_date(self, account_id: str, as_of_date: date) -> List[Holding]:
+    def _get_holdings_as_of_date(self, account_id: str, as_of_date: date) -> List[PortfolioHolding]:
         stmt = (
-            select(Holding)
+            select(PortfolioHolding)
             .where(
                 and_(
-                    Holding.account_id == account_id,
-                    Holding.as_of_date <= as_of_date,
-                    Holding.quantity > 0,
+                    PortfolioHolding.account_id == account_id,
+                    PortfolioHolding.as_of_date <= as_of_date,
+                    PortfolioHolding.quantity > 0,
                 )
             )
-            .order_by(desc(Holding.as_of_date))
+            .order_by(desc(PortfolioHolding.as_of_date))
         )
         result = self.db.execute(stmt)
         holdings = list(result.scalars().all())
@@ -299,18 +301,18 @@ class AnalyticsCalculationService:
 
     def _get_daily_values_series(
         self, account_id: str, end_date: date, days_back: int
-    ) -> List[AccountValue]:
+    ) -> List[AnalyticsSummary]:
         start_date = end_date - timedelta(days=days_back)
         stmt = (
-            select(AccountValue)
+            select(AnalyticsSummary)
             .where(
                 and_(
-                    AccountValue.account_id == account_id,
-                    AccountValue.value_date >= start_date,
-                    AccountValue.value_date <= end_date,
+                    AnalyticsSummary.account_id == account_id,
+                    AnalyticsSummary.value_date >= start_date,
+                    AnalyticsSummary.value_date <= end_date,
                 )
             )
-            .order_by(AccountValue.value_date)
+            .order_by(AnalyticsSummary.value_date)
         )
         result = self.db.execute(stmt)
         return list(result.scalars().all())
@@ -326,7 +328,7 @@ class AnalyticsCalculationService:
                     {
                         "symbol": holding.security.symbol,
                         "name": holding.security.name,
-                        "security_category": holding.security.security_category,
+                        "security_type": holding.security.security_type,
                         "sector": holding.security.sector,
                         "industry": holding.security.industry,
                         "country": holding.security.country,

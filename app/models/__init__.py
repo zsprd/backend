@@ -1,42 +1,33 @@
+from app.models.analytics.exposure import AnalyticsExposure
 from app.models.base import Base
-from app.models.core.account import Account, Institution
-
-# Core models
-from app.models.core.user import User
-from app.models.holding import Holding
-from app.models.integrations.import_job import ImportJob
-from app.models.integrations.plaid_item import PlaidItem
+from app.models.integrations.connection import DataConnection
+from app.models.integrations.institution import FinancialInstitution
 from app.models.monitoring.alert import Alert
-from app.models.monitoring.report import Report
-from app.models.security.market_data import ExchangeRate, MarketData
-from app.models.security.security import Security
-from app.models.system.audit_log import AuditLog
-from app.models.system.notification import Notification
+from app.models.monitoring.audit import AuditLog
+from app.models.portfolios.account import PortfolioAccount
+from app.models.portfolios.holding import PortfolioHolding
+from app.models.portfolios.transaction import PortfolioTransaction
+from app.models.securities.price import SecurityPrice
+from app.models.securities.reference import SecurityReference
+from app.models.users.notification import UserNotification
+from app.models.users.session import UserSession
+from app.models.users.subscription import UserSubscription
+from app.models.users.user import User
 
-# Additional models that exist in your database
-from app.models.system.subscription import Subscription
-from app.models.system.user_session import UserSession
-from app.models.transaction import Transaction
-
-# Make sure to export all models
 __all__ = [
     "Base",
-    # Core models
     "User",
     "UserSession",
-    "Account",
-    "Institution",
-    "Security",
-    "Holding",
-    "Transaction",
-    "MarketData",
-    "ExchangeRate",
-    # Additional models
-    "Subscription",
+    "PortfolioAccount",
+    "SecurityReference",
+    "SecurityPrice",
+    "PortfolioHolding",
+    "PortfolioTransaction",
+    "UserSubscription",
     "Alert",
-    "Notification",
-    "Report",
+    "UserNotification",
     "AuditLog",
-    "ImportJob",
-    "PlaidItem",
+    "AnalyticsExposure",
+    "FinancialInstitution",
+    "DataConnection",
 ]

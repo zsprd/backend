@@ -17,8 +17,8 @@ from app.core.auth import (
 from app.core.config import settings
 from app.crud.user import user_crud
 from app.crud.user_session import user_session_crud
-from app.models.core.user import User
-from app.schemas.user import (
+from app.models.users.user import User
+from app.schemas.users import (
     ChangePasswordRequest,
     EmailConfirmRequest,
     ForgotPasswordRequest,
@@ -44,7 +44,7 @@ def sign_up_service(
     if not password_check["is_valid"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password does not meet security requirements",
+            detail="Password does not meet securities requirements",
             headers={"X-Password-Strength": str(password_check)},
         )
     user = user_crud.create_user(
@@ -160,7 +160,7 @@ def reset_password_service(db: Session, request: ResetPasswordRequest):
     if not password_check["is_valid"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password does not meet security requirements",
+            detail="Password does not meet securities requirements",
         )
     user_crud.update_password(db, user=user, new_password=request.new_password)
     user_session_crud.revoke_all_user_sessions(db, user_id=str(user.id))
@@ -184,7 +184,7 @@ def change_password_service(db: Session, request: ChangePasswordRequest, current
     if not password_check["is_valid"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Password does not meet security requirements",
+            detail="Password does not meet securities requirements",
         )
     user_crud.update_password(db, user=current_user, new_password=request.new_password)
     user_session_crud.revoke_all_user_sessions(db, user_id=str(current_user.id))

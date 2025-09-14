@@ -8,21 +8,21 @@ from typing import Any, Dict, Optional, Type, TypeVar
 from app.crud.account import account_crud
 from app.crud.audit_log import audit_log_crud
 from app.crud.holding import holding_crud
-from app.crud.security import security_crud  # Your existing security CRUD
+from app.crud.security import security_crud  # Your existing securities CRUD
 from app.crud.transaction import transaction_crud
 
 # Import all CRUD instances
 from app.crud.user import user_crud
 from app.crud.user_session import user_session_crud
-from app.models.core.account import Account
+from app.models.monitoring.audit import AuditLog
+from app.models.portfolios.account import PortfolioAccount
+from app.models.portfolios.holding import PortfolioHolding
+from app.models.portfolios.transaction import PortfolioTransaction
+from app.models.securities.reference import SecurityReference
+from app.models.users.session import UserSession
 
 # Import models for type checking
-from app.models.core.user import User
-from app.models.holding import Holding
-from app.models.security.security import Security
-from app.models.system.audit_log import AuditLog
-from app.models.system.user_session import UserSession
-from app.models.transaction import Transaction
+from app.models.users.user import User
 
 T = TypeVar("T")
 
@@ -47,11 +47,11 @@ class CRUDFactory:
         """Register all CRUD instances."""
         cls.register_crud(User, user_crud)
         cls.register_crud(UserSession, user_session_crud)
-        cls.register_crud(Account, account_crud)
-        cls.register_crud(Holding, holding_crud)
-        cls.register_crud(Transaction, transaction_crud)
+        cls.register_crud(PortfolioAccount, account_crud)
+        cls.register_crud(PortfolioHolding, holding_crud)
+        cls.register_crud(PortfolioTransaction, transaction_crud)
         cls.register_crud(AuditLog, audit_log_crud)
-        cls.register_crud(Security, security_crud)
+        cls.register_crud(SecurityReference, security_crud)
 
     @classmethod
     def list_registered_models(cls) -> list:
@@ -77,7 +77,7 @@ __all__ = [
 
 # Convenience functions for common operations
 def get_user_crud():
-    """Get user CRUD instance."""
+    """Get users CRUD instance."""
     return user_crud
 
 

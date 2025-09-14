@@ -47,7 +47,7 @@ async def get_current_price(
     *, symbol: str, currency: str = Query("USD", description="Target currency")
 ):
     """
-    Get current price for a security.
+    Get current price for a securities.
     """
     return {
         "symbol": symbol.upper(),
@@ -68,12 +68,10 @@ async def get_price_history(
     symbol: str,
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
-    interval: str = Query(
-        "daily", description="Price interval (daily, weekly, monthly)"
-    ),
+    interval: str = Query("daily", description="Price interval (daily, weekly, monthly)"),
 ):
     """
-    Get historical price data for a security.
+    Get historical price data for a securities.
     """
     return {
         "symbol": symbol.upper(),
@@ -108,9 +106,7 @@ async def get_price_history(
 async def get_exchange_rates(
     *,
     base_currency: str = Query("USD", description="Base currency"),
-    target_currencies: Optional[List[str]] = Query(
-        None, description="Target currencies"
-    ),
+    target_currencies: Optional[List[str]] = Query(None, description="Target currencies"),
 ):
     """
     Get current exchange rates.
@@ -151,21 +147,21 @@ async def get_benchmarks():
                 "name": "SPDR S&P 500 ETF Trust",
                 "description": "S&P 500 Index",
                 "currency": "USD",
-                "category": "US Large Cap",
+                "security_type": "US Large Cap",
             },
             {
                 "symbol": "VTI",
                 "name": "Vanguard Total Stock Market ETF",
                 "description": "Total US Stock Market",
                 "currency": "USD",
-                "category": "US Total Market",
+                "security_type": "US Total Market",
             },
             {
                 "symbol": "VXUS",
                 "name": "Vanguard Total International Stock ETF",
                 "description": "International Markets",
                 "currency": "USD",
-                "category": "International",
+                "security_type": "International",
             },
         ]
     }

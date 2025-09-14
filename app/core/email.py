@@ -64,9 +64,7 @@ class EmailService:
 
             # Send email
             if not self.smtp_server or not self.smtp_port:
-                raise ValueError(
-                    "SMTP server and port must be set in the configuration."
-                )
+                raise ValueError("SMTP server and port must be set in the configuration.")
             with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
                 server.starttls()
                 if self.smtp_username and self.smtp_password:
@@ -80,9 +78,7 @@ class EmailService:
             logger.error(f"Failed to send email to {to_email}: {str(e)}")
             return False
 
-    def get_verification_email_template(
-        self, name: str, verification_link: str
-    ) -> tuple[str, str]:
+    def get_verification_email_template(self, name: str, verification_link: str) -> tuple[str, str]:
         """
         Get email verification template.
 
@@ -163,9 +159,7 @@ class EmailService:
 
         return html_content, text_content
 
-    def get_password_reset_email_template(
-        self, name: str, reset_link: str
-    ) -> tuple[str, str]:
+    def get_password_reset_email_template(self, name: str, reset_link: str) -> tuple[str, str]:
         """
         Get password reset email template.
 
@@ -358,7 +352,7 @@ async def send_welcome_email(email: str, name: str) -> bool:
                 <ul>
                     <li>📊 Tracking your investment portfolios</li>
                     <li>📈 Analyzing performance metrics</li>
-                    <li>🎯 Setting up portfolio alerts</li>
+                    <li>🎯 Setting up portfolios alerts</li>
                     <li>📋 Generating professional reports</li>
                 </ul>
                 

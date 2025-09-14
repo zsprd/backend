@@ -19,15 +19,15 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     DEBUG: bool = True  # Set to False in production
 
-    # Security Settings
+    # SecurityReference Settings
     SECRET_KEY: str  # Must be set in .env
     ALGORITHM: str = "HS256"
 
     # JWT Token Expiration
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # 30 minutes for balance of security/UX
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # 30 minutes for balance of securities/UX
     REFRESH_TOKEN_EXPIRE_DAYS: int = 90  # 90 days for less frequent logins
     EMAIL_VERIFICATION_EXPIRE_HOURS: int = 24  # 24 hours
-    PASSWORD_RESET_EXPIRE_MINUTES: int = 60  # 1 hour for security
+    PASSWORD_RESET_EXPIRE_MINUTES: int = 60  # 1 hour for securities
 
     # OAuth Configuration
     GOOGLE_CLIENT_ID: Optional[str] = None
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     OAUTH_REDIRECT_URI: str = "http://localhost:3000/auth/callback"
 
-    # Password Security Requirements
+    # Password SecurityReference Requirements
     MIN_PASSWORD_LENGTH: int = 8
     REQUIRE_UPPERCASE: bool = True
     REQUIRE_LOWERCASE: bool = True
@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     SESSION_CLEANUP_INTERVAL_HOURS: int = 24  # Clean expired sessions daily
     REMEMBER_ME_EXTEND_DAYS: int = 30  # Extend session by 30 days
 
-    # Security Headers
+    # SecurityReference Headers
     CORS_ORIGINS: list = [
         "http://localhost:3000",  # Next.js dev
         "https://app.zsprd.com",  # Production frontend
@@ -99,7 +99,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     SENTRY_DSN: Optional[str] = None
 
-    # Security Monitoring
+    # SecurityReference Monitoring
     ENABLE_AUDIT_LOGS: bool = True
     TRACK_LOGIN_ATTEMPTS: bool = True
     ALERT_ON_SUSPICIOUS_LOGIN: bool = True
@@ -110,7 +110,7 @@ class Settings(BaseSettings):
     REDOC_URL: str = "/api/v1/redoc"
     OPENAPI_URL: str = "/api/v1/openapi.json"
 
-    # Production Security Settings
+    # Production SecurityReference Settings
     REQUIRE_HTTPS: bool = False  # Set to True in production
     SECURE_COOKIES: bool = False  # Set to True in production
     HSTS_MAX_AGE: int = 31536000  # 1 year
@@ -121,7 +121,7 @@ class Settings(BaseSettings):
 
     @property
     def security_config(self) -> dict:
-        """Get all security settings in one dict."""
+        """Get all securities settings in one dict."""
         return {
             "access_token_expire_minutes": self.ACCESS_TOKEN_EXPIRE_MINUTES,
             "refresh_token_expire_days": self.REFRESH_TOKEN_EXPIRE_DAYS,
@@ -161,9 +161,7 @@ def _check_required_env(settings_obj):
         required = field.is_required()
         value = getattr(settings_obj, name, None)
         # If required and value is None or empty string
-        if required and (
-            value is None or (isinstance(value, str) and value.strip() == "")
-        ):
+        if required and (value is None or (isinstance(value, str) and value.strip() == "")):
             missing.append(name)
     if missing:
         print(
@@ -179,13 +177,13 @@ except ValidationError as e:
     print(f"\n[ERROR] Settings validation error: {e}\n", file=sys.stderr)
     sys.exit(1)
 
-# Security middleware configuration
+# SecurityReference middleware configuration
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block",
-    "Strict-Transport-Security": f"max-age={settings.HSTS_MAX_AGE}; includeSubDomains",
-    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
+    "Strict-Transport-SecurityReference": f"max-age={settings.HSTS_MAX_AGE}; includeSubDomains",
+    "Content-SecurityReference-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 }
@@ -200,7 +198,7 @@ RATE_LIMIT_CONFIG = {
     "api_general": "100/minute",  # 100 general API requests per minute
 }
 
-# JWT Token blacklist for enhanced security (optional Redis implementation)
+# JWT Token blacklist for enhanced securities (optional Redis implementation)
 TOKEN_BLACKLIST_ENABLED = True
 
 # Audit log events to track

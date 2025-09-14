@@ -8,7 +8,7 @@ import pyfolio as pf
 
 class RiskCalculations:
     """
-    Provides risk analytics for a portfolio, focusing on drawdown, volatility, downside risk, tail risk, beta, tracking error, and stress tests.
+    Provides risk analytics for a portfolios, focusing on drawdown, volatility, downside risk, tail risk, beta, tracking error, and stress tests.
     Performance metrics (returns, Sharpe, Sortino, etc.) are handled in performance_calculations.py.
     """
 
@@ -80,9 +80,9 @@ class RiskCalculations:
         aligned = pd.concat(
             [self.portfolio_returns, self.benchmark_returns], axis=1, join="inner"
         ).dropna()
-        aligned.columns = ["portfolio", "benchmark"]
+        aligned.columns = ["portfolios", "benchmark"]
         return (
-            aligned["portfolio"].rolling(window).cov(aligned["benchmark"])
+            aligned["portfolios"].rolling(window).cov(aligned["benchmark"])
             / aligned["benchmark"].rolling(window).var()
         )
 
@@ -130,11 +130,11 @@ class RiskCalculations:
         aligned = pd.concat([self.portfolio_returns, self.benchmark_returns], axis=1, join="inner")
         if len(aligned) < 30:
             return {"up_capture": 0.0, "downside_capture": 0.0}
-        aligned.columns = ["portfolio", "benchmark"]
+        aligned.columns = ["portfolios", "benchmark"]
         return {
-            "up_capture": float(ep.up_capture(aligned["portfolio"], aligned["benchmark"]) * 100),
+            "up_capture": float(ep.up_capture(aligned["portfolios"], aligned["benchmark"]) * 100),
             "downside_capture": float(
-                ep.down_capture(aligned["portfolio"], aligned["benchmark"]) * 100
+                ep.down_capture(aligned["portfolios"], aligned["benchmark"]) * 100
             ),
         }
 

@@ -7,12 +7,12 @@ from sqlalchemy import and_, desc, func, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.crud.base import CRUDBase
-from app.models.holding import Holding
-from app.schemas.holding import HoldingCreate, HoldingUpdate
+from app.models.portfolios.holding import PortfolioHolding
+from app.schemas.portfolio_holdings import HoldingCreate, HoldingUpdate
 
 
-class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
-    """CRUD operations for Holding model."""
+class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
+    """CRUD operations for PortfolioHolding model."""
 
     @staticmethod
     def _to_uuid(value: Union[str, UUIDType]) -> UUIDType:
@@ -28,24 +28,24 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         *,
         account_id: Union[str, UUIDType],
         as_of_date: Optional[date] = None,
-    ) -> List[Holding]:
+    ) -> List[PortfolioHolding]:
         """Get holdings for a specific account, optionally as of a specific date."""
         account_uuid = self._to_uuid(account_id)
         stmt = (
-            select(Holding)
-            .options(joinedload(Holding.security))
-            .where(Holding.account_id == account_uuid)
+            select(PortfolioHolding)
+            .options(joinedload(PortfolioHolding.security))
+            .where(PortfolioHolding.account_id == account_uuid)
         )
 
         if as_of_date:
-            stmt = stmt.where(Holding.as_of_date <= as_of_date)
+            stmt = stmt.where(PortfolioHolding.as_of_date <= as_of_date)
 
-        # Get most recent holdings per security
-        stmt = stmt.order_by(Holding.security_id, desc(Holding.as_of_date))
+        # Get most recent holdings per securities
+        stmt = stmt.order_by(PortfolioHolding.security_id, desc(PortfolioHolding.as_of_date))
         result = db.execute(stmt)
         holdings = list(result.scalars().all())
 
-        # Filter to most recent per security
+        # Filter to most recent per securities
         latest_holdings = {}
         for holding in holdings:
             if holding.security_id not in latest_holdings:
@@ -55,30 +55,33 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
 
     def get_current_holdings_by_account(
         self, db: Session, *, account_id: Union[str, UUIDType]
-    ) -> List[Holding]:
-        """Get current holdings for an account (latest as_of_date per security)."""
+    ) -> List[PortfolioHolding]:
+        """Get current holdings for an account (latest as_of_date per securities)."""
         account_uuid = self._to_uuid(account_id)
-        # Subquery to get latest date per security for the account
+        # Subquery to get latest date per securities for the account
         latest_date_subq = (
-            select(Holding.security_id, func.max(Holding.as_of_date).label("max_date"))
-            .where(Holding.account_id == account_uuid)
-            .group_by(Holding.security_id)
+            select(
+                PortfolioHolding.security_id,
+                func.max(PortfolioHolding.as_of_date).label("max_date"),
+            )
+            .where(PortfolioHolding.account_id == account_uuid)
+            .group_by(PortfolioHolding.security_id)
             .subquery()
         )
 
         # Main query to get holdings with latest dates
         stmt = (
-            select(Holding)
-            .options(joinedload(Holding.security))
+            select(PortfolioHolding)
+            .options(joinedload(PortfolioHolding.security))
             .join(
                 latest_date_subq,
                 and_(
-                    Holding.security_id == latest_date_subq.c.security_id,
-                    Holding.as_of_date == latest_date_subq.c.max_date,
+                    PortfolioHolding.security_id == latest_date_subq.c.security_id,
+                    PortfolioHolding.as_of_date == latest_date_subq.c.max_date,
                 ),
             )
-            .where(Holding.account_id == account_uuid)
-            .where(Holding.quantity > 0)  # Only non-zero positions
+            .where(PortfolioHolding.account_id == account_uuid)
+            .where(PortfolioHolding.quantity > 0)  # Only non-zero positions
         )
 
         result = db.execute(stmt)
@@ -108,8 +111,8 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         allocation_by_currency = {}
 
         for holding in holdings:
-            # Allocation by asset type (from security)
-            asset_type = holding.security.security_category if holding.security else "unknown"
+            # Allocation by asset type (from securities)
+            asset_type = holding.security.security_type if holding.security else "unknown"
             current_value = allocation_by_type.get(asset_type, Decimal("0"))
             allocation_by_type[asset_type] = current_value + (holding.market_value or Decimal("0"))
 
@@ -162,20 +165,23 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         limit: int = 100,
-    ) -> List[Holding]:
-        """Get historical holdings for a specific security in an account."""
+    ) -> List[PortfolioHolding]:
+        """Get historical holdings for a specific securities in an account."""
         account_uuid = self._to_uuid(account_id)
         security_uuid = self._to_uuid(security_id)
-        stmt = select(Holding).where(
-            and_(Holding.account_id == account_uuid, Holding.security_id == security_uuid)
+        stmt = select(PortfolioHolding).where(
+            and_(
+                PortfolioHolding.account_id == account_uuid,
+                PortfolioHolding.security_id == security_uuid,
+            )
         )
 
         if start_date:
-            stmt = stmt.where(Holding.as_of_date >= start_date)
+            stmt = stmt.where(PortfolioHolding.as_of_date >= start_date)
         if end_date:
-            stmt = stmt.where(Holding.as_of_date <= end_date)
+            stmt = stmt.where(PortfolioHolding.as_of_date <= end_date)
 
-        stmt = stmt.order_by(desc(Holding.as_of_date)).limit(limit)
+        stmt = stmt.order_by(desc(PortfolioHolding.as_of_date)).limit(limit)
         result = db.execute(stmt)
         return list(result.scalars().all())
 
@@ -188,8 +194,8 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
                 continue
             holding_uuid = self._to_uuid(holding_id)
             stmt = (
-                update(Holding)
-                .where(Holding.id == holding_uuid)
+                update(PortfolioHolding)
+                .where(PortfolioHolding.id == holding_uuid)
                 .values(
                     market_value=holding_update.get("market_value"),
                     institution_price=holding_update.get("price"),
@@ -209,14 +215,14 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
         account_id: Union[str, UUIDType],
         as_of_date: date,
         holdings_data: List[Dict[str, Any]],
-    ) -> List[Holding]:
+    ) -> List[PortfolioHolding]:
         """Create a complete holdings snapshot for an account as of a specific date."""
         holdings = []
         account_uuid = self._to_uuid(account_id)
 
         for holding_data in holdings_data:
             security_uuid = self._to_uuid(holding_data["security_id"])
-            holding = Holding(
+            holding = PortfolioHolding(
                 account_id=account_uuid,
                 security_id=security_uuid,
                 quantity=holding_data["quantity"],
@@ -243,22 +249,22 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
     def get_portfolio_allocation(
         self, db: Session, *, user_id: Union[str, UUIDType], base_currency: str = "USD"
     ) -> Dict[str, Any]:
-        """Get portfolio allocation across all user accounts."""
-        # You'll need to join with Account table to filter by user_id
-        from app.models.core.account import Account
+        """Get portfolios allocation across all users accounts."""
+        # You'll need to join with PortfolioAccount table to filter by user_id
+        from app.models.portfolios.account import PortfolioAccount
 
         user_uuid = self._to_uuid(user_id)
         stmt = (
-            select(Holding)
-            .join(Account, Holding.account_id == Account.id)
-            .options(joinedload(Holding.security))
-            .where(Account.user_id == user_uuid)
+            select(PortfolioHolding)
+            .join(PortfolioAccount, PortfolioHolding.account_id == PortfolioAccount.id)
+            .options(joinedload(PortfolioHolding.security))
+            .where(PortfolioAccount.user_id == user_uuid)
         )
 
         result = db.execute(stmt)
         all_holdings = list(result.scalars().all())
 
-        # Get current holdings only (latest per security per account)
+        # Get current holdings only (latest per securities per account)
         current_holdings = {}
         for holding in all_holdings:
             key = (holding.account_id, holding.security_id)
@@ -276,7 +282,7 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
 
         for holding in holdings:
             # By asset type
-            asset_type = holding.security.category if holding.security else "unknown"
+            asset_type = holding.security.security_type if holding.security else "unknown"
             by_asset_type[asset_type] = by_asset_type.get(asset_type, Decimal("0")) + (
                 holding.market_value or Decimal("0")
             )
@@ -305,4 +311,4 @@ class CRUDHolding(CRUDBase[Holding, HoldingCreate, HoldingUpdate]):
 
 
 # Create instance
-holding_crud = CRUDHolding(Holding)
+holding_crud = CRUDHolding(PortfolioHolding)

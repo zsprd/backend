@@ -6,8 +6,8 @@ from sqlalchemy import and_, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
-from app.models.system.user_session import UserSession
-from app.schemas.user import UserSessionCreate, UserSessionUpdate
+from app.models.users.session import UserSession
+from app.schemas.users import UserSessionCreate, UserSessionUpdate
 
 
 class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate]):
@@ -30,7 +30,7 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
         user_agent: Optional[str] = None,
         device_type: Optional[str] = "web",
     ) -> UserSession:
-        """Create new user session."""
+        """Create new users session."""
         session = UserSession(
             user_id=self._to_uuid(user_id),
             refresh_token=refresh_token,
@@ -67,7 +67,7 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
         active_only: bool = True,
         limit: int = 10,
     ) -> List[UserSession]:
-        """Get user sessions with optional filtering."""
+        """Get users sessions with optional filtering."""
         user_uuid = self._to_uuid(user_id)
         stmt = select(UserSession).where(UserSession.user_id == user_uuid)
 
@@ -111,7 +111,7 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
         return result.rowcount > 0
 
     def revoke_all_user_sessions(self, db: Session, *, user_id: Union[str, UUIDType]) -> int:
-        """Revoke all sessions for a user using SQLAlchemy 2.0 syntax."""
+        """Revoke all sessions for a users using SQLAlchemy 2.0 syntax."""
         user_uuid = self._to_uuid(user_id)
         # First count the sessions
         count_stmt = select(func.count(UserSession.id)).where(UserSession.user_id == user_uuid)
@@ -128,7 +128,7 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
     def revoke_other_sessions(
         self, db: Session, *, user_id: Union[str, UUIDType], current_refresh_token: str
     ) -> int:
-        """Revoke all user sessions except current one."""
+        """Revoke all users sessions except current one."""
         user_uuid = self._to_uuid(user_id)
         count_stmt = select(func.count(UserSession.id)).where(
             and_(
@@ -166,7 +166,7 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
         return count
 
     def get_session_stats(self, db: Session, *, user_id: Union[str, UUIDType]) -> dict:
-        """Get session statistics for a user."""
+        """Get session statistics for a users."""
         user_uuid = self._to_uuid(user_id)
         total_stmt = select(func.count(UserSession.id)).where(UserSession.user_id == user_uuid)
         total_result = db.execute(total_stmt)

@@ -1,8 +1,9 @@
+import logging
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -10,12 +11,14 @@ from app.crud.account import account_crud
 from app.crud.audit_log import audit_log_crud
 from app.crud.transaction import transaction_crud
 from app.crud.user import user_crud
-from app.schemas.transaction import (
+from app.schemas.portfolio_transactions import (
     TransactionCreate,
     TransactionResponse,
     TransactionUpdate,
 )
+from app.services.csv import CSVProcessorResult
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -27,14 +30,16 @@ async def get_user_transactions(
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
     start_date: Optional[date] = Query(None, description="Start date filter"),
     end_date: Optional[date] = Query(None, description="End date filter"),
-    transaction_category: Optional[str] = Query(None, description="Filter by transaction category"),
+    transaction_category: Optional[str] = Query(
+        None, description="Filter by transaction security_type"
+    ),
     skip: int = Query(0, description="Skip records", ge=0),
     limit: int = Query(100, description="Limit records", ge=1, le=500),
 ):
-    """Get transactions for the current user with filtering and pagination."""
+    """Get transactions for the current users with filtering and pagination."""
     try:
         if account_id:
-            # Verify user owns the account
+            # Verify users owns the account
             account = account_crud.get_by_user_and_id(
                 db, user_id=current_user_id, account_id=account_id
             )
@@ -54,7 +59,7 @@ async def get_user_transactions(
                 transaction_category=transaction_category,
             )
         else:
-            # Get transactions across all user accounts
+            # Get transactions across all users accounts
             transactions = transaction_crud.get_by_user(
                 db,
                 user_id=current_user_id,
@@ -83,9 +88,11 @@ async def get_transaction(
     transaction = transaction_crud.get(db, id=transaction_id)
 
     if not transaction:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioTransaction not found"
+        )
 
-    # Verify user owns the account
+    # Verify users owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(transaction.account_id)
     )
@@ -104,7 +111,7 @@ async def create_transaction(
     transaction_data: TransactionCreate,
 ):
     """Create a new transaction."""
-    # Verify user owns the account
+    # Verify users owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(transaction_data.account_id)
     )
@@ -148,9 +155,11 @@ async def update_transaction(
     transaction = transaction_crud.get(db, id=transaction_id)
 
     if not transaction:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioTransaction not found"
+        )
 
-    # Verify user owns the account
+    # Verify users owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(transaction.account_id)
     )
@@ -192,9 +201,11 @@ async def delete_transaction(
     transaction = transaction_crud.get(db, id=transaction_id)
 
     if not transaction:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Transaction not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioTransaction not found"
+        )
 
-    # Verify user owns the account
+    # Verify users owns the account
     account = account_crud.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(transaction.account_id)
     )
@@ -216,7 +227,7 @@ async def delete_transaction(
         )
 
         return {
-            "message": "Transaction deleted successfully",
+            "message": "PortfolioTransaction deleted successfully",
             "transaction_id": transaction_id,
             "deleted_at": datetime.now(UTC).isoformat(),
         }
@@ -237,7 +248,7 @@ async def get_account_transaction_summary(
     end_date: Optional[date] = Query(None, description="End date"),
 ):
     """Get transaction summary for a specific account."""
-    # Verify user owns the account
+    # Verify users owns the account
     account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
@@ -266,7 +277,7 @@ async def get_portfolio_transaction_summary(
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
 ):
-    """Get transaction summary across all user accounts."""
+    """Get transaction summary across all users accounts."""
     try:
         summary = transaction_crud.get_portfolio_summary(
             db, user_id=current_user_id, start_date=start_date, end_date=end_date
@@ -275,7 +286,7 @@ async def get_portfolio_transaction_summary(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving portfolio transaction summary: {str(e)}",
+            detail=f"Error retrieving portfolios transaction summary: {str(e)}",
         )
 
 
@@ -289,7 +300,7 @@ async def get_monthly_transaction_activity(
     month: Optional[int] = Query(None, description="Specific month (1-12)", ge=1, le=12),
 ):
     """Get monthly transaction activity for an account."""
-    # Verify user owns the account
+    # Verify users owns the account
     account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
@@ -320,10 +331,10 @@ async def get_security_transactions(
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
 ):
-    """Get all transactions for a specific security."""
+    """Get all transactions for a specific securities."""
     try:
         if account_id:
-            # Verify user owns the account
+            # Verify users owns the account
             account = account_crud.get_by_user_and_id(
                 db, user_id=current_user_id, account_id=account_id
             )
@@ -346,7 +357,7 @@ async def get_security_transactions(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving security transactions: {str(e)}",
+            detail=f"Error retrieving securities transactions: {str(e)}",
         )
 
 
@@ -357,10 +368,10 @@ async def get_realized_gains_losses(
     current_user_id: str = Depends(user_crud.get_current_user_id),
     account_id: str,
     tax_year: Optional[int] = Query(None, description="Tax year filter"),
-    security_id: Optional[str] = Query(None, description="Filter by security"),
+    security_id: Optional[str] = Query(None, description="Filter by securities"),
 ):
     """Calculate realized gains/losses for tax reporting."""
-    # Verify user owns the account
+    # Verify users owns the account
     account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
@@ -401,12 +412,12 @@ async def get_tax_summary(
 ):
     """Get comprehensive tax summary across all accounts."""
     try:
-        # Get all user accounts
+        # Get all users accounts
         from sqlalchemy import select
 
-        from app.models.core.account import Account
+        from app.models.portfolios.account import PortfolioAccount
 
-        stmt = select(Account.id).where(Account.user_id == current_user_id)
+        stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user_id)
         result = db.execute(stmt)
         account_ids = [str(row[0]) for row in result.fetchall()]
 
@@ -474,7 +485,7 @@ async def bulk_import_transactions(
         )
 
     try:
-        # Verify user owns all accounts referenced
+        # Verify users owns all accounts referenced
         account_ids = set()
         for tx_data in transactions_data:
             account_id = tx_data.get("account_id")
@@ -530,7 +541,7 @@ async def upload_transactions_csv(
     file: UploadFile = File(..., description="CSV file with transactions"),
 ):
     """Upload and process transactions from CSV file."""
-    # Verify user owns the account
+    # Verify users owns the account
     account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
 
     if not account:
@@ -556,7 +567,7 @@ async def upload_transactions_csv(
             # Basic CSV parsing - you may need to customize based on CSV format
             tx_data = {
                 "account_id": account_id,
-                "transaction_category": row.get("category", "other"),
+                "transaction_category": row.get("security_type", "other"),
                 "transaction_side": row.get("side", "buy"),
                 "amount": Decimal(row.get("amount", "0")),
                 "trade_date": datetime.strptime(row.get("date") or "1970-01-01", "%Y-%m-%d").date(),
@@ -615,7 +626,7 @@ async def search_transactions(
     """Search transactions by description, amount, or other criteria."""
     try:
         if account_id:
-            # Verify user owns the account
+            # Verify users owns the account
             account = account_crud.get_by_user_and_id(
                 db, user_id=current_user_id, account_id=account_id
             )
@@ -668,6 +679,146 @@ async def search_transactions(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error searching transactions: {str(e)}",
         )
+
+
+@router.post("/accounts/{account_id}/csv-upload")
+async def upload_transactions_csv(
+    *,
+    db: Session = Depends(get_db),
+    current_user_id: str = Depends(user_crud.get_current_user_id),
+    account_id: str,
+    file: UploadFile = File(...),
+    dry_run: bool = Form(False, description="Validate only, don't import"),
+):
+    """
+    Upload and process transactions CSV file for a specific account.
+
+    Args:
+        account_id: PortfolioAccount ID to import transactions into
+        file: CSV file to upload
+        dry_run: If true, only validate without importing
+    """
+
+    # Verify users owns the account
+    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
+
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied or account not found"
+        )
+
+    # Validate file
+    if not file.filename or not file.filename.endswith(".csv"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="File must be a CSV file"
+        )
+
+    # Check file size (max 10MB)
+    max_size = 10 * 1024 * 1024  # 10MB
+    if file.size and file.size > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File size must be less than 10MB",
+        )
+
+    try:
+        # Read file content
+        content = await file.read()
+
+        # Log the upload attempt
+        audit_log_crud.log_user_action(
+            db,
+            user_id=current_user_id,
+            action="csv_upload_attempt",
+            target_category="transactions",
+            target_id=account_id,
+            description=f"Uploaded transactions CSV for account {account.name}: {file.filename}",
+        )
+
+        # Process the CSV
+        from app.services.csv.csv_processor import get_csv_processor
+
+        processor = get_csv_processor(db)
+
+        if dry_run:
+            # Validation only - simulate processing without database changes
+            result = _validate_transactions_csv(content, processor)
+        else:
+            # Full import
+            result = processor.process_transactions_csv(
+                csv_content=content, account_id=account_id, source="csv_upload"
+            )
+
+            # Log the result
+            audit_log_crud.log_user_action(
+                db,
+                user_id=current_user_id,
+                action="csv_import_completed",
+                target_category="transactions",
+                target_id=account_id,
+                description=f"Imported {result.success_count} transactions, {result.error_count} errors",
+            )
+
+        return {
+            "success": result.error_count == 0,
+            "dry_run": dry_run,
+            "account_id": account_id,
+            "account_name": account.name,
+            "summary": {
+                "processed_count": result.success_count + result.error_count,
+                "success_count": result.success_count,
+                "error_count": result.error_count,
+                "warnings_count": len(result.warnings),
+            },
+            "created_securities": result.created_securities,
+            "failed_securities": result.failed_securities,
+            "warnings": result.warnings,
+            "errors": result.errors[:50],  # Limit to first 50 errors
+            "has_more_errors": len(result.errors) > 50,
+        }
+
+    except Exception as e:
+        error_msg = f"Failed to process transactions CSV: {str(e)}"
+        logger.error(error_msg)
+
+        # Log the error
+        audit_log_crud.log_user_action(
+            db,
+            user_id=current_user_id,
+            action="csv_upload_error",
+            target_category="transactions",
+            target_id=account_id,
+            description=error_msg,
+        )
+
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=error_msg)
+
+
+def _validate_transactions_csv(content: bytes, processor) -> CSVProcessorResult:
+    """Validate transactions CSV without importing."""
+    from app.services.csv.csv_processor import CSVProcessorResult
+
+    result = CSVProcessorResult()
+
+    try:
+        # Parse CSV
+        df = processor._parse_csv_content(content)
+
+        # Validate structure
+        validation_errors = processor.validator.validate_transactions_csv(df)
+        result.errors.extend(validation_errors)
+
+        if not validation_errors:
+            result.success_count = len(df)
+            result.warnings.append(f"CSV validation passed for {len(df)} transactions")
+        else:
+            result.error_count = len(validation_errors)
+
+    except Exception as e:
+        result.errors.append(f"CSV parsing failed: {str(e)}")
+        result.error_count = 1
+
+    return result
 
 
 @router.get("/health")

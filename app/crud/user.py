@@ -10,8 +10,8 @@ from sqlalchemy.orm import Session
 from app.core.auth import TOKEN_TYPE_ACCESS, hash_password, verify_password, verify_token
 from app.core.database import get_db
 from app.crud.base import CRUDBase
-from app.models.core.user import User
-from app.schemas.user import UserCreate, UserUpdate
+from app.models.users.user import User
+from app.schemas.users import UserCreate, UserUpdate
 
 security = HTTPBearer()
 
@@ -20,19 +20,19 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     """CRUD operations for User model with proper typing."""
 
     def get_by_email(self, db: Session, *, email: str) -> Optional[User]:
-        """Get user by email address using SQLAlchemy 2.0 syntax."""
+        """Get users by email address using SQLAlchemy 2.0 syntax."""
         stmt = select(User).where(User.email == email)
         result = db.execute(stmt)
         return result.scalar_one_or_none()
 
     def get_by_google_id(self, db: Session, *, google_id: str) -> Optional[User]:
-        """Get user by Google ID using SQLAlchemy 2.0 syntax."""
+        """Get users by Google ID using SQLAlchemy 2.0 syntax."""
         stmt = select(User).where(User.google_id == google_id)
         result = db.execute(stmt)
         return result.scalar_one_or_none()
 
     def get_by_apple_id(self, db: Session, *, apple_id: str) -> Optional[User]:
-        """Get user by Apple ID using SQLAlchemy 2.0 syntax."""
+        """Get users by Apple ID using SQLAlchemy 2.0 syntax."""
         stmt = select(User).where(User.apple_id == apple_id)
         result = db.execute(stmt)
         return result.scalar_one_or_none()
@@ -56,7 +56,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         timezone: str = "UTC",
         is_verified: bool = False,
     ) -> User:
-        """Create new user with secure password hashing."""
+        """Create new users with secure password hashing."""
         user_data = {
             "email": email,
             "full_name": full_name,
@@ -82,7 +82,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     def authenticate_user(self, db: Session, *, email: str, password: str) -> Optional[User]:
-        """Authenticate user with email and password."""
+        """Authenticate users with email and password."""
         user = self.get_by_email(db, email=email)
 
         if not user or not user.password_hash:
@@ -97,7 +97,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     def update_password(self, db: Session, *, user: User, new_password: str) -> User:
-        """Update user password with secure hashing."""
+        """Update users password with secure hashing."""
         user.password_hash = hash_password(new_password)
         user.updated_at = datetime.now(timezone.utc)
         db.add(user)
@@ -106,7 +106,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     def verify_email(self, db: Session, *, user_id: str) -> Optional[User]:
-        """Mark user email as verified."""
+        """Mark users email as verified."""
         user = self.get(db, id=user_id)
         if user:
             user.is_verified = True
@@ -117,7 +117,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     def update_last_login(self, db: Session, *, user: User) -> User:
-        """Update user's last login timestamp."""
+        """Update users's last login timestamp."""
         user.last_login_at = datetime.now(timezone.utc)
         user.updated_at = datetime.now(timezone.utc)
         db.add(user)
@@ -126,7 +126,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     def update_profile(self, db: Session, *, user: User, update_data: dict) -> User:
-        """Update user profile with safe fields only."""
+        """Update users profile with safe fields only."""
         allowed_fields = {
             "full_name",
             "base_currency",
@@ -151,7 +151,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return user
 
     def deactivate_user(self, db: Session, *, user_id: str) -> Optional[User]:
-        """Soft delete user by setting is_active to False."""
+        """Soft delete users by setting is_active to False."""
         user = self.get(db, id=user_id)
         if user:
             user.is_active = False
@@ -178,7 +178,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return self.count(db, filters=filters)
 
     def get_user_stats(self, db: Session) -> dict:
-        """Get comprehensive user statistics."""
+        """Get comprehensive users statistics."""
         total_users = self.count(db)
         active_users = self.count_by_status(db, is_active=True)
         verified_users = self.count_by_status(db, is_verified=True)
@@ -205,7 +205,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         credentials: HTTPAuthorizationCredentials = Depends(security),
     ) -> str:
         """
-        Get current user ID from JWT token.
+        Get current users ID from JWT token.
         Raises HTTPException if token is invalid or expired.
         """
         if not credentials or not credentials.credentials:
@@ -230,7 +230,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return user_id
         except ValueError:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid user ID format"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid users ID format"
             )
 
     @staticmethod
@@ -238,8 +238,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         user_id: str = Depends(get_current_user_id), db: Session = Depends(get_db)
     ) -> User:
         """
-        Get current user from database.
-        Raises HTTPException if user not found or inactive.
+        Get current users from database.
+        Raises HTTPException if users not found or inactive.
         """
         user = user_crud.get(db, id=user_id)
 
@@ -247,14 +247,16 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
         if not user.is_active:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account is disabled")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="PortfolioAccount is disabled"
+            )
 
         return user
 
     @staticmethod
     def get_optional_current_user_id(request: Request) -> Optional[str]:
         """
-        Get current user ID if authenticated, None otherwise.
+        Get current users ID if authenticated, None otherwise.
         Does not raise exceptions for missing/invalid tokens.
         """
         authorization = request.headers.get("Authorization")

@@ -5,7 +5,7 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.crud.base import CRUDBase
-from app.models.system.audit_log import AuditLog
+from app.models.monitoring.audit import AuditLog
 
 
 class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
@@ -52,12 +52,12 @@ class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
         user_id: str,
         action: str,
         description: str,
-        target_category: str = "user",
+        target_category: str = "users",
         target_id: Optional[str] = None,
         metadata: Optional[dict] = None,
         ip_address: Optional[str] = None,
     ) -> AuditLog:
-        """Convenience method for logging user actions."""
+        """Convenience method for logging users actions."""
         return self.create_log(
             db,
             user_id=user_id,
@@ -113,7 +113,7 @@ class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ) -> List[AuditLog]:
-        """Get user activity logs with filtering."""
+        """Get users activity logs with filtering."""
         stmt = select(AuditLog).where(AuditLog.user_id == user_id)
 
         if action_filter:
@@ -222,7 +222,7 @@ class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
     ) -> List[AuditLog]:
-        """Get security-related events."""
+        """Get securities-related events."""
         security_actions = [
             "login_failed",
             "password_reset",
@@ -279,7 +279,7 @@ class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
         action_result = db.execute(action_stmt)
         by_action = dict(action_result.fetchall())
 
-        # Events by target category
+        # Events by target security_type
         category_stmt = (
             select(AuditLog.target_category, func.count(AuditLog.id).label("count"))
             .select_from(base_stmt.subquery())
@@ -289,7 +289,7 @@ class CRUDAuditLog(CRUDBase[AuditLog, None, None]):
         category_result = db.execute(category_stmt)
         by_category = dict(category_result.fetchall())
 
-        # Unique users (if not filtered by user)
+        # Unique users (if not filtered by users)
         unique_users = 0
         if not user_id:
             users_stmt = select(func.count(func.distinct(AuditLog.user_id))).select_from(

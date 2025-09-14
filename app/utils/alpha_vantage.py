@@ -8,8 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.crud.base import CRUDBase
-from app.models.security.market_data import MarketData
-from app.models.security.security import Security
+from app.models.securities.reference import MarketData, SecurityReference
 from app.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
@@ -174,16 +173,18 @@ class MarketDataService:
 
     async def update_security_data(self, security_id: str, force_refresh: bool = False) -> bool:
         """
-        Update market data for a specific security.
+        Update market data for a specific securities.
 
         Args:
-            security_id: Security ID to update
+            security_id: SecurityReference ID to update
             force_refresh: Force refresh even if data exists
         """
-        # Get security details
-        security = self.db.query(Security).filter(Security.id == security_id).first()
+        # Get securities details
+        security = (
+            self.db.query(SecurityReference).filter(SecurityReference.id == security_id).first()
+        )
         if not security:
-            logger.error(f"Security {security_id} not found")
+            logger.error(f"SecurityReference {security_id} not found")
             return False
 
         # Check if we need to update data
@@ -199,7 +200,7 @@ class MarketDataService:
                 logger.info(f"Market data for {security.symbol} is up to date")
                 return True
 
-        # Fetch new data based on security type
+        # Fetch new data based on securities type
         try:
             if security.type == "cryptocurrency":
                 data = await self.client.fetch_crypto_data(security.symbol)
@@ -212,7 +213,9 @@ class MarketDataService:
             logger.error(f"Failed to update data for {security.symbol}: {str(e)}")
             return False
 
-    async def _process_stock_data(self, security: Security, data: Optional[Dict[str, Any]]) -> bool:
+    async def _process_stock_data(
+        self, security: SecurityReference, data: Optional[Dict[str, Any]]
+    ) -> bool:
         """Process and store stock/ETF market data."""
         if not data or "Time Series (Daily)" not in data:
             logger.error(f"Invalid stock data format for {security.symbol}")
@@ -259,7 +262,7 @@ class MarketDataService:
         return True
 
     async def _process_crypto_data(
-        self, security: Security, data: Optional[Dict[str, Any]]
+        self, security: SecurityReference, data: Optional[Dict[str, Any]]
     ) -> bool:
         """Process and store cryptocurrency market data."""
         if not data or "Time Series (Digital Currency Daily)" not in data:
@@ -312,7 +315,7 @@ class MarketDataService:
         Update multiple securities with concurrent requests (respecting rate limits).
 
         Args:
-            security_ids: List of security IDs to update
+            security_ids: List of securities IDs to update
             max_concurrent: Maximum concurrent requests
         """
         semaphore = asyncio.Semaphore(max_concurrent)

@@ -130,7 +130,7 @@ def get_client_ip(request: Request) -> str:
 
 
 def check_password_strength(password: str) -> dict:
-    """Enhanced password strength checking for fintech security."""
+    """Enhanced password strength checking for fintech securities."""
     checks = {
         "min_length": len(password) >= 8,
         "has_uppercase": any(c.isupper() for c in password),

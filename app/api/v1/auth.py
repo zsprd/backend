@@ -15,8 +15,8 @@ from app.core.database import get_db
 from app.core.oauth import oauth_manager
 from app.crud.user import user_crud
 from app.crud.user_session import user_session_crud
-from app.models.core.user import User
-from app.schemas.user import (
+from app.models.users.user import User
+from app.schemas.users import (
     ChangePasswordRequest,
     EmailConfirmRequest,
     ForgotPasswordRequest,
@@ -43,7 +43,7 @@ async def sign_up(
 ):
     user = auth_service.sign_up_service(db, request, background_tasks, client_request)
     return SignUpResponse(
-        message="Account created successfully. Please check your email to verify your account.",
+        message="PortfolioAccount created successfully. Please check your email to verify your account.",
         user_id=user.id,
         email_verification_required=True,
         user=user.to_dict(),
@@ -110,7 +110,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
         # Get token from OAuth provider
         token = await oauth_client.authorize_access_token(request)
 
-        # Get user info
+        # Get users info
         if provider == "google":
             user_info = await oauth_manager.get_user_info(provider, token["access_token"])
         else:  # Apple
@@ -119,21 +119,21 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
         if not user_info or not user_info.get("email"):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Failed to get user information from OAuth provider",
+                detail="Failed to get users information from OAuth provider",
             )
 
-        # Check if user exists
+        # Check if users exists
         if provider == "google":
             user = user_crud.get_by_google_id(db, google_id=user_info["id"])
         else:  # Apple
             user = user_crud.get_by_apple_id(db, apple_id=user_info["id"])
 
         if not user:
-            # Check if user exists with same email
+            # Check if users exists with same email
             user = user_crud.get_by_email(db, email=user_info["email"])
 
             if user:
-                # Link OAuth account to existing user
+                # Link OAuth account to existing users
                 if provider == "google":
                     user.google_id = user_info["id"]
                 else:  # Apple
@@ -141,7 +141,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                 db.add(user)
                 db.commit()
             else:
-                # Create new user
+                # Create new users
                 oauth_data = {
                     "email": user_info["email"],
                     "full_name": user_info.get("name", ""),

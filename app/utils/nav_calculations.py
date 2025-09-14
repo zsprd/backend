@@ -6,7 +6,7 @@ import pandas as pd
 
 class NAVCalculations:
     """
-    Provides methods to compute Net Asset Value (NAV) for a portfolio/account on any given day using holdings or transactions.
+    Provides methods to compute Net Asset Value (NAV) for a portfolios/account on any given day using holdings or transactions.
     Handles cash flows so that NAV is correct and returns are not distorted by deposits/withdrawals.
     """
 
@@ -40,7 +40,7 @@ class NAVCalculations:
         transactions: List[Dict[str, Any]], prices: Dict[str, float], as_of_date: date
     ) -> float:
         """
-        Compute NAV by reconstructing the portfolio from transactions up to as_of_date, then valuing using prices.
+        Compute NAV by reconstructing the portfolios from transactions up to as_of_date, then valuing using prices.
         Transactions should have 'date', 'symbol', 'quantity', 'amount', 'type' (buy, sell, deposit, withdrawal).
         Cash is tracked as a synthetic 'CASH' symbol.
         """

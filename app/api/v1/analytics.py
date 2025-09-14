@@ -17,7 +17,7 @@ router = APIRouter()
 async def get_analytics_summary(
     *,
     db: Session = Depends(get_db),
-    account_id: str = Path(..., description="Account ID for summary"),
+    account_id: str = Path(..., description="PortfolioAccount ID for summary"),
 ) -> Dict[str, Any]:
     """
     📊 ANALYTICS SUMMARY ENDPOINT
@@ -29,7 +29,7 @@ async def get_analytics_summary(
             account_id=account_id,
         )
         if result is None:
-            raise HTTPException(status_code=404, detail="Account not found")
+            raise HTTPException(status_code=404, detail="PortfolioAccount not found")
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving analytics summary: {str(e)}")
@@ -39,7 +39,7 @@ async def get_analytics_summary(
 async def get_exposure_analytics(
     *,
     db: Session = Depends(get_db),
-    account_id: str = Path(..., description="Account ID for exposure analysis"),
+    account_id: str = Path(..., description="PortfolioAccount ID for exposure analysis"),
     start_date: Optional[date] = Query(None, description="Start date for analysis period"),
     end_date: Optional[date] = Query(None, description="End date for analysis period"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -59,7 +59,7 @@ async def get_exposure_analytics(
             limit=limit,
         )
         if result is None:
-            raise HTTPException(status_code=404, detail="Account not found")
+            raise HTTPException(status_code=404, detail="PortfolioAccount not found")
         return result
     except Exception as e:
         raise HTTPException(
@@ -71,7 +71,7 @@ async def get_exposure_analytics(
 async def get_performance_analytics(
     *,
     db: Session = Depends(get_db),
-    account_id: str = Path(..., description="Account ID for performance analysis"),
+    account_id: str = Path(..., description="PortfolioAccount ID for performance analysis"),
     start_date: Optional[date] = Query(None, description="Start date for analysis period"),
     end_date: Optional[date] = Query(None, description="End date for analysis period"),
     page: int = Query(1, ge=1, description="Page number"),
@@ -93,7 +93,7 @@ async def get_performance_analytics(
             benchmark=benchmark,
         )
         if result is None:
-            raise HTTPException(status_code=404, detail="Account not found")
+            raise HTTPException(status_code=404, detail="PortfolioAccount not found")
         return result
     except Exception as e:
         raise HTTPException(
@@ -105,7 +105,7 @@ async def get_performance_analytics(
 async def get_risk_analytics(
     *,
     db: Session = Depends(get_db),
-    account_id: str = Path(..., description="Account ID for risk analysis"),
+    account_id: str = Path(..., description="PortfolioAccount ID for risk analysis"),
     start_date: Optional[date] = Query(None, description="Start date for analysis period"),
     end_date: Optional[date] = Query(None, description="End date for analysis period"),
     page: int = Query(1, ge=1, description="Page number"),

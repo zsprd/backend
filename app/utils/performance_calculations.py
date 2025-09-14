@@ -7,7 +7,7 @@ import pandas as pd
 
 class PerformanceCalculations:
     """
-    Provides performance analytics for a portfolio, focusing on return and risk-adjusted return metrics.
+    Provides performance analytics for a portfolios, focusing on return and risk-adjusted return metrics.
     Risk metrics (drawdown, volatility, beta, etc.) are handled in risk_calculations.py.
     """
 
@@ -129,9 +129,9 @@ class PerformanceCalculations:
     def outperformance_table(self) -> Optional[pd.DataFrame]:
         if self.benchmark_returns is not None:
             df = pd.DataFrame(
-                {"portfolio": self.portfolio_returns, "benchmark": self.benchmark_returns}
+                {"portfolios": self.portfolio_returns, "benchmark": self.benchmark_returns}
             ).dropna()
-            df["excess"] = df["portfolio"] - df["benchmark"]
+            df["excess"] = df["portfolios"] - df["benchmark"]
             return df
         return None
 
@@ -139,10 +139,10 @@ class PerformanceCalculations:
         if self.benchmark_returns is not None:
             port_monthly = (1 + self.portfolio_returns).resample("M").prod() - 1
             bench_monthly = (1 + self.benchmark_returns).resample("M").prod() - 1
-            df = pd.DataFrame({"portfolio": port_monthly, "benchmark": bench_monthly}).dropna()
+            df = pd.DataFrame({"portfolios": port_monthly, "benchmark": bench_monthly}).dropna()
             if len(df) == 0:
                 return None
-            outperf = ((df["portfolio"] > df["benchmark"]).to_numpy().astype(int)).sum()
+            outperf = ((df["portfolios"] > df["benchmark"]).to_numpy().astype(int)).sum()
             return float(outperf / len(df) * 100)
         return None
 

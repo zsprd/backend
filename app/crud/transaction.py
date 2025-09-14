@@ -6,12 +6,12 @@ from sqlalchemy import and_, desc, extract, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.crud.base import CRUDBase
-from app.models.transaction import Transaction
-from app.schemas.transaction import TransactionCreate, TransactionUpdate
+from app.models.portfolios.transaction import PortfolioTransaction
+from app.schemas.portfolio_transactions import TransactionCreate, TransactionUpdate
 
 
-class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate]):
-    """CRUD operations for Transaction model."""
+class CRUDTransaction(CRUDBase[PortfolioTransaction, TransactionCreate, TransactionUpdate]):
+    """CRUD operations for PortfolioTransaction model."""
 
     def get_by_account(
         self,
@@ -23,22 +23,24 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         transaction_category: Optional[str] = None,
-    ) -> List[Transaction]:
+    ) -> List[PortfolioTransaction]:
         """Get transactions for a specific account with filtering."""
         stmt = (
-            select(Transaction)
-            .options(joinedload(Transaction.security))
-            .where(Transaction.account_id == account_id)
+            select(PortfolioTransaction)
+            .options(joinedload(PortfolioTransaction.security))
+            .where(PortfolioTransaction.account_id == account_id)
         )
 
         if start_date:
-            stmt = stmt.where(Transaction.trade_date >= start_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(Transaction.trade_date <= end_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
         if transaction_category:
-            stmt = stmt.where(Transaction.transaction_category == transaction_category)
+            stmt = stmt.where(PortfolioTransaction.transaction_category == transaction_category)
 
-        stmt = stmt.order_by(desc(Transaction.trade_date), desc(Transaction.created_at))
+        stmt = stmt.order_by(
+            desc(PortfolioTransaction.trade_date), desc(PortfolioTransaction.created_at)
+        )
         stmt = stmt.offset(skip).limit(limit)
 
         result = db.execute(stmt)
@@ -53,23 +55,25 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         limit: int = 100,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-    ) -> List[Transaction]:
-        """Get transactions for all user accounts."""
-        from app.models.core.account import Account
+    ) -> List[PortfolioTransaction]:
+        """Get transactions for all users accounts."""
+        from app.models.portfolios.account import PortfolioAccount
 
         stmt = (
-            select(Transaction)
-            .join(Account, Transaction.account_id == Account.id)
-            .options(joinedload(Transaction.security))
-            .where(Account.user_id == user_id)
+            select(PortfolioTransaction)
+            .join(PortfolioAccount, PortfolioTransaction.account_id == PortfolioAccount.id)
+            .options(joinedload(PortfolioTransaction.security))
+            .where(PortfolioAccount.user_id == user_id)
         )
 
         if start_date:
-            stmt = stmt.where(Transaction.trade_date >= start_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(Transaction.trade_date <= end_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
 
-        stmt = stmt.order_by(desc(Transaction.trade_date), desc(Transaction.created_at))
+        stmt = stmt.order_by(
+            desc(PortfolioTransaction.trade_date), desc(PortfolioTransaction.created_at)
+        )
         stmt = stmt.offset(skip).limit(limit)
 
         result = db.execute(stmt)
@@ -84,12 +88,12 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         end_date: Optional[date] = None,
     ) -> Dict[str, Any]:
         """Get transaction summary for an account."""
-        stmt = select(Transaction).where(Transaction.account_id == account_id)
+        stmt = select(PortfolioTransaction).where(PortfolioTransaction.account_id == account_id)
 
         if start_date:
-            stmt = stmt.where(Transaction.trade_date >= start_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(Transaction.trade_date <= end_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
 
         result = db.execute(stmt)
         transactions = list(result.scalars().all())
@@ -154,19 +158,19 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
     ) -> Dict[str, Any]:
-        """Get transaction summary across all user accounts."""
-        from app.models.core.account import Account
+        """Get transaction summary across all users accounts."""
+        from app.models.portfolios.account import PortfolioAccount
 
         stmt = (
-            select(Transaction)
-            .join(Account, Transaction.account_id == Account.id)
-            .where(Account.user_id == user_id)
+            select(PortfolioTransaction)
+            .join(PortfolioAccount, PortfolioTransaction.account_id == PortfolioAccount.id)
+            .where(PortfolioAccount.user_id == user_id)
         )
 
         if start_date:
-            stmt = stmt.where(Transaction.trade_date >= start_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(Transaction.trade_date <= end_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
 
         result = db.execute(stmt)
         transactions = list(result.scalars().all())
@@ -224,15 +228,15 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         self, db: Session, *, account_id: str, year: int, month: Optional[int] = None
     ) -> Dict[str, Any]:
         """Get monthly transaction activity for an account."""
-        stmt = select(Transaction).where(
+        stmt = select(PortfolioTransaction).where(
             and_(
-                Transaction.account_id == account_id,
-                extract("year", Transaction.trade_date) == year,
+                PortfolioTransaction.account_id == account_id,
+                extract("year", PortfolioTransaction.trade_date) == year,
             )
         )
 
         if month:
-            stmt = stmt.where(extract("month", Transaction.trade_date) == month)
+            stmt = stmt.where(extract("month", PortfolioTransaction.trade_date) == month)
 
         result = db.execute(stmt)
         transactions = list(result.scalars().all())
@@ -280,25 +284,25 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         user_id: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-    ) -> List[Transaction]:
-        """Get transactions for a specific security."""
-        stmt = select(Transaction).where(Transaction.security_id == security_id)
+    ) -> List[PortfolioTransaction]:
+        """Get transactions for a specific securities."""
+        stmt = select(PortfolioTransaction).where(PortfolioTransaction.security_id == security_id)
 
         if account_id:
-            stmt = stmt.where(Transaction.account_id == account_id)
+            stmt = stmt.where(PortfolioTransaction.account_id == account_id)
         elif user_id:
-            from app.models.core.account import Account
+            from app.models.portfolios.account import PortfolioAccount
 
-            stmt = stmt.join(Account, Transaction.account_id == Account.id).where(
-                Account.user_id == user_id
-            )
+            stmt = stmt.join(
+                PortfolioAccount, PortfolioTransaction.account_id == PortfolioAccount.id
+            ).where(PortfolioAccount.user_id == user_id)
 
         if start_date:
-            stmt = stmt.where(Transaction.trade_date >= start_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(Transaction.trade_date <= end_date)
+            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
 
-        stmt = stmt.order_by(desc(Transaction.trade_date))
+        stmt = stmt.order_by(desc(PortfolioTransaction.trade_date))
         result = db.execute(stmt)
         return list(result.scalars().all())
 
@@ -311,18 +315,18 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
         tax_year: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Calculate realized gains/losses for tax reporting."""
-        stmt = select(Transaction).where(
+        stmt = select(PortfolioTransaction).where(
             and_(
-                Transaction.account_id == account_id,
-                Transaction.transaction_side == "sell",
+                PortfolioTransaction.account_id == account_id,
+                PortfolioTransaction.transaction_side == "sell",
             )
         )
 
         if security_id:
-            stmt = stmt.where(Transaction.security_id == security_id)
+            stmt = stmt.where(PortfolioTransaction.security_id == security_id)
 
         if tax_year:
-            stmt = stmt.where(extract("year", Transaction.trade_date) == tax_year)
+            stmt = stmt.where(extract("year", PortfolioTransaction.trade_date) == tax_year)
 
         result = db.execute(stmt)
         sell_transactions = list(result.scalars().all())
@@ -366,12 +370,12 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
 
     def bulk_import_transactions(
         self, db: Session, *, transactions_data: List[Dict[str, Any]]
-    ) -> List[Transaction]:
+    ) -> List[PortfolioTransaction]:
         """Bulk import transactions efficiently."""
         transactions = []
 
         for tx_data in transactions_data:
-            transaction = Transaction(**tx_data)
+            transaction = PortfolioTransaction(**tx_data)
             transactions.append(transaction)
 
         db.add_all(transactions)
@@ -384,4 +388,4 @@ class CRUDTransaction(CRUDBase[Transaction, TransactionCreate, TransactionUpdate
 
 
 # Create instance
-transaction_crud = CRUDTransaction(Transaction)
+transaction_crud = CRUDTransaction(PortfolioTransaction)
