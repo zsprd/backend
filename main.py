@@ -35,7 +35,7 @@ if os.path.exists("static"):
 # Favicon endpoint
 @app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse("static/favicon.ico")
+    return FileResponse("favicon.ico")
 
 
 # Add CORS middleware

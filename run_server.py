@@ -15,7 +15,7 @@ from sqlalchemy import text
 # Import after path setup
 from app.core.config import settings
 from app.core.database import SessionLocal, engine
-from app.models.base import Base
+from app.core.model import Base
 
 # Add the current directory to Python path
 current_dir = Path(__file__).parent
@@ -66,12 +66,13 @@ def create_tables():
     """Create database tables if they don't exist."""
     try:
         # Import all models to ensure they're registered
-        from app.models import (
-            users,
-        )
-        from app.models.portfolios import account, holding, transaction
-        from app.models.securities import reference
-        from app.models.securities.reference import price
+        from app.portfolios.account import model
+        from app.portfolios.holding import model
+        from app.portfolios.transaction import model
+        from app.securities.price import model
+        from app.securities.reference import model
+        from app.users.profile import model
+        from app.users.session import model
 
         # Create tables
         Base.metadata.create_all(bind=engine)
@@ -186,7 +187,7 @@ if __name__ == "__main__":
 # Additional utility functions for development
 def create_test_user():
     """Create a test users for development."""
-    from app.crud.user import user_crud
+    from app.users.profile.crud import CRUDUserProfile as user_crud
 
     db = SessionLocal()
     try:
@@ -199,7 +200,7 @@ def create_test_user():
         # Create test users
         user_data = {
             "email": "test@zsprd.com",
-            "full_name": "Test User",
+            "full_name": "Test UserProfile",
             "is_active": True,
             "is_verified": True,
             "base_currency": "USD",

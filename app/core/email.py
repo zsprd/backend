@@ -258,8 +258,8 @@ async def send_verification_email(email: str, name: str, token: str) -> bool:
     Send email verification email.
 
     Args:
-        email: User's email address
-        name: User's name
+        email: UserProfile's email address
+        name: UserProfile's name
         token: Verification token
 
     Returns:
@@ -284,8 +284,8 @@ async def send_password_reset_email(email: str, name: str, token: str) -> bool:
     Send password reset email.
 
     Args:
-        email: User's email address
-        name: User's name
+        email: UserProfile's email address
+        name: UserProfile's name
         token: Password reset token
 
     Returns:
@@ -310,8 +310,8 @@ async def send_welcome_email(email: str, name: str) -> bool:
     Send welcome email after email verification.
 
     Args:
-        email: User's email address
-        name: User's name
+        email: UserProfile's email address
+        name: UserProfile's name
 
     Returns:
         bool: True if email sent successfully

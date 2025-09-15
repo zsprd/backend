@@ -9,7 +9,7 @@ from sqlalchemy import engine_from_config, pool
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 from app.core.config import settings
-from app.models.base import Base
+from app.core.model import Base
 
 # Import all models so they are registered with SQLAlchemy
 

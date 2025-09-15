@@ -75,7 +75,7 @@ CREATE TYPE transaction_subtype_enum AS ENUM (
 -- Data source tracking (where data originated)
 CREATE TYPE data_source_enum AS ENUM (
     'plaid',        -- Plaid API
-    'manual',       -- User manual entry
+    'manual',       -- UserProfile manual entry
     'bulk',         -- CSV/Excel upload
     'calculated',   -- Computed by our system
     'yfinance',     -- Yahoo Finance API
