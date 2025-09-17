@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from app.auth import schema, utils
 from app.auth.crud import auth_crud
 from app.core.config import settings
-from app.users.profile.model import UserProfile
-from app.users.profile.service import user_profile_service
-from app.users.session.crud import user_session_crud
+from app.user.accounts.model import UserProfile
+from app.user.accounts.service import user_profile_service
+from app.user.sessions.crud import user_session_crud
 
 
 class AuthService:

@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 from app.auth import utils
 from app.auth.service import AuthService
 from app.core.database import get_db
-from app.users.profile.crud import user_profile_crud
-from app.users.profile.model import UserProfile
-from app.users.profile.service import UserProfileService
+from app.user.accounts.crud import user_profile_crud
+from app.user.accounts.model import UserProfile
+from app.user.accounts.service import UserProfileService
 
 # Security scheme
 security = HTTPBearer()

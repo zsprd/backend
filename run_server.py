@@ -66,13 +66,13 @@ def create_tables():
     """Create database tables if they don't exist."""
     try:
         # Import all models to ensure they're registered
-        from app.portfolios.account import model
-        from app.portfolios.holding import model
-        from app.portfolios.transaction import model
-        from app.securities.price import model
-        from app.securities.reference import model
-        from app.users.profile import model
-        from app.users.session import model
+        from app.portfolio.accounts import model
+        from app.portfolio.holdings import model
+        from app.portfolio.transactions import model
+        from app.security.master import model
+        from app.security.prices import model
+        from app.user.accounts import model
+        from app.user.sessions import model
 
         # Create tables
         Base.metadata.create_all(bind=engine)
@@ -187,7 +187,7 @@ if __name__ == "__main__":
 # Additional utility functions for development
 def create_test_user():
     """Create a test users for development."""
-    from app.users.profile.crud import CRUDUserProfile as user_crud
+    from app.user.accounts.crud import CRUDUserProfile as user_crud
 
     db = SessionLocal()
     try:

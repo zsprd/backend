@@ -1,89 +1,158 @@
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Dict, Optional
+from uuid import UUID
 
-from sqlalchemy import (
-    DECIMAL,
-    UUID,
-    Date,
-    DateTime,
-    ForeignKey,
-    Index,
-    Integer,
-    String,
-    UniqueConstraint,
-)
+from sqlalchemy import DECIMAL, JSON, Date, ForeignKey, Integer, String
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.sql import func
 
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.portfolios.account.model import PortfolioAccount
+    from app.portfolio.accounts.model import PortfolioAccount
 
 
 class AnalyticsSummary(BaseModel):
     """
-    Daily portfolios values for individual accounts.
-    Foundation for all analytics calculations.
+    Account-level summary metrics for portfolio performance and allocation.
+
+    Stores calculated portfolio values, returns, and asset allocation data
+    that can be aggregated to create user-level portfolio summaries.
+    Updated daily or on-demand for real-time portfolio tracking.
     """
 
     __tablename__ = "analytics_summary"
 
-    # Foreign Key
     account_id: Mapped[UUID] = mapped_column(
-        UUID(as_uuid=True),
+        PGUUID(as_uuid=True),
         ForeignKey("portfolio_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
+        comment="Reference to the portfolio account",
     )
 
-    # Date and Values
-    as_of_date: Mapped[date] = mapped_column(Date, nullable=False, index=True)
-    available_balance: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 2))
-    current_balance: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 2))
-    balance_limit: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(15, 2))
-    market_value: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), nullable=False)
-    cost_basis: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), nullable=False)
-    cash_contributions: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), nullable=False)
-    fees_paid: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0"))
+    as_of_date: Mapped[date] = mapped_column(
+        Date, nullable=False, index=True, comment="Date for this analytics snapshot"
+    )
 
-    # Calculated Fields
-    total_return: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 4))
-    annualized_return: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 4))
-    ytd_return: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 4))
-    daily_return: Mapped[Optional[Decimal]] = mapped_column(DECIMAL(10, 6))
+    # Core portfolio values
+    market_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2), nullable=False, comment="Current market value of all holdings"
+    )
 
-    # Value Breakdown
-    equity_value: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0"))
-    debt_value: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0"))
-    cash_value: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0"))
-    alternatives_value: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0"))
-    domestic_value: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0"))
-    international_value: Mapped[Decimal] = mapped_column(DECIMAL(15, 2), default=Decimal("0"))
+    cost_basis: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2), nullable=False, comment="Total cost basis of all holdings"
+    )
 
-    # Currency and Source
-    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    cash_balance: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2), default=0, nullable=False, comment="Cash and cash equivalents balance"
+    )
 
-    # Data Quality
-    holdings_count: Mapped[Optional[int]] = mapped_column(Integer, default=0)
-    data_quality: Mapped[Optional[str]] = mapped_column(String(20))  # complete, estimated, partial
-    last_price_date: Mapped[Optional[date]] = mapped_column(Date)  # Last available market data date
-    created_at: Mapped[Optional[date]] = mapped_column(DateTime(timezone=True), default=func.now())
-    updated_at: Mapped[Optional[date]] = mapped_column(
-        DateTime(timezone=True), default=func.now(), onupdate=func.now()
+    unrealized_gain: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2),
+        nullable=False,
+        comment="Unrealized gains/losses (market_value - cost_basis)",
+    )
+
+    realized_gain: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2), default=0, nullable=False, comment="Realized gains/losses year-to-date"
+    )
+
+    # Performance returns (as percentages)
+    total_return: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(10, 4), nullable=True, comment="Total return percentage since inception"
+    )
+
+    daily_return: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(10, 6), nullable=True, comment="1-day return percentage"
+    )
+
+    weekly_return: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(10, 4), nullable=True, comment="1-week return percentage"
+    )
+
+    monthly_return: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(10, 4), nullable=True, comment="1-month return percentage"
+    )
+
+    quarterly_return: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(10, 4), nullable=True, comment="1-quarter return percentage"
+    )
+
+    ytd_return: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(10, 4), nullable=True, comment="Year-to-date return percentage"
+    )
+
+    annual_return: Mapped[Optional[Decimal]] = mapped_column(
+        DECIMAL(10, 4), nullable=True, comment="1-year return percentage"
+    )
+
+    # Asset allocation values for aggregation
+    equity_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2), default=0, nullable=False, comment="Market value of equity holdings"
+    )
+
+    debt_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2),
+        default=0,
+        nullable=False,
+        comment="Market value of debt/fixed income holdings",
+    )
+
+    fund_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2),
+        default=0,
+        nullable=False,
+        comment="Market value of fund holdings (ETFs, mutual funds)",
+    )
+
+    cash_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2), default=0, nullable=False, comment="Cash and cash equivalents value"
+    )
+
+    other_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2), default=0, nullable=False, comment="Market value of alternative investments"
+    )
+
+    # Geographic allocation
+    domestic_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2), default=0, nullable=False, comment="Market value of domestic investments"
+    )
+
+    international_value: Mapped[Decimal] = mapped_column(
+        DECIMAL(15, 2),
+        default=0,
+        nullable=False,
+        comment="Market value of international investments",
+    )
+
+    # Portfolio metadata
+    currency: Mapped[str] = mapped_column(
+        String(3), nullable=False, comment="Reporting currency for all values"
+    )
+
+    holdings_count: Mapped[int] = mapped_column(
+        Integer, default=0, nullable=False, comment="Number of distinct positions in the portfolio"
+    )
+
+    last_price_date: Mapped[Optional[date]] = mapped_column(
+        Date, nullable=True, comment="Date of the most recent price update"
+    )
+
+    # Time series data for charting (JSON arrays)
+    value_time_series: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON, nullable=True, comment="30-day portfolio value history for trend charts"
+    )
+
+    return_time_series: Mapped[Optional[Dict[str, Any]]] = mapped_column(
+        JSON, nullable=True, comment="30-day return history for performance charts"
     )
 
     # Relationships
-    account: Mapped["PortfolioAccount"] = relationship(
+    portfolio_accounts: Mapped["PortfolioAccount"] = relationship(
         "PortfolioAccount", back_populates="analytics_summary"
     )
 
-    # Constraints and Indexes
-    __table_args__ = (
-        UniqueConstraint("account_id", "as_of_date", name="uq_summary_entity_date"),
-        Index("idx_summary_account_date", "account_id", "as_of_date"),
-    )
-
-    def __repr__(self) -> str:
-        return f"<AnalyticsSummary(account_id={self.account_id}, date={self.as_of_date}, value=${self.market_value})>"
+    # Composite unique constraint on account_id + as_of_date
+    __table_args__ = ({"comment": "Daily portfolio summary metrics and asset allocation"},)

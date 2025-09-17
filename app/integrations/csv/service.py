@@ -9,13 +9,13 @@ from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.integrations.csv.validators import CSVValidator
-from app.portfolios.account.crud import account_crud
-from app.portfolios.account.model import PortfolioAccount
-from app.portfolios.holding.crud import holding_crud
-from app.portfolios.transaction.crud import transaction_crud
-from app.securities.price.service import get_market_data_service
-from app.securities.reference.model import SecurityReference
-from app.securities.reference.service import SecurityMatcher
+from app.portfolio.accounts.crud import account_crud
+from app.portfolio.accounts.model import PortfolioAccount
+from app.portfolio.holdings.crud import holding_crud
+from app.portfolio.transactions.crud import transaction_crud
+from app.security.master.model import SecurityReference
+from app.security.master.service import SecurityMatcher
+from app.security.prices.service import get_market_data_service
 
 logger = logging.getLogger(__name__)
 

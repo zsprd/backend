@@ -12,8 +12,8 @@ from app.auth.service import (
 )
 from app.core.config import settings
 from app.core.database import get_db
-from app.users.profile.crud import user_crud
-from app.users.session.crud import user_session_crud
+from app.user.accounts.crud import user_crud
+from app.user.sessions.crud import user_session_crud
 
 router = APIRouter()
 

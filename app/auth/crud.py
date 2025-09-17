@@ -4,8 +4,8 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.users.profile.crud import user_profile_crud
-from app.users.profile.model import UserProfile
+from app.user.accounts.crud import user_profile_crud
+from app.user.accounts.model import UserProfile
 
 
 class CRUDAuth:
@@ -33,7 +33,7 @@ class CRUDAuth:
         self, db: Session, *, user_data: dict, password_hash: str
     ) -> UserProfile:
         """Create user with password hash (for email/password registration)."""
-        from app.users.profile.schema import UserProfileCreate
+        from app.user.accounts.schema import UserProfileCreate
 
         profile_data = UserProfileCreate(**user_data)
         return self.user_crud.create_with_password(
@@ -42,7 +42,7 @@ class CRUDAuth:
 
     def create_oauth_user(self, db: Session, *, user_data: dict) -> UserProfile:
         """Create OAuth user (no password required)."""
-        from app.users.profile.schema import UserProfileCreate
+        from app.user.accounts.schema import UserProfileCreate
 
         profile_data = UserProfileCreate(**user_data)
         return self.user_crud.create_oauth_user(db, obj_in=profile_data)

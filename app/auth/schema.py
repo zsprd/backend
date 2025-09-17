@@ -3,7 +3,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.auth.utils import validate_strong_password
-from app.users.profile.schema import UserProfileResponse
+from app.user.accounts.schema import UserProfileResponse
 
 
 class UserRegistrationData(BaseModel):

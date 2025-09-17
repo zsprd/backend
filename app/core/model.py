@@ -1,38 +1,43 @@
-import uuid
-from datetime import datetime
-from typing import Any, Dict, Optional
+"""
+Base SQLAlchemy model with common attributes and imports.
 
-from sqlalchemy import DateTime, text
-from sqlalchemy.dialects.postgresql import UUID
+This module provides the foundational base class that other models inherit from,
+ensuring consistent UUID primary keys, timestamps, and soft delete functionality.
+"""
+
+from datetime import datetime
+from typing import Optional
+from uuid import UUID, uuid4
+
+from sqlalchemy import DateTime, func
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
-from sqlalchemy.sql import func
 
 
 class Base(DeclarativeBase):
-    """Declarative base for all models."""
+    """
+    Base class for all SQLAlchemy models.
+
+    Provides common database schema patterns including UUID primary keys,
+    automatic timestamp management, and soft delete support.
+    """
 
     pass
 
 
-class BaseModel(Base):
+class TimestampMixin:
     """
-    Abstract base model that provides common fields for all models.
+    Mixin for models that need created_at and updated_at timestamps.
+
+    Automatically sets created_at on insert and updates updated_at on modification.
+    Uses server-side defaults to ensure consistency across different application instances.
     """
-
-    __abstract__ = True
-
-    id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True),
-        primary_key=True,
-        default=uuid.uuid4,
-        server_default=text("uuid_generate_v4()"),
-        index=True,
-    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
+        comment="Timestamp when the record was created",
     )
 
     updated_at: Mapped[datetime] = mapped_column(
@@ -40,20 +45,62 @@ class BaseModel(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+        comment="Timestamp when the record was last updated",
     )
+
+
+class SoftDeleteMixin:
+    """
+    Mixin for models that support soft delete functionality.
+
+    Records are not physically deleted but marked as deleted with a timestamp.
+    This preserves referential integrity and audit trails.
+    """
 
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
-        default=None,
+        comment="Timestamp when the record was soft deleted (NULL if active)",
     )
 
-    def __repr__(self) -> str:
-        return f"<{self.__class__.__name__}(id={self.id})>"
+    @property
+    def is_deleted(self) -> bool:
+        """Check if this record has been soft deleted."""
+        return self.deleted_at is not None
 
-    def __str__(self) -> str:
-        return self.__repr__()
+    def soft_delete(self) -> None:
+        """Mark this record as deleted."""
+        self.deleted_at = func.now()
 
-    def to_dict(self) -> Dict[str, Any]:
-        """Quick dict serialization for debugging (not for API output)."""
-        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
+    def restore(self) -> None:
+        """Restore a soft deleted record."""
+        self.deleted_at = None
+
+
+class BaseModel(Base, TimestampMixin):
+    """
+    Abstract base model with UUID primary key and timestamps.
+
+    This is the standard base class for most models in the system.
+    Provides UUID primary keys for better security and scalability.
+    """
+
+    __abstract__ = True
+
+    id: Mapped[UUID] = mapped_column(
+        PGUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+        comment="Unique identifier for the record",
+    )
+
+
+class BaseModelWithSoftDelete(BaseModel, SoftDeleteMixin):
+    """
+    Abstract base model with UUID primary key, timestamps, and soft delete.
+
+    Used for models that need to preserve historical data and maintain
+    referential integrity even after logical deletion.
+    """
+
+    __abstract__ = True

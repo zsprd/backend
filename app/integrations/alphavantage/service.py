@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.crud import CRUDBase
-from app.securities.price.model import MarketData
-from app.securities.reference.model import SecurityReference
+from app.security.master.model import SecurityReference
+from app.security.prices.model import MarketData
 from app.utils.rate_limiter import RateLimiter
 
 logger = logging.getLogger(__name__)
