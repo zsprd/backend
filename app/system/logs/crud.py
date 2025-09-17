@@ -5,11 +5,11 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.crud import CRUDBase
-from app.system.logs.model import SystemAudit
+from app.system.logs.model import SystemLog
 
 
-class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
-    """CRUD operations for SystemAudit model."""
+class CRUDAuditLog(CRUDBase[SystemLog, None, None]):
+    """CRUD operations for SystemLog model."""
 
     def create_log(
         self,
@@ -25,9 +25,9 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         request_metadata: Optional[dict] = None,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-    ) -> SystemAudit:
+    ) -> SystemLog:
         """Create a new audit log entry."""
-        audit_log = SystemAudit(
+        audit_log = SystemLog(
             user_id=user_id,
             action=action,
             target_category=target_category,
@@ -56,7 +56,7 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         target_id: Optional[str] = None,
         metadata: Optional[dict] = None,
         ip_address: Optional[str] = None,
-    ) -> SystemAudit:
+    ) -> SystemLog:
         """Convenience method for logging users actions."""
         return self.create_log(
             db,
@@ -80,7 +80,7 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         old_values: Optional[dict] = None,
         new_values: Optional[dict] = None,
         ip_address: Optional[str] = None,
-    ) -> SystemAudit:
+    ) -> SystemLog:
         """Log data changes with before/after values."""
         metadata = {}
         if old_values:
@@ -112,23 +112,23 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         target_category_filter: Optional[str] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-    ) -> List[SystemAudit]:
+    ) -> List[SystemLog]:
         """Get users activity logs with filtering."""
-        stmt = select(SystemAudit).where(SystemAudit.user_id == user_id)
+        stmt = select(SystemLog).where(SystemLog.user_id == user_id)
 
         if action_filter:
-            stmt = stmt.where(SystemAudit.action == action_filter)
+            stmt = stmt.where(SystemLog.action == action_filter)
 
         if target_category_filter:
-            stmt = stmt.where(SystemAudit.target_category == target_category_filter)
+            stmt = stmt.where(SystemLog.target_category == target_category_filter)
 
         if start_date:
-            stmt = stmt.where(SystemAudit.created_at >= start_date)
+            stmt = stmt.where(SystemLog.created_at >= start_date)
 
         if end_date:
-            stmt = stmt.where(SystemAudit.created_at <= end_date)
+            stmt = stmt.where(SystemLog.created_at <= end_date)
 
-        stmt = stmt.order_by(desc(SystemAudit.created_at)).offset(skip).limit(limit)
+        stmt = stmt.order_by(desc(SystemLog.created_at)).offset(skip).limit(limit)
         result = db.execute(stmt)
         return list(result.scalars().all())
 
@@ -141,19 +141,19 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         skip: int = 0,
         limit: int = 20,
         action_filter: Optional[str] = None,
-    ) -> List[SystemAudit]:
+    ) -> List[SystemLog]:
         """Get history for a specific resource."""
-        stmt = select(SystemAudit).where(
+        stmt = select(SystemLog).where(
             and_(
-                SystemAudit.target_category == target_category,
-                SystemAudit.target_id == target_id,
+                SystemLog.target_category == target_category,
+                SystemLog.target_id == target_id,
             )
         )
 
         if action_filter:
-            stmt = stmt.where(SystemAudit.action == action_filter)
+            stmt = stmt.where(SystemLog.action == action_filter)
 
-        stmt = stmt.order_by(desc(SystemAudit.created_at)).offset(skip).limit(limit)
+        stmt = stmt.order_by(desc(SystemLog.created_at)).offset(skip).limit(limit)
         result = db.execute(stmt)
         return list(result.scalars().all())
 
@@ -167,23 +167,23 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         target_category_filter: Optional[str] = None,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-    ) -> List[SystemAudit]:
+    ) -> List[SystemLog]:
         """Get system-wide activity logs."""
-        stmt = select(SystemAudit).options(joinedload(SystemAudit.user))
+        stmt = select(SystemLog).options(joinedload(SystemLog.user))
 
         if action_filter:
-            stmt = stmt.where(SystemAudit.action == action_filter)
+            stmt = stmt.where(SystemLog.action == action_filter)
 
         if target_category_filter:
-            stmt = stmt.where(SystemAudit.target_category == target_category_filter)
+            stmt = stmt.where(SystemLog.target_category == target_category_filter)
 
         if start_date:
-            stmt = stmt.where(SystemAudit.created_at >= start_date)
+            stmt = stmt.where(SystemLog.created_at >= start_date)
 
         if end_date:
-            stmt = stmt.where(SystemAudit.created_at <= end_date)
+            stmt = stmt.where(SystemLog.created_at <= end_date)
 
-        stmt = stmt.order_by(desc(SystemAudit.created_at)).offset(skip).limit(limit)
+        stmt = stmt.order_by(desc(SystemLog.created_at)).offset(skip).limit(limit)
         result = db.execute(stmt)
         return list(result.scalars().all())
 
@@ -196,22 +196,20 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         limit: int = 50,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-    ) -> List[SystemAudit]:
+    ) -> List[SystemLog]:
         """Get login/logout history."""
-        stmt = select(SystemAudit).where(
-            SystemAudit.action.in_(["login", "logout", "login_failed"])
-        )
+        stmt = select(SystemLog).where(SystemLog.action.in_(["login", "logout", "login_failed"]))
 
         if user_id:
-            stmt = stmt.where(SystemAudit.user_id == user_id)
+            stmt = stmt.where(SystemLog.user_id == user_id)
 
         if start_date:
-            stmt = stmt.where(SystemAudit.created_at >= start_date)
+            stmt = stmt.where(SystemLog.created_at >= start_date)
 
         if end_date:
-            stmt = stmt.where(SystemAudit.created_at <= end_date)
+            stmt = stmt.where(SystemLog.created_at <= end_date)
 
-        stmt = stmt.order_by(desc(SystemAudit.created_at)).offset(skip).limit(limit)
+        stmt = stmt.order_by(desc(SystemLog.created_at)).offset(skip).limit(limit)
         result = db.execute(stmt)
         return list(result.scalars().all())
 
@@ -223,7 +221,7 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         limit: int = 100,
         start_date: Optional[datetime] = None,
         end_date: Optional[datetime] = None,
-    ) -> List[SystemAudit]:
+    ) -> List[SystemLog]:
         """Get securities-related events."""
         security_actions = [
             "login_failed",
@@ -234,15 +232,15 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
             "suspicious_activity",
         ]
 
-        stmt = select(SystemAudit).where(SystemAudit.action.in_(security_actions))
+        stmt = select(SystemLog).where(SystemLog.action.in_(security_actions))
 
         if start_date:
-            stmt = stmt.where(SystemAudit.created_at >= start_date)
+            stmt = stmt.where(SystemLog.created_at >= start_date)
 
         if end_date:
-            stmt = stmt.where(SystemAudit.created_at <= end_date)
+            stmt = stmt.where(SystemLog.created_at <= end_date)
 
-        stmt = stmt.order_by(desc(SystemAudit.created_at)).offset(skip).limit(limit)
+        stmt = stmt.order_by(desc(SystemLog.created_at)).offset(skip).limit(limit)
         result = db.execute(stmt)
         return list(result.scalars().all())
 
@@ -255,27 +253,27 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         user_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Get activity statistics."""
-        base_stmt = select(SystemAudit)
+        base_stmt = select(SystemLog)
 
         if user_id:
-            base_stmt = base_stmt.where(SystemAudit.user_id == user_id)
+            base_stmt = base_stmt.where(SystemLog.user_id == user_id)
 
         if start_date:
-            base_stmt = base_stmt.where(SystemAudit.created_at >= start_date)
+            base_stmt = base_stmt.where(SystemLog.created_at >= start_date)
 
         if end_date:
-            base_stmt = base_stmt.where(SystemAudit.created_at <= end_date)
+            base_stmt = base_stmt.where(SystemLog.created_at <= end_date)
 
         # Total events
-        total_stmt = select(func.count(SystemAudit.id)).select_from(base_stmt.subquery())
+        total_stmt = select(func.count(SystemLog.id)).select_from(base_stmt.subquery())
         total_result = db.execute(total_stmt)
         total_events = total_result.scalar() or 0
 
         # Events by action
         action_stmt = (
-            select(SystemAudit.action, func.count(SystemAudit.id).label("count"))
+            select(SystemLog.action, func.count(SystemLog.id).label("count"))
             .select_from(base_stmt.subquery())
-            .group_by(SystemAudit.action)
+            .group_by(SystemLog.action)
             .order_by(desc("count"))
         )
         action_result = db.execute(action_stmt)
@@ -283,9 +281,9 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
 
         # Events by target security_type
         category_stmt = (
-            select(SystemAudit.target_category, func.count(SystemAudit.id).label("count"))
+            select(SystemLog.target_category, func.count(SystemLog.id).label("count"))
             .select_from(base_stmt.subquery())
-            .group_by(SystemAudit.target_category)
+            .group_by(SystemLog.target_category)
             .order_by(desc("count"))
         )
         category_result = db.execute(category_stmt)
@@ -294,7 +292,7 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         # Unique users (if not filtered by users)
         unique_users = 0
         if not user_id:
-            users_stmt = select(func.count(func.distinct(SystemAudit.user_id))).select_from(
+            users_stmt = select(func.count(func.distinct(SystemLog.user_id))).select_from(
                 base_stmt.subquery()
             )
             users_result = db.execute(users_stmt)
@@ -322,19 +320,19 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
     ) -> Dict[str, int]:
         """Get daily activity counts."""
         stmt = select(
-            func.date(SystemAudit.created_at).label("activity_date"),
-            func.count(SystemAudit.id).label("count"),
+            func.date(SystemLog.created_at).label("activity_date"),
+            func.count(SystemLog.id).label("count"),
         ).where(
             and_(
-                func.date(SystemAudit.created_at) >= start_date,
-                func.date(SystemAudit.created_at) <= end_date,
+                func.date(SystemLog.created_at) >= start_date,
+                func.date(SystemLog.created_at) <= end_date,
             )
         )
 
         if user_id:
-            stmt = stmt.where(SystemAudit.user_id == user_id)
+            stmt = stmt.where(SystemLog.user_id == user_id)
 
-        stmt = stmt.group_by(func.date(SystemAudit.created_at)).order_by("activity_date")
+        stmt = stmt.group_by(func.date(SystemLog.created_at)).order_by("activity_date")
 
         result = db.execute(stmt)
         daily_counts = {}
@@ -351,12 +349,12 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_to_keep)
 
         # Count logs to be deleted
-        count_stmt = select(func.count(SystemAudit.id)).where(SystemAudit.created_at < cutoff_date)
+        count_stmt = select(func.count(SystemLog.id)).where(SystemLog.created_at < cutoff_date)
         count_result = db.execute(count_stmt)
         count_to_delete = count_result.scalar() or 0
 
         # Delete old logs
-        delete_stmt = delete(SystemAudit).where(SystemAudit.created_at < cutoff_date)
+        delete_stmt = delete(SystemLog).where(SystemLog.created_at < cutoff_date)
         db.execute(delete_stmt)
         db.commit()
 
@@ -370,25 +368,25 @@ class CRUDAuditLog(CRUDBase[SystemAudit, None, None]):
         skip: int = 0,
         limit: int = 50,
         user_id: Optional[str] = None,
-    ) -> List[SystemAudit]:
+    ) -> List[SystemLog]:
         """Search audit logs by description or metadata."""
         from sqlalchemy import or_
 
-        stmt = select(SystemAudit).where(
+        stmt = select(SystemLog).where(
             or_(
-                SystemAudit.description.ilike(f"%{search_term}%"),
-                SystemAudit.target_id.ilike(f"%{search_term}%"),
-                SystemAudit.request_path.ilike(f"%{search_term}%"),
+                SystemLog.description.ilike(f"%{search_term}%"),
+                SystemLog.target_id.ilike(f"%{search_term}%"),
+                SystemLog.request_path.ilike(f"%{search_term}%"),
             )
         )
 
         if user_id:
-            stmt = stmt.where(SystemAudit.user_id == user_id)
+            stmt = stmt.where(SystemLog.user_id == user_id)
 
-        stmt = stmt.order_by(desc(SystemAudit.created_at)).offset(skip).limit(limit)
+        stmt = stmt.order_by(desc(SystemLog.created_at)).offset(skip).limit(limit)
         result = db.execute(stmt)
         return list(result.scalars().all())
 
 
 # Create instance
-audit_log_crud = CRUDAuditLog(SystemAudit)
+audit_log_crud = CRUDAuditLog(SystemLog)

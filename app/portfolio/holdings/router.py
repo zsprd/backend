@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user
-from app.integrations.csv.service import CSVProcessorResult
 from app.portfolio.accounts.crud import account_crud
 from app.portfolio.holdings.crud import holding_crud
 from app.portfolio.holdings.schema import HoldingCreate, HoldingResponse, HoldingUpdate
+from app.provider.integrations.csv.service import CSVProcessorResult
 from app.system.logs.crud import audit_log_crud
 
 logger = logging.getLogger(__name__)
@@ -564,7 +564,7 @@ async def upload_holdings_csv(
         )
 
         # Process the CSV
-        from app.integrations.csv.service import get_csv_processor
+        from app.provider.integrations.csv.service import get_csv_processor
 
         processor = get_csv_processor(db)
 
@@ -624,7 +624,7 @@ async def upload_holdings_csv(
 
 def _validate_holdings_csv(content: bytes, processor) -> CSVProcessorResult:
     """Validate holdings CSV without importing."""
-    from app.integrations.csv.service import CSVProcessorResult
+    from app.provider.integrations.csv.service import CSVProcessorResult
 
     result = CSVProcessorResult()
 

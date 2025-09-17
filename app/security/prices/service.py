@@ -7,9 +7,9 @@ import pandas as pd
 import yfinance as yf
 from sqlalchemy.orm import Session
 
-from app.integrations.alphavantage.service import MarketDataService as AlphaVantageService
+from app.provider.integrations.alphavantage.service import MarketDataService as AlphaVantageService
 from app.security.master.crud import security_crud
-from app.security.master.model import SecurityReference
+from app.security.master.model import SecurityMaster
 from app.security.master.schema import SecurityCreate, SecurityUpdate
 from app.security.prices.model import SecurityPrice
 
@@ -41,9 +41,7 @@ class MarketDataService:
             "minimal_created": 0,
         }
 
-    async def search_and_create_security(
-        self, symbol: str
-    ) -> Tuple[Optional[SecurityReference], str]:
+    async def search_and_create_security(self, symbol: str) -> Tuple[Optional[SecurityMaster], str]:
         """
         Search for a securities by symbol and create it if found.
 
@@ -53,10 +51,10 @@ class MarketDataService:
         3. Minimal securities creation
 
         Args:
-            symbol: SecurityReference symbol to search for
+            symbol: SecurityMaster symbol to search for
 
         Returns:
-            Tuple of (SecurityReference instance or None, source string)
+            Tuple of (SecurityMaster instance or None, source string)
         """
 
         symbol = symbol.strip().upper()
@@ -102,13 +100,13 @@ class MarketDataService:
         return None, "failed"
 
     async def enrich_security_data(
-        self, security: SecurityReference, force_refresh: bool = False
+        self, security: SecurityMaster, force_refresh: bool = False
     ) -> Tuple[bool, str]:
         """
         Enrich an existing securities with additional data (name, sector, etc.).
 
         Args:
-            security: SecurityReference model instance to enrich
+            security: SecurityMaster model instance to enrich
             force_refresh: Force refresh even if data seems complete
 
         Returns:
@@ -117,7 +115,7 @@ class MarketDataService:
 
         # Skip enrichment if data looks complete and not forcing refresh
         if not force_refresh and self._security_has_good_data(security):
-            logger.debug(f"SecurityReference {security.symbol} already has good data")
+            logger.debug(f"SecurityMaster {security.symbol} already has good data")
             return True, "cached"
 
         # Try yfinance first
@@ -145,7 +143,7 @@ class MarketDataService:
         Update market data (prices, volumes) for a securities.
 
         Args:
-            security_id: SecurityReference ID to update
+            security_id: SecurityMaster ID to update
             force_refresh: Force refresh even if recent data exists
 
         Returns:
@@ -153,11 +151,9 @@ class MarketDataService:
         """
 
         # Get securities
-        security = (
-            self.db.query(SecurityReference).filter(SecurityReference.id == security_id).first()
-        )
+        security = self.db.query(SecurityMaster).filter(SecurityMaster.id == security_id).first()
         if not security:
-            logger.error(f"SecurityReference {security_id} not found")
+            logger.error(f"SecurityMaster {security_id} not found")
             return False, "not_found"
 
         # Check if we need to update (skip if recent data exists)
@@ -202,9 +198,7 @@ class MarketDataService:
         async def enrich_with_semaphore(security_id: str) -> Tuple[str, Tuple[bool, str]]:
             async with semaphore:
                 security = (
-                    self.db.query(SecurityReference)
-                    .filter(SecurityReference.id == security_id)
-                    .first()
+                    self.db.query(SecurityMaster).filter(SecurityMaster.id == security_id).first()
                 )
                 if security:
                     success, source = await self.enrich_security_data(security)
@@ -232,7 +226,7 @@ class MarketDataService:
 
     async def _create_security_from_yfinance(
         self, symbol: str
-    ) -> Tuple[Optional[SecurityReference], str]:
+    ) -> Tuple[Optional[SecurityMaster], str]:
         """Create a new securities using yfinance data."""
 
         try:
@@ -270,7 +264,7 @@ class MarketDataService:
             logger.error(f"yfinance securities creation failed for {symbol}: {str(e)}")
             return None, "yfinance_error"
 
-    async def _enrich_with_yfinance(self, security: SecurityReference) -> Tuple[bool, str]:
+    async def _enrich_with_yfinance(self, security: SecurityMaster) -> Tuple[bool, str]:
         """Enrich securities using yfinance data."""
 
         try:
@@ -299,7 +293,7 @@ class MarketDataService:
             logger.error(f"yfinance enrichment failed for {security.symbol}: {str(e)}")
             return False, "yfinance_error"
 
-    async def _update_market_data_yfinance(self, security: SecurityReference) -> Tuple[bool, str]:
+    async def _update_market_data_yfinance(self, security: SecurityMaster) -> Tuple[bool, str]:
         """Update market data using yfinance."""
 
         try:
@@ -464,7 +458,7 @@ class MarketDataService:
 
     async def _create_security_from_alphavantage(
         self, symbol: str
-    ) -> Tuple[Optional[SecurityReference], str]:
+    ) -> Tuple[Optional[SecurityMaster], str]:
         """Create a new securities using Alpha Vantage data."""
 
         try:
@@ -502,7 +496,7 @@ class MarketDataService:
             logger.error(f"Alpha Vantage securities creation failed for {symbol}: {str(e)}")
             return None, "alphavantage_error"
 
-    async def _enrich_with_alphavantage(self, security: SecurityReference) -> Tuple[bool, str]:
+    async def _enrich_with_alphavantage(self, security: SecurityMaster) -> Tuple[bool, str]:
         """Enrich securities using Alpha Vantage data."""
 
         try:
@@ -599,7 +593,7 @@ class MarketDataService:
     # Fallback and Utility Methods
     # ===================================================================
 
-    async def _create_minimal_security(self, symbol: str) -> Optional[SecurityReference]:
+    async def _create_minimal_security(self, symbol: str) -> Optional[SecurityMaster]:
         """Create minimal securities when all external sources fail."""
 
         try:
@@ -609,7 +603,7 @@ class MarketDataService:
 
             create_data = SecurityCreate(
                 symbol=symbol.upper(),
-                name=f"Unknown SecurityReference ({symbol})",
+                name=f"Unknown SecurityMaster ({symbol})",
                 security_category=category,
                 currency=currency,
                 alphavantage_symbol=symbol.upper(),
@@ -632,18 +626,18 @@ class MarketDataService:
             self._ticker_cache[symbol] = yf.Ticker(symbol)
         return self._ticker_cache[symbol]
 
-    def _security_has_good_data(self, security: SecurityReference) -> bool:
+    def _security_has_good_data(self, security: SecurityMaster) -> bool:
         """Check if securities already has comprehensive data."""
         return bool(
             security.name
             and security.name != security.symbol
-            and security.name != f"Unknown SecurityReference ({security.symbol})"
+            and security.name != f"Unknown SecurityMaster ({security.symbol})"
             and security.sector
             and security.currency
             and len(security.name) > len(security.symbol)  # Name is more than just the symbol
         )
 
-    def _has_recent_market_data(self, security: SecurityReference) -> bool:
+    def _has_recent_market_data(self, security: SecurityMaster) -> bool:
         """Check if securities has market data from the last trading day."""
 
         # Check for data within the last 3 days to account for weekends

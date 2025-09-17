@@ -1,10 +1,3 @@
-"""
-Base SQLAlchemy model with common attributes and imports.
-
-This module provides the foundational base class that other models inherit from,
-ensuring consistent UUID primary keys, timestamps, and soft delete functionality.
-"""
-
 from datetime import datetime
 from typing import Optional
 from uuid import UUID, uuid4

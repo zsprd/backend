@@ -1,10 +1,10 @@
-from typing import Dict, Optional
+from typing import Optional
 from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.user.accounts.crud import user_profile_crud
+from app.user.accounts.crud import user_account_crud
 from app.user.accounts.model import UserAccount
 from app.user.accounts.schema import UserAccountCreate, UserAccountUpdate
 
@@ -13,7 +13,7 @@ class UserAccountService:
     """Service layer for user profile operations (non-auth related)."""
 
     def __init__(self):
-        self.crud = user_profile_crud
+        self.crud = user_account_crud
 
     # ----------------------
     # Core Profile Operations
@@ -41,26 +41,6 @@ class UserAccountService:
 
         return self.crud.update(db, db_obj=user, obj_in=profile_update)
 
-    def get_user_preferences(self, db: Session, user: UserAccount) -> Dict[str, str]:
-        """Get user preferences as a dictionary."""
-        return {
-            "timezone": user.timezone,
-            "base_currency": user.base_currency,
-            "language": user.language,
-            "theme_preference": user.theme_preference,
-        }
-
-    def update_user_preferences(
-        self,
-        db: Session,
-        user: UserAccount,
-        preferences: Dict[str, str],
-    ) -> UserAccount:
-        """Update user preferences."""
-        # Create update object from preferences
-        update_data = UserAccountUpdate(**preferences)
-        return self.update_user_profile(db, user=user, profile_update=update_data)
-
     # ----------------------
     # Profile Validation & Checks
     # ----------------------
@@ -77,28 +57,6 @@ class UserAccountService:
             return True
 
         return False
-
-    def validate_profile_completeness(self, user: UserAccount) -> Dict[str, bool]:
-        """Check profile completeness for onboarding."""
-        return {
-            "has_full_name": bool(user.full_name and user.full_name.strip()),
-            "email_verified": user.is_verified,
-            "timezone_set": user.timezone != "UTC",  # Assuming UTC is default
-            "preferences_configured": all(
-                [
-                    user.base_currency != "USD",  # Assuming USD is default
-                    user.language != "en",  # Assuming en is default
-                    user.theme_preference != "system",  # Assuming system is default
-                ]
-            ),
-        }
-
-    def get_profile_completion_percentage(self, user: UserAccount) -> int:
-        """Calculate profile completion percentage."""
-        completeness = self.validate_profile_completeness(user)
-        completed_items = sum(completeness.values())
-        total_items = len(completeness)
-        return int((completed_items / total_items) * 100)
 
     # ----------------------
     # Internal Use (Called by Auth Service)
@@ -121,4 +79,4 @@ class UserAccountService:
 
 
 # Singleton instance
-user_profile_service = UserAccountService()
+user_account_service = UserAccountService()

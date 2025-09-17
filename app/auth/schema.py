@@ -3,47 +3,19 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.auth.utils import validate_strong_password
-from app.user.accounts.schema import UserProfileResponse
+from app.user.accounts.schema import UserAccountBase
+
+
+class Config:
+    from_attributes = True
 
 
 class UserRegistrationData(BaseModel):
-    """Schema for user registration including both auth and profile data."""
+    """Schema for user registration."""
 
-    # Auth-specific fields
-    password: str = Field(..., min_length=8, description="Password")
-
-    # Profile fields that are required during registration
-    email: EmailStr = Field(..., description="Email address")
     full_name: str = Field(..., min_length=2, max_length=255, description="Full name")
-
-    # Optional profile fields with defaults
-    timezone: str = Field("UTC", description="Preferred timezone")
-    base_currency: str = Field("USD", min_length=3, max_length=3, description="Base currency code")
-    language: str = Field("en", min_length=2, max_length=5, description="Preferred language")
-    theme_preference: str = Field("system", description="Theme preference (light/dark/system)")
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, value: str) -> str:
-        return validate_strong_password(value)
-
-    @field_validator("base_currency")
-    @classmethod
-    def validate_currency(cls, v: str) -> str:
-        return v.upper() if v else v
-
-    @field_validator("language")
-    @classmethod
-    def validate_language(cls, v: str) -> str:
-        return v.lower() if v else v
-
-    @field_validator("theme_preference")
-    @classmethod
-    def validate_theme(cls, v: str) -> str:
-        allowed_themes = {"light", "dark", "system"}
-        if v not in allowed_themes:
-            raise ValueError(f"Theme must be one of: {', '.join(allowed_themes)}")
-        return v
+    email: EmailStr = Field(..., description="Email address")
+    password: str = Field(..., min_length=8, description="Password")
 
 
 class OAuthUserData(BaseModel):
@@ -132,7 +104,7 @@ class TokenResponse(BaseModel):
 class AuthResponse(TokenResponse):
     """Authentication response with user data."""
 
-    user: UserProfileResponse
+    user: UserAccountBase
 
 
 class RegistrationResponse(BaseModel):
@@ -141,17 +113,29 @@ class RegistrationResponse(BaseModel):
     message: str
     user_id: UUID
     email_verification_required: bool = True
-    user: UserProfileResponse
+    user: UserAccountBase
 
 
 class EmailVerificationResponse(BaseModel):
     """Email verification response."""
 
     message: str
-    user: UserProfileResponse
+    user: UserAccountBase
 
 
 class PasswordResetResponse(BaseModel):
     """Password reset response."""
+
+    message: str
+
+
+class ForgotPasswordResponse(BaseModel):
+    """Response for password reset request."""
+
+    message: str
+
+
+class LogoutResponse(BaseModel):
+    """Response for user logout."""
 
     message: str

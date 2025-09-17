@@ -5,14 +5,14 @@ from sqlalchemy import Boolean, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.analytics.exposure.model import AnalyticsExposure
+from app.analytics.performance.model import AnalyticsPerformance
+from app.analytics.risk.model import AnalyticsRisk
+from app.analytics.summary.model import AnalyticsSummary
 from app.core.model import BaseModel
+from app.portfolio.holdings.model import PortfolioHolding
+from app.portfolio.transactions.model import PortfolioTransaction
 
-from ...analytics.exposure.model import AnalyticsExposure
-from ...analytics.performance.model import AnalyticsPerformance
-from ...analytics.risk.model import AnalyticsRisk
-from ...analytics.summary.model import AnalyticsSummary
-from ..holdings.model import PortfolioHolding
-from ..transactions.model import PortfolioTransaction
 from .enums import (
     ACCOUNT_SUBTYPE_ENUM,
     ACCOUNT_TYPE_ENUM,
@@ -88,16 +88,16 @@ class PortfolioAccount(BaseModel):
     )
 
     # Relationships
-    user_accounts: Mapped["UserAccount"] = relationship(
+    user_accoun: Mapped["UserAccount"] = relationship(
         "UserAccount", back_populates="portfolio_accounts"
     )
 
     provider_institutions: Mapped[Optional["ProviderInstitution"]] = relationship(
-        "ProviderInstitution", back_populates="portfolio_accounts"
+        lambda: ProviderInstitution, back_populates="portfolio_accounts"
     )
 
     provider_connections: Mapped[Optional["ProviderConnection"]] = relationship(
-        "ProviderConnection", back_populates="portfolio_accounts"
+        lambda: ProviderConnection, back_populates="portfolio_accounts"
     )
 
     portfolio_holdings: Mapped[List["PortfolioHolding"]] = relationship(

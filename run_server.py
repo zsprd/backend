@@ -187,7 +187,7 @@ if __name__ == "__main__":
 # Additional utility functions for development
 def create_test_user():
     """Create a test users for development."""
-    from app.user.accounts.crud import CRUDUserProfile as user_crud
+    from app.user.accounts.crud import CRUDUserAccount as user_crud
 
     db = SessionLocal()
     try:

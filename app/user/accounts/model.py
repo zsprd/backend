@@ -79,31 +79,34 @@ class UserAccount(BaseModel):
 
     # Relationships
     user_sessions: Mapped[List["UserSession"]] = relationship(
-        "UserSession", back_populates="user", cascade="all, delete-orphan", passive_deletes=True
+        "UserSession",
+        back_populates="user_accounts",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
     )
 
     user_subscriptions: Mapped[List["UserSubscription"]] = relationship(
         "UserSubscription",
-        back_populates="user",
+        back_populates="user_accounts",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
 
     user_notifications: Mapped[List["UserNotification"]] = relationship(
         "UserNotification",
-        back_populates="user",
+        back_populates="user_accounts",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
 
     provider_connections: Mapped[List["ProviderConnection"]] = relationship(
-        "ProviderConnection", back_populates="user", passive_deletes=True
+        "ProviderConnection", back_populates="user_accounts", passive_deletes=True
     )
 
     portfolio_accounts: Mapped[List["PortfolioAccount"]] = relationship(
-        "PortfolioAccount", back_populates="user", passive_deletes=True
+        "PortfolioAccount", back_populates="user_accounts", passive_deletes=True
     )
 
     system_jobs: Mapped[List["SystemJob"]] = relationship(
-        "SystemJob", back_populates="user", passive_deletes=True
+        "SystemJob", back_populates="user_accounts", passive_deletes=True
     )

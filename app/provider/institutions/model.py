@@ -1,11 +1,13 @@
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Boolean, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.model import BaseModel
-from app.portfolio.accounts.model import PortfolioAccount
 from app.provider.connections.model import ProviderConnection
+
+if TYPE_CHECKING:
+    from app.portfolio.accounts.model import PortfolioAccount
 
 
 class ProviderInstitution(BaseModel):
@@ -58,5 +60,5 @@ class ProviderInstitution(BaseModel):
     )
 
     portfolio_accounts: Mapped[List["PortfolioAccount"]] = relationship(
-        "PortfolioAccount", back_populates="provider_institutions", passive_deletes=True
+        "PortfolioAccount", back_populates="provider_institutions"
     )

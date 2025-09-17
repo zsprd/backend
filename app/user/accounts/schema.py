@@ -4,6 +4,10 @@ from typing import List, Optional
 from pydantic import BaseModel, EmailStr, Field
 
 
+class Config:
+    from_attributes = True
+
+
 class UserAccountBase(BaseModel):
     """
     Shared fields for UserAccount schemas.
@@ -48,9 +52,6 @@ class UserAccountRead(UserAccountBase):
     provider_connections: Optional[List[int]] = Field(None)
     portfolio_accounts: Optional[List[int]] = Field(None)
     system_jobs: Optional[List[int]] = Field(None)
-
-    class Config:
-        from_attributes = True
 
 
 class UserAccountUpdate(BaseModel):
