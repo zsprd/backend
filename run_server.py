@@ -69,6 +69,9 @@ def create_tables():
         from app.portfolio.accounts import model
         from app.portfolio.holdings import model
         from app.portfolio.transactions import model
+        from app.provider.connections import model
+        from app.provider.institutions import model
+        from app.provider.mappings import model
         from app.security.master import model
         from app.security.prices import model
         from app.user.accounts import model

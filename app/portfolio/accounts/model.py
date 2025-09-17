@@ -88,16 +88,16 @@ class PortfolioAccount(BaseModel):
     )
 
     # Relationships
-    user_accoun: Mapped["UserAccount"] = relationship(
+    user_accounts: Mapped["UserAccount"] = relationship(
         "UserAccount", back_populates="portfolio_accounts"
     )
 
     provider_institutions: Mapped[Optional["ProviderInstitution"]] = relationship(
-        lambda: ProviderInstitution, back_populates="portfolio_accounts"
+        "ProviderInstitution", back_populates="portfolio_accounts"
     )
 
     provider_connections: Mapped[Optional["ProviderConnection"]] = relationship(
-        lambda: ProviderConnection, back_populates="portfolio_accounts"
+        "ProviderConnection", back_populates="portfolio_accounts"
     )
 
     portfolio_holdings: Mapped[List["PortfolioHolding"]] = relationship(

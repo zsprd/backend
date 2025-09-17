@@ -76,7 +76,7 @@ class ProviderConnection(BaseModel):
         "UserAccount", back_populates="provider_connections"
     )
 
-    provider_institution: Mapped[Optional["ProviderInstitution"]] = relationship(
+    provider_institutions: Mapped[Optional["ProviderInstitution"]] = relationship(
         "ProviderInstitution", back_populates="provider_connections"
     )
 

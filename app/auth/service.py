@@ -41,6 +41,7 @@ class AuthService:
             profile_data = {
                 "email": registration_data.email,
                 "full_name": registration_data.full_name,
+                "password": registration_data.password,
             }
             user = self.auth_crud.create_user_with_password(
                 db, user_data=profile_data, password_hash=password_hash

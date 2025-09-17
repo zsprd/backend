@@ -6,10 +6,6 @@ from app.auth.utils import validate_strong_password
 from app.user.accounts.schema import UserAccountBase
 
 
-class Config:
-    from_attributes = True
-
-
 class UserRegistrationData(BaseModel):
     """Schema for user registration."""
 

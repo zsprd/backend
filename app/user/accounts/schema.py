@@ -1,11 +1,7 @@
 from datetime import datetime
 from typing import List, Optional
 
-from pydantic import BaseModel, EmailStr, Field
-
-
-class Config:
-    from_attributes = True
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserAccountBase(BaseModel):
@@ -13,6 +9,7 @@ class UserAccountBase(BaseModel):
     Shared fields for UserAccount schemas.
     """
 
+    model_config = ConfigDict(from_attributes=True)
     email: EmailStr = Field(
         ..., description="Primary email address for authentication and communication"
     )
