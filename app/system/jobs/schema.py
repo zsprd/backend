@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SystemJobBase(BaseModel):
@@ -51,10 +51,9 @@ class SystemJobRead(SystemJobBase):
     Schema for reading system job data (API response).
     """
 
-    id: int = Field(..., description="Unique job ID")
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    id: UUID = Field(..., description="Unique system job ID")
 
 
 class SystemJobUpdate(BaseModel):

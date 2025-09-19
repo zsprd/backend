@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 ZSPRD Portfolio Analytics Backend - Development Server
 This script starts the FastAPI development server with proper configuration.

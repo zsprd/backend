@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SystemHealthBase(BaseModel):
@@ -39,7 +39,6 @@ class SystemHealthRead(SystemHealthBase):
     Schema for reading system health metric data (API response).
     """
 
-    id: int = Field(..., description="Unique metric ID")
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    id: int = Field(..., description="Unique metric ID")

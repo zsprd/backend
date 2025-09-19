@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # --- DB-aligned Market Data Schemas ---
@@ -36,8 +36,7 @@ class MarketDataUpdate(BaseModel):
 
 
 class MarketDataResponse(MarketDataBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     created_at: datetime
-
-    class Config:
-        from_attributes = True

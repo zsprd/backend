@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AnalyticsSummaryBase(BaseModel):
@@ -33,9 +33,8 @@ class AnalyticsSummaryBase(BaseModel):
 
 
 class AnalyticsSummaryResponse(AnalyticsSummaryBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True

@@ -64,10 +64,10 @@ def login_user(
 )
 def verify_email(
     verification_data: schema.EmailConfirmRequest,
-    request: Request,  # <-- Added
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    rate_limiter: Annotated[Any, Depends(rate_limiter)],  # Added rate limiting
+    rate_limiter: Annotated[Any, Depends(rate_limiter)],
 ) -> schema.EmailVerificationResponse:
     """Verify user email. No authentication required. Rate limited."""
     try:
@@ -104,7 +104,7 @@ def refresh_tokens(
 )
 def forgot_password(
     reset_request: schema.ForgotPasswordRequest,
-    request: Request,  # <-- Added
+    request: Request,
     db: Annotated[Session, Depends(get_db)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     rate_limiter: Annotated[Any, Depends(rate_limiter)],
@@ -117,6 +117,28 @@ def forgot_password(
     return schema.ForgotPasswordResponse(
         message="If an account with that email exists, password reset instructions have been sent."
     )
+
+
+@router.post(
+    "/change-password",
+    response_model=schema.PasswordChangeResponse,
+    status_code=status.HTTP_200_OK,
+)
+def change_password(
+    change_data: schema.ChangePasswordRequest,
+    db: Annotated[Session, Depends(get_db)],
+    auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    current_user: Annotated[Any, Depends(get_current_active_user)],
+) -> schema.PasswordChangeResponse:
+    """
+    Change user password. Requires authentication.
+    Validates current password and enforces password requirements.
+    """
+    try:
+        auth_service.change_password(db, change_data, current_user)
+    except AuthError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    return schema.PasswordChangeResponse(message="Password changed successfully.")
 
 
 @router.post(
@@ -142,7 +164,13 @@ def logout_user(
     current_user: Annotated[Any, Depends(get_current_active_user)],
     refresh_data: Optional[schema.RefreshTokenRequest] = None,
 ) -> schema.LogoutResponse:
-    """Logout user by revoking session(s). Requires authentication."""
+    """
+    Logout user by revoking session(s). Requires authentication.
+
+    The refresh_data parameter is optional and can be provided in the request body
+    to specifically revoke a refresh token. If not provided, the current session
+    will be logged out.
+    """
     try:
         refresh_token = refresh_data.refresh_token if refresh_data else None
         auth_service.sign_out(db, refresh_token=refresh_token, current_user=current_user)

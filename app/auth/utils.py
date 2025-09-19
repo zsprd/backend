@@ -1,5 +1,4 @@
 import logging
-import re
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -27,18 +26,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def needs_rehash(hashed_password: str) -> bool:
     return pwd_context.needs_update(hashed_password)
-
-
-def validate_strong_password(value: str) -> str:
-    if not re.search(r"[A-Z]", value):
-        raise ValueError("Password must contain at least one uppercase letter")
-    if not re.search(r"[a-z]", value):
-        raise ValueError("Password must contain at least one lowercase letter")
-    if not re.search(r"\d", value):
-        raise ValueError("Password must contain at least one number")
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", value):
-        raise ValueError("Password must contain at least one special character")
-    return value
 
 
 # ----------------------

@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class MonitoringAlertBase(BaseModel):
@@ -29,9 +29,8 @@ class MonitoringAlertUpdate(BaseModel):
 
 
 class MonitoringAlertResponse(MonitoringAlertBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True

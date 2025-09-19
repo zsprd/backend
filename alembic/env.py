@@ -8,10 +8,9 @@ from sqlalchemy import engine_from_config, pool
 # Add the parent directory to the path so we can import our models
 sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
+# Import all models so they are registered with SQLAlchemy
 from app.core.config import settings
 from app.core.model import Base
-
-# Import all models so they are registered with SQLAlchemy
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

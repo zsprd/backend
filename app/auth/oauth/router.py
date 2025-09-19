@@ -5,14 +5,11 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.auth.oauth.service import oauth_manager
-from app.auth.service import (
-    create_access_token,
-    create_refresh_token,
-    get_client_ip,
-)
+from app.auth.service import AuthService
+from app.auth.utils import get_client_ip
 from app.core.config import settings
 from app.core.database import get_db
-from app.user.accounts.crud import user_crud
+from app.user.accounts.crud import user_account_crud
 from app.user.sessions.crud import user_session_crud
 
 router = APIRouter()
@@ -65,13 +62,13 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
 
         # Check if users exists
         if provider == "google":
-            user = user_crud.get_by_google_id(db, google_id=user_info["id"])
+            user = user_account_crud.get_by_google_id(db, google_id=user_info["id"])
         else:  # Apple
-            user = user_crud.get_by_apple_id(db, apple_id=user_info["id"])
+            user = user_account_crud.get_by_apple_id(db, apple_id=user_info["id"])
 
         if not user:
             # Check if users exists with same email
-            user = user_crud.get_by_email(db, email=user_info["email"])
+            user = user_account_crud.get_by_email(db, email=user_info["email"])
 
             if user:
                 # Link OAuth account to existing users
@@ -94,11 +91,11 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
                 else:  # Apple
                     oauth_data["apple_id"] = user_info["id"]
 
-                user = user_crud.create_user(db, **oauth_data)
+                user = user_account_crud.create_user(db, **oauth_data)
 
         # Create tokens
-        access_token = create_access_token(data={"sub": str(user.id)})
-        refresh_token = create_refresh_token(str(user.id))
+        access_token = AuthService._create_token_pair(data={"sub": str(user.id)})
+        refresh_token = AuthService.refresh_tokens(str(user.id))
 
         # Create session
         expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
@@ -109,11 +106,10 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
             expires_at=expires_at,
             ip_address=get_client_ip(request),
             user_agent=request.headers.get("UserProfile-Agent"),
-            device_type="web",
         )
 
         # Update last login
-        user_crud.update_last_login(db, user=user)
+        user_account_crud.update_last_login(db, user=user)
 
         # Redirect to frontend with tokens
         redirect_url = f"{settings.FRONTEND_URL}/auth/success?access_token={access_token}&refresh_token={refresh_token}"

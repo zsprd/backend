@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserSubscriptionBase(BaseModel):
@@ -39,15 +39,15 @@ class UserSubscriptionCreate(UserSubscriptionBase):
     pass
 
 
-class UserSubscriptionRead(UserSubscriptionBase):
+class UserSubscriptionRead(BaseModel):
     """
     Schema for reading user subscription data (API response).
     """
 
-    id: int = Field(..., description="Unique subscription ID")
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    id: UUID = Field(..., description="Unique subscription ID")
+    plan_name: str = Field(..., description="Current subscription plan tier")
 
 
 class UserSubscriptionUpdate(BaseModel):

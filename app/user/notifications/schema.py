@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserNotificationBase(BaseModel):
@@ -35,7 +35,6 @@ class UserNotificationRead(UserNotificationBase):
     Schema for reading user notification data (API response).
     """
 
-    id: int = Field(..., description="Unique notification ID")
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    id: int = Field(..., description="Unique notification ID")

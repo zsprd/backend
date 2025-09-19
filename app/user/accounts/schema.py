@@ -1,7 +1,8 @@
 from datetime import datetime
 from typing import List, Optional
+from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class UserAccountBase(BaseModel):
@@ -10,6 +11,7 @@ class UserAccountBase(BaseModel):
     """
 
     model_config = ConfigDict(from_attributes=True)
+
     email: EmailStr = Field(
         ..., description="Primary email address for authentication and communication"
     )
@@ -41,14 +43,32 @@ class UserAccountRead(UserAccountBase):
     Schema for reading user account data (API response).
     """
 
-    id: int = Field(..., description="Unique user account ID")
-    # Relationships as lists of IDs (expand as needed)
-    user_sessions: Optional[List[int]] = Field(None)
-    user_subscriptions: Optional[List[int]] = Field(None)
-    user_notifications: Optional[List[int]] = Field(None)
-    provider_connections: Optional[List[int]] = Field(None)
-    portfolio_accounts: Optional[List[int]] = Field(None)
-    system_jobs: Optional[List[int]] = Field(None)
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID = Field(..., description="Unique user account ID")
+    user_sessions: Optional[List[UUID]] = Field(None, description="List of user session IDs")
+    user_subscriptions: Optional[List[UUID]] = Field(
+        None, description="List of user subscription IDs"
+    )
+    portfolio_accounts: Optional[List[UUID]] = Field(
+        None, description="List of portfolio account IDs"
+    )
+
+    @field_validator("user_sessions", "user_subscriptions", "portfolio_accounts", mode="before")
+    @classmethod
+    def extract_ids(cls, v):
+        if v is None:
+            return None
+        result = []
+        for item in v:
+            # Accept either UUIDs or ORM objects with .id
+            if isinstance(item, UUID):
+                result.append(item)
+            elif hasattr(item, "id"):
+                result.append(item.id)
+            else:
+                raise TypeError(f"Invalid type for relationship field: {type(item)}")
+        return result
 
 
 class UserAccountUpdate(BaseModel):

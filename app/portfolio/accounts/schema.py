@@ -1,47 +1,46 @@
-from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
-class AccountBase(BaseModel):
-    user_id: UUID
-    institution_id: Optional[UUID] = None
-    data_connection_id: Optional[UUID] = None
-    plaid_account_id: Optional[str] = None
-    name: str = Field(..., max_length=255)
-    official_name: Optional[str] = None
-    mask: Optional[str] = None
-    account_type: str
-    account_subtype: Optional[str] = None
-    currency: str = Field("USD", max_length=3)
+class PortfolioAccountBase(BaseModel):
+    """Base schema for PortfolioAccount (shared fields)."""
+
+    name: str = Field(..., description="Account name", max_length=255)
+    account_type: str = Field(
+        ..., description="Primary account category", examples=["investment", "depository"]
+    )
+    account_subtype: Optional[str] = Field(None, description="Specific account subtype")
+    currency: str = Field("USD", description="ISO currency code", min_length=3, max_length=3)
     is_active: bool = True
-    data_source: str = Field("manual")
+    data_source: str = Field("manual", description="Source of account data", max_length=50)
+    institution_id: Optional[UUID] = None
+    connection_id: Optional[UUID] = None
 
 
-class AccountCreate(AccountBase):
-    pass
+class PortfolioAccountCreate(PortfolioAccountBase):
+    """Schema for creating a PortfolioAccount."""
+
+    user_id: UUID
 
 
-class AccountUpdate(BaseModel):
-    name: Optional[str] = None
-    official_name: Optional[str] = None
-    mask: Optional[str] = None
+class PortfolioAccountUpdate(BaseModel):
+    """Schema for updating a PortfolioAccount."""
+
+    name: Optional[str] = Field(None, description="Account name", max_length=255)
     account_type: Optional[str] = None
     account_subtype: Optional[str] = None
-    currency: Optional[str] = None
-    is_active: Optional[bool] = None
-    data_source: Optional[str] = None
-    institution_id: Optional[UUID] = None
-    data_connection_id: Optional[UUID] = None
-    plaid_account_id: Optional[str] = None
+    currency: Optional[str] = Field(
+        None, description="ISO currency code", min_length=3, max_length=3
+    )
+    data_source: Optional[str] = Field(None, description="Source of account data", max_length=50)
+    institution_id: Optional[UUID] = Field(None, description="Institution reference")
+    connection_id: Optional[UUID] = Field(None, description="Connection reference")
 
 
-class AccountResponse(AccountBase):
-    id: UUID
-    created_at: datetime
-    updated_at: datetime
+class PortfolioAccountResponse(PortfolioAccountBase):
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    user_id: UUID
+    id: UUID = Field(..., description="Account ID")

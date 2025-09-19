@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class UserSessionBase(BaseModel):
@@ -39,10 +39,9 @@ class UserSessionRead(UserSessionBase):
     Schema for reading user session data (API response).
     """
 
-    id: int = Field(..., description="Unique session ID")
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    id: UUID = Field(..., description="Unique session ID")
 
 
 class UserSessionUpdate(BaseModel):

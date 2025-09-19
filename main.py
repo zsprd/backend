@@ -5,7 +5,6 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
-from fastapi.staticfiles import StaticFiles
 
 from app.core.config import settings
 
@@ -24,18 +23,17 @@ app = FastAPI(
     openapi_url=f"/api/{settings.API_VERSION}/openapi.json",
     docs_url=f"/api/{settings.API_VERSION}/docs",
     redoc_url=f"/api/{settings.API_VERSION}/redoc",
-    swagger_favicon_url="/static/favicon.ico",
+    swagger_favicon_url="favicon.ico",
 )
-
-# Mount static files
-if os.path.exists("static"):
-    app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # Favicon endpoint
-@app.get("/favicon.ico", include_in_schema=False)
+@app.get("favicon.ico", include_in_schema=False)
 async def favicon():
-    return FileResponse("favicon.ico")
+    favicon_path = "favicon.ico"
+    if os.path.exists(favicon_path):
+        return FileResponse(favicon_path)
+    return JSONResponse({"error": "Favicon not found"}, status_code=404)
 
 
 # Add CORS middleware

@@ -177,6 +177,10 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
         db.commit()
         return True
 
+    @classmethod
+    def create_from_dict(cls, db, obj_in):
+        pass
+
 
 # Create singleton instance
 user_account_crud = CRUDUserAccount(UserAccount)

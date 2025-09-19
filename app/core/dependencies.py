@@ -19,12 +19,13 @@ from app.user.accounts.service import UserAccountService
 # Security scheme
 security = HTTPBearer()
 
-# Global rate limiter instance
+# Instantiate the Limiter with key_func
 limiter = Limiter(key_func=get_remote_address)
 
 
 # Rate limiter dependency (example: 5 requests per 15 minutes)
 def rate_limiter(request: Request) -> None:
+    # Use the limiter instance to apply rate limiting
     limiter.limit("50/15minutes")(lambda request: None)(request)
 
 

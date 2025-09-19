@@ -1,7 +1,7 @@
 from typing import Any, Dict, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SystemLogBase(BaseModel):
@@ -38,10 +38,9 @@ class SystemLogRead(SystemLogBase):
     Schema for reading system log data (API response).
     """
 
-    id: int = Field(..., description="Unique log entry ID")
+    model_config = ConfigDict(from_attributes=True)
 
-    class Config:
-        from_attributes = True
+    id: int = Field(..., description="Unique log entry ID")
 
 
 class SystemLogUpdate(BaseModel):

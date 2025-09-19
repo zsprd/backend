@@ -1,8 +1,8 @@
+import re
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
-from app.auth.utils import validate_strong_password
 from app.user.accounts.schema import UserAccountBase
 
 
@@ -11,7 +11,24 @@ class UserRegistrationData(BaseModel):
 
     full_name: str = Field(..., min_length=2, max_length=255, description="Full name")
     email: EmailStr = Field(..., description="Email address")
-    password: str = Field(..., min_length=8, description="Password")
+    password: str = Field(
+        ...,
+        min_length=8,
+        max_length=128,
+        description="Password (min 8 chars, must contain uppercase, lowercase, digit, and special char)",
+    )
+
+    @field_validator("full_name")
+    @classmethod
+    def validate_full_name(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Full name cannot be empty")
+        return v.strip()
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return _validate_strong_password(v)
 
 
 class OAuthUserData(BaseModel):
@@ -21,40 +38,31 @@ class OAuthUserData(BaseModel):
     full_name: str = Field(..., description="Full name from OAuth provider")
     is_verified: bool = Field(True, description="OAuth users are pre-verified")
 
-    # Optional profile fields with defaults
-    timezone: str = Field("UTC", description="Preferred timezone")
-    base_currency: str = Field("USD", min_length=3, max_length=3, description="Base currency code")
-    language: str = Field("en", min_length=2, max_length=5, description="Preferred language")
-    theme_preference: str = Field("system", description="Theme preference")
-
-    @field_validator("base_currency")
-    @classmethod
-    def validate_currency(cls, v: str) -> str:
-        return v.upper() if v else v
-
-    @field_validator("language")
-    @classmethod
-    def validate_language(cls, v: str) -> str:
-        return v.lower() if v else v
-
 
 class EmailConfirmRequest(BaseModel):
     """Schema for email verification."""
 
-    token: str = Field(..., description="Email verification token")
+    token: str = Field(..., min_length=1, description="Email verification token")
 
 
 class SignInRequest(BaseModel):
     """Schema for user login."""
 
     email: EmailStr = Field(..., description="Email address")
-    password: str = Field(..., description="Password")
+    password: str = Field(..., min_length=1, description="Password")
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_not_empty(cls, v: str) -> str:
+        if not v.strip():
+            raise ValueError("Password cannot be empty")
+        return v
 
 
 class RefreshTokenRequest(BaseModel):
     """Schema for token refresh."""
 
-    refresh_token: str = Field(..., description="Current refresh token")
+    refresh_token: str = Field(..., min_length=1, description="Current refresh token")
 
 
 class ForgotPasswordRequest(BaseModel):
@@ -71,8 +79,8 @@ class ResetPasswordRequest(BaseModel):
 
     @field_validator("new_password")
     @classmethod
-    def validate_password(cls, value: str) -> str:
-        return validate_strong_password(value)
+    def validate_password(cls, v: str) -> str:
+        return _validate_strong_password(v)
 
 
 class ChangePasswordRequest(BaseModel):
@@ -84,7 +92,7 @@ class ChangePasswordRequest(BaseModel):
     @field_validator("new_password")
     @classmethod
     def validate_password(cls, value: str) -> str:
-        return validate_strong_password(value)
+        return _validate_strong_password(value)
 
 
 # Response schemas
@@ -125,6 +133,10 @@ class PasswordResetResponse(BaseModel):
     message: str
 
 
+class PasswordChangeResponse(BaseModel):
+    message: str
+
+
 class ForgotPasswordResponse(BaseModel):
     """Response for password reset request."""
 
@@ -135,3 +147,17 @@ class LogoutResponse(BaseModel):
     """Response for user logout."""
 
     message: str
+
+
+def _validate_strong_password(value: str) -> str:
+    if len(value) < 8:
+        raise ValueError("Password must be at least 8 characters long")
+    if not re.search(r"[A-Z]", value):
+        raise ValueError("Password must contain at least one uppercase letter")
+    if not re.search(r"[a-z]", value):
+        raise ValueError("Password must contain at least one lowercase letter")
+    if not re.search(r"\d", value):
+        raise ValueError("Password must contain at least one number")
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", value):
+        raise ValueError("Password must contain at least one special character")
+    return value

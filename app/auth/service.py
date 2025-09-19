@@ -239,7 +239,7 @@ class AuthService:
     # ----------------------
     def _create_token_pair(self, user_id: str) -> Tuple[str, str]:
         """Create access and refresh token pair."""
-        access_token = utils.create_access_token(data={"sub": user_id})
+        access_token = utils.create_access_token(user_id, data={"sub": user_id})
         refresh_token = utils.create_refresh_token(user_id)
         return access_token, refresh_token
 
@@ -255,7 +255,6 @@ class AuthService:
             expires_at=expires_at,
             ip_address=utils.get_client_ip(request),
             user_agent=request.headers.get("User-Agent"),
-            device_type="web",
         )
 
     def _validate_refresh_token_session(self, db: Session, refresh_token: str):

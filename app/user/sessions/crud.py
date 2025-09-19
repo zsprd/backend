@@ -28,7 +28,6 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
         expires_at: datetime,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,
-        device_type: Optional[str] = "web",
     ) -> UserSession:
         """Create new users session."""
         session = UserSession(
@@ -37,7 +36,6 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
             expires_at=expires_at,
             ip_address=ip_address,
             user_agent=user_agent,
-            device_type=device_type,
             last_used_at=datetime.now(timezone.utc),
         )
 
@@ -186,52 +184,6 @@ class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate
             "active_sessions": active_sessions,
             "expired_sessions": total_sessions - active_sessions,
         }
-
-    def get_all_session_stats(self, db: Session) -> dict:
-        """Get global session statistics."""
-        total_stmt = select(func.count(UserSession.id))
-        total_result = db.execute(total_stmt)
-        total_sessions = total_result.scalar() or 0
-
-        active_stmt = select(func.count(UserSession.id)).where(
-            UserSession.expires_at > datetime.now(timezone.utc)
-        )
-        active_result = db.execute(active_stmt)
-        active_sessions = active_result.scalar() or 0
-
-        # Get unique active users
-        unique_users_stmt = select(func.count(func.distinct(UserSession.user_id))).where(
-            UserSession.expires_at > datetime.now(timezone.utc)
-        )
-        unique_users_result = db.execute(unique_users_stmt)
-        unique_active_users = unique_users_result.scalar() or 0
-
-        return {
-            "total_sessions": total_sessions,
-            "active_sessions": active_sessions,
-            "expired_sessions": total_sessions - active_sessions,
-            "unique_active_users": unique_active_users,
-        }
-
-    def get_sessions_by_device_type(
-        self, db: Session, *, user_id: Union[str, UUIDType], device_type: str
-    ) -> List[UserSession]:
-        """Get sessions filtered by device type."""
-        user_uuid = self._to_uuid(user_id)
-        stmt = (
-            select(UserSession)
-            .where(
-                and_(
-                    UserSession.user_id == user_uuid,
-                    UserSession.device_type == device_type,
-                    UserSession.expires_at > datetime.now(timezone.utc),
-                )
-            )
-            .order_by(UserSession.last_used_at.desc())
-        )
-
-        result = db.execute(stmt)
-        return list(result.scalars().all())
 
 
 # Create instance

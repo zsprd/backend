@@ -3,7 +3,7 @@ from decimal import Decimal
 from typing import Optional
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
 class AnalyticsExposureBase(BaseModel):
@@ -28,9 +28,8 @@ class AnalyticsExposureBase(BaseModel):
 
 
 class AnalyticsExposureResponse(AnalyticsExposureBase):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        from_attributes = True
