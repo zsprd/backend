@@ -18,11 +18,11 @@ logger = logging.getLogger(__name__)
 # Create FastAPI application
 app = FastAPI(
     title=settings.APP_NAME,
-    version=settings.VERSION,
+    version=settings.APP_VERSION,
     description="Professional portfolios analytics API for high-net-worth individuals",
-    openapi_url=f"/api/{settings.API_VERSION}/openapi.json",
-    docs_url=f"/api/{settings.API_VERSION}/docs",
-    redoc_url=f"/api/{settings.API_VERSION}/redoc",
+    openapi_url=f"/api/{settings.API_PREFIX}/openapi.json",
+    docs_url=f"/api/{settings.API_PREFIX}/docs",
+    redoc_url=f"/api/{settings.API_PREFIX}/redoc",
     swagger_favicon_url="favicon.ico",
 )
 
@@ -75,7 +75,7 @@ async def health_check():
     """Health check endpoint for monitoring and deployment."""
     return {
         "status": "healthy",
-        "version": settings.VERSION,
+        "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
     }
 
@@ -86,8 +86,8 @@ async def root():
     """Root endpoint with API information."""
     return {
         "message": f"Welcome to {settings.APP_NAME}",
-        "version": settings.VERSION,
-        "docs_url": f"/api/{settings.API_VERSION}/docs",
+        "version": settings.APP_VERSION,
+        "docs_url": f"/api/{settings.API_PREFIX}/docs",
         "status": "online",
     }
 
@@ -96,7 +96,7 @@ async def root():
 try:
     from app.api.v1.router import api_router
 
-    app.include_router(api_router, prefix=f"/api/{settings.API_VERSION}")
+    app.include_router(api_router, prefix=f"/api/{settings.API_PREFIX}")
     logger.info("✅ API routes loaded successfully")
 except Exception as e:
     logger.error(f"❌ Failed to load API routes: {e}")

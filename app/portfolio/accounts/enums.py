@@ -1,9 +1,7 @@
-import enum
-
-from sqlalchemy import Enum
+from enum import Enum
 
 
-class AccountTypeEnum(enum.Enum):
+class AccountTypeEnum(str, Enum):
     """
     Primary account classification for financial accounts.
 
@@ -18,7 +16,7 @@ class AccountTypeEnum(enum.Enum):
     OTHER = "other"  # Catch-all for other account types
 
 
-class AccountSubtypeEnum(enum.Enum):
+class AccountSubtypeEnum(str, Enum):
     """
     Detailed account classification for specific account types.
 
@@ -57,8 +55,3 @@ class AccountSubtypeEnum(enum.Enum):
     PAYPAL = "paypal"
     LOAN = "loan"
     OTHER = "other"
-
-
-# SQLAlchemy Enum type mappings for use in model definitions
-ACCOUNT_TYPE_ENUM = Enum(AccountTypeEnum, name="account_type_enum")
-ACCOUNT_SUBTYPE_ENUM = Enum(AccountSubtypeEnum, name="account_subtype_enum")

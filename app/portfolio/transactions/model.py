@@ -3,16 +3,13 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import DECIMAL, Date, ForeignKey, String, Text
+from sqlalchemy import DECIMAL, Date, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.model import BaseModel
 
-from .enums import (
-    TRANSACTION_SUBTYPE_ENUM,
-    TRANSACTION_TYPE_ENUM,
-)
+from .enums import TransactionSubtypeEnum, TransactionTypeEnum
 
 if TYPE_CHECKING:
     from app.portfolio.accounts.model import PortfolioAccount
@@ -47,15 +44,15 @@ class PortfolioTransaction(BaseModel):
     )
 
     # Transaction classification
-    transaction_type: Mapped[str] = mapped_column(
-        TRANSACTION_TYPE_ENUM,
+    transaction_type: Mapped[TransactionTypeEnum] = mapped_column(
+        Enum(TransactionTypeEnum, name="transaction_type_enum", create_type=False),
         nullable=False,
         index=True,
         comment="Primary transaction category: buy, sell, dividend, etc.",
     )
 
-    transaction_subtype: Mapped[Optional[str]] = mapped_column(
-        TRANSACTION_SUBTYPE_ENUM,
+    transaction_subtype: Mapped[Optional[TransactionSubtypeEnum]] = mapped_column(
+        Enum(TransactionSubtypeEnum, name="transaction_subtype_enum", create_type=False),
         nullable=True,
         comment="Specific transaction subtype for detailed classification",
     )

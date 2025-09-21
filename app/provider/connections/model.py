@@ -12,7 +12,6 @@ from app.provider.mappings.model import ProviderMapping
 
 if TYPE_CHECKING:
     from app.provider.institutions.model import ProviderInstitution
-    from app.user.accounts.model import UserAccount
 
 
 class ProviderConnection(BaseModel):
@@ -25,14 +24,6 @@ class ProviderConnection(BaseModel):
     """
 
     __tablename__ = "provider_connections"
-
-    user_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True),
-        ForeignKey("user_accounts.id", ondelete="CASCADE"),
-        nullable=False,
-        index=True,
-        comment="Reference to the user who owns this connection",
-    )
 
     institution_id: Mapped[Optional[UUID]] = mapped_column(
         PGUUID(as_uuid=True),
@@ -72,10 +63,6 @@ class ProviderConnection(BaseModel):
     )
 
     # Relationships
-    user_accounts: Mapped["UserAccount"] = relationship(
-        "UserAccount", back_populates="provider_connections"
-    )
-
     provider_institutions: Mapped[Optional["ProviderInstitution"]] = relationship(
         "ProviderInstitution", back_populates="provider_connections"
     )

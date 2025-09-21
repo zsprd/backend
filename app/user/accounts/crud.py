@@ -1,185 +1,197 @@
+import logging
 from datetime import datetime, timezone
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
-from sqlalchemy import and_
-from sqlalchemy.orm import Session
+from sqlalchemy import exists, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.crud import CRUDBase
 from app.user.accounts.model import UserAccount
 from app.user.accounts.schema import UserAccountCreate, UserAccountUpdate
 
+logger = logging.getLogger(__name__)
+
 
 class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate]):
-    """CRUD operations for user profiles."""
+    """
+    CRUD operations for user accounts.
 
-    def get(self, db: Session, id: UUID) -> Optional[UserAccount]:
+    Provides database operations for user account management including
+    creation, updates, soft deletion, and various query methods.
+    """
+
+    async def get(self, db: AsyncSession, id: UUID) -> Optional[UserAccount]:
         """Get user by ID."""
-        return db.query(UserAccount).filter(UserAccount.id == id).first()
+        result = await db.execute(select(UserAccount).where(UserAccount.id == id))
+        return result.scalar_one_or_none()
 
-    def get_by_email(self, db: Session, *, email: str) -> Optional[UserAccount]:
-        """Get user by email address."""
-        return db.query(UserAccount).filter(UserAccount.email == email).first()
-
-    def get_active(self, db: Session, *, id: UUID) -> Optional[UserAccount]:
+    async def get_active(self, db: AsyncSession, id: UUID) -> Optional[UserAccount]:
         """Get active user by ID."""
-        return (
-            db.query(UserAccount)
-            .filter(and_(UserAccount.id == id, UserAccount.is_active == True))
-            .first()
+        result = await db.execute(
+            select(UserAccount).where(UserAccount.id == id, UserAccount.is_active == True)
         )
+        return result.scalar_one_or_none()
 
-    def get_active_by_email(self, db: Session, *, email: str) -> Optional[UserAccount]:
+    async def get_active_by_email(self, db: AsyncSession, email: str) -> Optional[UserAccount]:
         """Get active user by email."""
-        return (
-            db.query(UserAccount)
-            .filter(and_(UserAccount.email == email, UserAccount.is_active == True))
-            .first()
+        result = await db.execute(
+            select(UserAccount).where(
+                UserAccount.email == email.lower(), UserAccount.is_active == True
+            )
         )
+        return result.scalar_one_or_none()
 
-    def create(self, db: Session, *, obj_in: UserAccountCreate) -> UserAccount:
-        """Create new user profile."""
-        db_obj = UserAccount(
-            email=str(obj_in.email),
-            full_name=obj_in.full_name,
-            timezone=obj_in.timezone,
-            base_currency=obj_in.base_currency,
-            is_active=True,
-            is_verified=False,
-        )
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
+    async def get_user_by_email(self, db: AsyncSession, email: str) -> Optional[UserAccount]:
+        """Get user by email (including inactive)."""
+        result = await db.execute(select(UserAccount).where(UserAccount.email == email.lower()))
+        return result.scalar_one_or_none()
 
-    def create_with_password(
-        self, db: Session, *, obj_in: UserAccountCreate, password_hash: str
+    async def is_email_available(self, db: AsyncSession, email: str) -> bool:
+        """Check if email is available for registration."""
+        result = await db.execute(select(exists().where(UserAccount.email == email.lower())))
+        return not result.scalar()
+
+    async def create_with_password(
+        self, db: AsyncSession, obj_in: UserAccountCreate, hashed_password: str
     ) -> UserAccount:
-        """Create new user profile with password hash (for registration)."""
+        """Create user with hashed password."""
+        logger.debug(f"Creating user with password: {obj_in.email}")
+
         db_obj = UserAccount(
-            email=str(obj_in.email),
+            email=obj_in.email.lower(),
             full_name=obj_in.full_name,
-            timezone=obj_in.timezone,
-            base_currency=obj_in.base_currency,
-            password_hash=password_hash,
-            is_active=True,
+            hashed_password=hashed_password,
+            language=obj_in.language,
+            country=obj_in.country,
+            currency=obj_in.currency,
             is_verified=False,
+            is_active=True,
         )
+
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.commit()
+        await db.refresh(db_obj)
+
+        logger.info(f"User created with ID: {db_obj.id}")
         return db_obj
 
-    def create_oauth_user(self, db: Session, *, obj_in: UserAccountCreate) -> UserAccount:
-        """Create new OAuth user (no password, pre-verified)."""
+    async def create_oauth_user(self, db: AsyncSession, obj_in: UserAccountCreate) -> UserAccount:
+        """Create OAuth user (no password, pre-verified)."""
+        logger.debug(f"Creating OAuth user: {obj_in.email}")
+
         db_obj = UserAccount(
-            email=str(obj_in.email),
+            email=obj_in.email.lower(),
             full_name=obj_in.full_name,
-            timezone=obj_in.timezone,
-            base_currency=obj_in.base_currency,
-            password_hash=None,  # OAuth users don't have passwords
-            is_active=True,
+            language=obj_in.language,
+            country=obj_in.country,
+            currency=obj_in.currency,
             is_verified=True,  # OAuth users are pre-verified
+            is_active=True,
+            hashed_password=None,  # No password for OAuth users
         )
+
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.commit()
+        await db.refresh(db_obj)
+
+        logger.info(f"OAuth user created with ID: {db_obj.id}")
         return db_obj
 
-    def update(
-        self,
-        db: Session,
-        *,
-        db_obj: UserAccount,
-        obj_in: UserAccountUpdate,
-    ) -> UserAccount:
-        """Update user profile."""
-        update_data = obj_in.model_dump(exclude_unset=True)
-
-        # List of allowed fields for profile updates
-        allowed_fields = {
-            "full_name",
-            "base_currency",
-            "timezone",
-            "language",
-            "theme_preference",
-        }
-
-        # Filter and process update data
-        for field in list(update_data.keys()):
-            if field not in allowed_fields:
-                del update_data[field]
-            elif field == "base_currency" and update_data[field]:
-                update_data[field] = update_data[field].upper()
-            elif field == "language" and update_data[field]:
-                update_data[field] = update_data[field].lower()
-
-        # Apply updates
-        for field, value in update_data.items():
-            setattr(db_obj, field, value)
-
-        db_obj.updated_at = datetime.now(timezone.utc)
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-        return db_obj
-
-    def update_last_login(self, db: Session, *, user: UserAccount) -> UserAccount:
+    async def update_last_login(self, db: AsyncSession, user: UserAccount) -> UserAccount:
         """Update user's last login timestamp."""
         user.last_login_at = datetime.now(timezone.utc)
-        user.updated_at = datetime.now(timezone.utc)
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
         return user
 
-    def verify_email(self, db: Session, *, user: UserAccount) -> UserAccount:
+    async def mark_email_verified(self, db: AsyncSession, user: UserAccount) -> UserAccount:
         """Mark user email as verified."""
         user.is_verified = True
         user.updated_at = datetime.now(timezone.utc)
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
+
+        logger.info(f"Email verified for user: {user.id}")
         return user
 
-    def deactivate(self, db: Session, *, user: UserAccount) -> UserAccount:
+    async def deactivate(self, db: AsyncSession, user: UserAccount) -> UserAccount:
         """Deactivate user account."""
         user.is_active = False
         user.updated_at = datetime.now(timezone.utc)
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
+
+        logger.info(f"Account deactivated for user: {user.id}")
         return user
 
-    def reactivate(self, db: Session, *, user: UserAccount) -> UserAccount:
-        """Reactivate user account."""
-        user.is_active = True
-        user.updated_at = datetime.now(timezone.utc)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        return user
-
-    def soft_delete(self, db: Session, *, user: UserAccount) -> UserAccount:
+    async def soft_delete(self, db: AsyncSession, user: UserAccount) -> UserAccount:
         """Soft delete user by setting deleted_at timestamp."""
-        now = datetime.now(timezone.utc)
-        user.deleted_at = now
+        user.deleted_at = datetime.now(timezone.utc)
+        user.updated_at = datetime.now(timezone.utc)
         user.is_active = False
-        user.updated_at = now
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        await db.commit()
+        await db.refresh(user)
+
+        logger.info(f"Account soft deleted for user: {user.id}")
         return user
 
-    def hard_delete(self, db: Session, *, user: UserAccount) -> bool:
+    async def hard_delete(self, db: AsyncSession, user: UserAccount) -> bool:
         """Permanently delete user (use with caution)."""
-        db.delete(user)
-        db.commit()
+        await db.delete(user)
+        await db.commit()
+
+        logger.warning(f"Account HARD DELETED for user: {user.id}")
         return True
 
-    @classmethod
-    def create_from_dict(cls, db, obj_in):
-        pass
+    async def get_multi_active(
+        self, db: AsyncSession, skip: int = 0, limit: int = 100
+    ) -> List[UserAccount]:
+        """Get multiple active users with pagination."""
+        result = await db.execute(
+            select(UserAccount)
+            .where(UserAccount.is_active == True, UserAccount.deleted_at.is_(None))
+            .offset(skip)
+            .limit(limit)
+            .order_by(UserAccount.created_at.desc())
+        )
+        return result.scalars().all()
+
+    async def count_users(self, db: AsyncSession, active_only: bool = True) -> int:
+        """Count total users."""
+        query = select(func.count(UserAccount.id))
+
+        if active_only:
+            query = query.where(UserAccount.is_active == True, UserAccount.deleted_at.is_(None))
+
+        result = await db.execute(query)
+        return result.scalar() or 0
+
+    async def count_verified_users(self, db: AsyncSession) -> int:
+        """Count users with verified emails."""
+        result = await db.execute(
+            select(func.count(UserAccount.id)).where(
+                UserAccount.is_verified == True,
+                UserAccount.is_active == True,
+                UserAccount.deleted_at.is_(None),
+            )
+        )
+        return result.scalar() or 0
+
+    async def search_by_email_pattern(
+        self, db: AsyncSession, email_pattern: str, limit: int = 10
+    ) -> List[UserAccount]:
+        """Search users by email pattern (admin use)."""
+        result = await db.execute(
+            select(UserAccount)
+            .where(UserAccount.email.ilike(f"%{email_pattern}%"), UserAccount.deleted_at.is_(None))
+            .limit(limit)
+        )
+        return result.scalars().all()
 
 
 # Create singleton instance

@@ -15,7 +15,7 @@ import app.user.accounts.router as user
 api_router = APIRouter()
 
 # Include all route modules
-api_router.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(user.router, prefix="/user", tags=["User"])
 # api_router.include_router(account.router, prefix="/portfolios/accounts", tags=["Portfolio"])
 # api_router.include_router(holding.router, prefix="/portfolios/holdings", tags=["Portfolio"])

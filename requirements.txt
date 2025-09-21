@@ -2,21 +2,21 @@
 python-dotenv
 
 # FastAPI and ASGI
-fastapi==0.116.2
-uvicorn==0.35.0
+fastapi==0.117.0
+uvicorn==0.36.0
 starlette==0.48.0
-#gunicorn==21.2.0
 slowapi>=0.1.7
 
 # Database
 SQLAlchemy==2.0.43
 psycopg2==2.9.10
 alembic==1.16.5
+asyncpg==0.30.0
 
 # Pydantic and validation
 pydantic==2.11.9
 pydantic-settings==2.10.1
-email-validator==2.3.0
+email-validator==2.2.0
 
 # Authentication and securities
 python-jose==3.5.0
@@ -40,11 +40,11 @@ empyrical-reloaded==0.5.12
 scikit-learn==1.7.2
 
 # Development tools
-black==25.1.0
+black==25.9.0
 isort==6.0.1
 flake8==7.3.0
 pytest==8.4.2
-mypy==1.18.1
+mypy==1.18.2
 
 # Third-party services
 yfinance==0.2.66

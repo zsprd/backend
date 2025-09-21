@@ -1,9 +1,7 @@
-import enum
-
-from sqlalchemy import Enum
+from enum import Enum
 
 
-class PlanTypeEnum(enum.Enum):
+class PlanTypeEnum(str, Enum):
     """
     Subscription plan types with escalating feature sets.
 
@@ -14,7 +12,3 @@ class PlanTypeEnum(enum.Enum):
     PREMIUM = "premium"  # Advanced analytics & reporting
     PROFESSIONAL = "professional"  # Institution-grade features
     ENTERPRISE = "enterprise"  # White-label & API access
-
-
-# SQLAlchemy Enum type mappings for use in model definitions
-PLAN_TYPE_ENUM = Enum(PlanTypeEnum, name="plan_type_enum")

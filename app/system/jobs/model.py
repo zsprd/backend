@@ -4,12 +4,12 @@ from uuid import UUID
 
 from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.user.accounts.model import UserAccount
+    pass
 
 
 class SystemJob(BaseModel):
@@ -88,11 +88,6 @@ class SystemJob(BaseModel):
         DateTime(timezone=True),
         nullable=True,
         comment="When job execution completed (success or failure)",
-    )
-
-    # Relationships
-    user_accounts: Mapped[Optional["UserAccount"]] = relationship(
-        "UserAccount", back_populates="system_jobs"
     )
 
     @property

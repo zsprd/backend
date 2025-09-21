@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from .enums import TransactionSubtypeEnum, TransactionTypeEnum
+
 
 class TransactionBase(BaseModel):
     account_id: UUID
@@ -12,8 +14,8 @@ class TransactionBase(BaseModel):
     plaid_transaction_id: Optional[str] = None
     plaid_account_id: Optional[str] = None
     cancel_transaction_id: Optional[str] = None
-    transaction_type: str
-    transaction_subtype: Optional[str] = None
+    transaction_type: TransactionTypeEnum
+    transaction_subtype: Optional[TransactionSubtypeEnum] = None
     quantity: Optional[Decimal] = None
     price: Optional[Decimal] = None
     amount: Decimal
@@ -38,8 +40,8 @@ class TransactionUpdate(BaseModel):
     plaid_transaction_id: Optional[str] = None
     plaid_account_id: Optional[str] = None
     cancel_transaction_id: Optional[str] = None
-    transaction_type: Optional[str] = None
-    transaction_subtype: Optional[str] = None
+    transaction_type: Optional[TransactionTypeEnum] = None
+    transaction_subtype: Optional[TransactionSubtypeEnum] = None
     quantity: Optional[Decimal] = None
     price: Optional[Decimal] = None
     amount: Optional[Decimal] = None

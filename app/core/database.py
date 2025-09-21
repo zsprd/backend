@@ -1,51 +1,32 @@
-from typing import Generator
+from collections.abc import AsyncGenerator
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
 
-# Create SQLAlchemy engine
 if not settings.DATABASE_URL:
     raise ValueError("DATABASE_URL is not set in settings.")
 
-engine = create_engine(
+async_engine = create_async_engine(
     settings.DATABASE_URL,
-    pool_pre_ping=True,  # Verify connections before use
-    pool_recycle=300,  # Recycle connections every 5 minutes
-    echo=settings.DEBUG,  # Log SQL queries in debug mode
+    echo=settings.DEBUG,
 )
 
-# Create SessionLocal class
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+async_session_maker = async_sessionmaker(
+    async_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+)
 
 
-def get_db() -> Generator[Session, None, None]:
-    """
-    Database dependency that creates a new database session for each request,
-    closes it when the request is finished.
-    """
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
+    async with async_session_maker() as session:
+        yield session
 
 
-# Optional: Create async database setup if needed in the future
-# from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
-# from sqlalchemy.orm import sessionmaker as async_sessionmaker
-
-# Async engine (uncomment if you want to use async operations)
-# async_engine = create_async_engine(
-#     settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://"),
-#     echo=settings.DEBUG
-# )
-#
-# AsyncSessionLocal = async_sessionmaker(
-#     async_engine, class_=AsyncSession, expire_on_commit=False
-# )
-#
-# async def get_async_db() -> AsyncSession:
-#     async with AsyncSessionLocal() as session:
-#         yield session
+__all__ = [
+    "AsyncSession",
+    "async_engine",
+    "async_session_maker",
+    "get_async_db",
+]

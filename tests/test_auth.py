@@ -15,7 +15,11 @@ from sqlalchemy.orm import Session
 
 from app.auth.service import AuthError, AuthService
 from app.core.config import settings
-from app.core.dependencies import get_auth_service, get_current_active_user, get_db, rate_limiter
+from app.core.dependencies import (
+    get_async_db,
+    get_auth_service,
+    get_current_active_user,
+)
 from app.user.accounts.model import UserAccount
 
 
@@ -71,9 +75,8 @@ def mock_tokens():
 @pytest.fixture
 def client_with_mocks(mock_db, mock_auth_service):
     """Test client with mocked dependencies."""
-    main.app.dependency_overrides[get_db] = lambda: mock_db
+    main.app.dependency_overrides[get_async_db] = lambda: mock_db
     main.app.dependency_overrides[get_auth_service] = lambda: mock_auth_service
-    main.app.dependency_overrides[rate_limiter] = lambda: None  # Disable rate limiting for tests
 
     with TestClient(main.app) as client:
         yield client
@@ -91,7 +94,7 @@ class TestRegisterEndpoint:
         mock_auth_service.register_user.return_value = mock_user
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -115,7 +118,7 @@ class TestRegisterEndpoint:
         )
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -126,7 +129,7 @@ class TestRegisterEndpoint:
         valid_registration_data["email"] = "invalid-email"
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -136,7 +139,7 @@ class TestRegisterEndpoint:
         valid_registration_data["password"] = "weak"
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -146,7 +149,7 @@ class TestRegisterEndpoint:
         incomplete_data = {"email": "test@example.com"}
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=incomplete_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=incomplete_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -156,7 +159,7 @@ class TestRegisterEndpoint:
         valid_registration_data["full_name"] = ""
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -166,7 +169,7 @@ class TestRegisterEndpoint:
         valid_registration_data["full_name"] = "x" * 256  # Assuming 255 is max
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -187,7 +190,7 @@ class TestLoginEndpoint:
         )
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login", json=valid_login_data
+            f"/api/{settings.API_PREFIX}/auth/login", json=valid_login_data
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -205,7 +208,7 @@ class TestLoginEndpoint:
         mock_auth_service.authenticate_user.side_effect = AuthError("Invalid credentials")
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login", json=valid_login_data
+            f"/api/{settings.API_PREFIX}/auth/login", json=valid_login_data
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -216,7 +219,7 @@ class TestLoginEndpoint:
         valid_login_data["email"] = "invalid-email"
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login", json=valid_login_data
+            f"/api/{settings.API_PREFIX}/auth/login", json=valid_login_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -225,9 +228,7 @@ class TestLoginEndpoint:
         """Test login with missing password."""
         login_data = {"email": "test@example.com"}
 
-        response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login", json=login_data
-        )
+        response = client_with_mocks.post(f"/api/{settings.API_PREFIX}/auth/login", json=login_data)
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -236,7 +237,7 @@ class TestLoginEndpoint:
         valid_login_data["password"] = ""
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login", json=valid_login_data
+            f"/api/{settings.API_PREFIX}/auth/login", json=valid_login_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -251,7 +252,7 @@ class TestVerifyEmailEndpoint:
         mock_auth_service.confirm_email.return_value = mock_user
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/verify-email", json=verification_data
+            f"/api/{settings.API_PREFIX}/auth/verify-email", json=verification_data
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -267,7 +268,7 @@ class TestVerifyEmailEndpoint:
         )
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/verify-email", json=verification_data
+            f"/api/{settings.API_PREFIX}/auth/verify-email", json=verification_data
         )
 
         assert response.status_code == status.HTTP_403_FORBIDDEN
@@ -275,14 +276,14 @@ class TestVerifyEmailEndpoint:
 
     def test_verify_email_missing_token(self, client_with_mocks):
         """Test email verification with missing token."""
-        response = client_with_mocks.post(f"/api/{settings.API_VERSION}/auth/verify-email", json={})
+        response = client_with_mocks.post(f"/api/{settings.API_PREFIX}/auth/verify-email", json={})
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
     def test_verify_email_empty_token(self, client_with_mocks):
         """Test email verification with empty token."""
         verification_data = {"token": ""}
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/verify-email", json=verification_data
+            f"/api/{settings.API_PREFIX}/auth/verify-email", json=verification_data
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -300,7 +301,7 @@ class TestRefreshTokensEndpoint:
         )
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/refresh", json=refresh_data
+            f"/api/{settings.API_PREFIX}/auth/refresh", json=refresh_data
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -316,7 +317,7 @@ class TestRefreshTokensEndpoint:
         mock_auth_service.refresh_tokens.side_effect = AuthError("Invalid or expired refresh token")
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/refresh", json=refresh_data
+            f"/api/{settings.API_PREFIX}/auth/refresh", json=refresh_data
         )
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
@@ -324,7 +325,7 @@ class TestRefreshTokensEndpoint:
 
     def test_refresh_tokens_missing_token(self, client_with_mocks):
         """Test token refresh with missing refresh token."""
-        response = client_with_mocks.post(f"/api/{settings.API_VERSION}/auth/refresh", json={})
+        response = client_with_mocks.post(f"/api/{settings.API_PREFIX}/auth/refresh", json={})
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -332,7 +333,7 @@ class TestRefreshTokensEndpoint:
         """Test token refresh with empty refresh token."""
         refresh_data = {"refresh_token": ""}
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/refresh", json=refresh_data
+            f"/api/{settings.API_PREFIX}/auth/refresh", json=refresh_data
         )
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
 
@@ -346,7 +347,7 @@ class TestForgotPasswordEndpoint:
         mock_auth_service.initiate_password_reset.return_value = True
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/forgot-password", json=reset_request
+            f"/api/{settings.API_PREFIX}/auth/forgot-password", json=reset_request
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -358,7 +359,7 @@ class TestForgotPasswordEndpoint:
         reset_request = {"email": "invalid-email"}
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/forgot-password", json=reset_request
+            f"/api/{settings.API_PREFIX}/auth/forgot-password", json=reset_request
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -366,7 +367,7 @@ class TestForgotPasswordEndpoint:
     def test_forgot_password_missing_email(self, client_with_mocks):
         """Test forgot password with missing email."""
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/forgot-password", json={}
+            f"/api/{settings.API_PREFIX}/auth/forgot-password", json={}
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -377,7 +378,7 @@ class TestForgotPasswordEndpoint:
         mock_auth_service.initiate_password_reset.side_effect = AuthError("Service error")
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/forgot-password", json=reset_request
+            f"/api/{settings.API_PREFIX}/auth/forgot-password", json=reset_request
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -392,7 +393,7 @@ class TestResetPasswordEndpoint:
         mock_auth_service.reset_password.return_value = mock_user
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/reset-password", json=reset_data
+            f"/api/{settings.API_PREFIX}/auth/reset-password", json=reset_data
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -405,7 +406,7 @@ class TestResetPasswordEndpoint:
         mock_auth_service.reset_password.side_effect = AuthError("Invalid or expired reset token")
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/reset-password", json=reset_data
+            f"/api/{settings.API_PREFIX}/auth/reset-password", json=reset_data
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -416,7 +417,7 @@ class TestResetPasswordEndpoint:
         reset_data = {"token": "valid_reset_token", "new_password": "weak"}
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/reset-password", json=reset_data
+            f"/api/{settings.API_PREFIX}/auth/reset-password", json=reset_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -426,7 +427,7 @@ class TestResetPasswordEndpoint:
         reset_data = {"token": "valid_token"}  # Missing new_password
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/reset-password", json=reset_data
+            f"/api/{settings.API_PREFIX}/auth/reset-password", json=reset_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -439,7 +440,7 @@ class TestResetPasswordEndpoint:
         }
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/reset-password", json=reset_data
+            f"/api/{settings.API_PREFIX}/auth/reset-password", json=reset_data
         )
 
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_CONTENT
@@ -459,7 +460,7 @@ class TestLogoutEndpoint:
         main.app.dependency_overrides[get_current_active_user] = lambda: mock_user
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/logout", json=refresh_data
+            f"/api/{settings.API_PREFIX}/auth/logout", json=refresh_data
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -475,7 +476,7 @@ class TestLogoutEndpoint:
         # Mock authentication dependency
         main.app.dependency_overrides[get_current_active_user] = lambda: mock_user
 
-        response = client_with_mocks.post(f"/api/{settings.API_VERSION}/auth/logout")
+        response = client_with_mocks.post(f"/api/{settings.API_PREFIX}/auth/logout")
 
         assert response.status_code == status.HTTP_200_OK
         data = response.json()
@@ -489,7 +490,7 @@ class TestLogoutEndpoint:
 
         main.app.dependency_overrides[get_current_active_user] = mock_auth_dependency
 
-        response = client_with_mocks.post(f"/api/{settings.API_VERSION}/auth/logout")
+        response = client_with_mocks.post(f"/api/{settings.API_PREFIX}/auth/logout")
 
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
@@ -501,7 +502,7 @@ class TestLogoutEndpoint:
         main.app.dependency_overrides[get_current_active_user] = lambda: mock_user
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/logout", json=refresh_data
+            f"/api/{settings.API_PREFIX}/auth/logout", json=refresh_data
         )
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
@@ -521,12 +522,9 @@ class TestRateLimiting:
         mock_rate_limiter.side_effect = HTTPException(429, "Rate limit exceeded")
 
         # Override the dependency back to use the mock
-        from main import app
-
-        app.dependency_overrides[rate_limiter] = lambda: mock_rate_limiter()
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
@@ -538,12 +536,8 @@ class TestRateLimiting:
 
         mock_rate_limiter.side_effect = HTTPException(429, "Rate limit exceeded")
 
-        from main import app
-
-        app.dependency_overrides[rate_limiter] = lambda: mock_rate_limiter()
-
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login", json=valid_login_data
+            f"/api/{settings.API_PREFIX}/auth/login", json=valid_login_data
         )
 
         assert response.status_code == status.HTTP_429_TOO_MANY_REQUESTS
@@ -555,7 +549,7 @@ class TestEdgeCases:
     def test_malformed_json(self, client_with_mocks):
         """Test endpoints with malformed JSON."""
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register",
+            f"/api/{settings.API_PREFIX}/auth/register",
             data="{invalid json}",
             headers={"Content-Type": "application/json"},
         )
@@ -567,7 +561,7 @@ class TestEdgeCases:
         valid_registration_data["email"] = "a" * 250 + "@example.com"
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         # This might pass validation but fail at database level
@@ -584,7 +578,7 @@ class TestEdgeCases:
         }
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login", json=malicious_data
+            f"/api/{settings.API_PREFIX}/auth/login", json=malicious_data
         )
 
         # Should either fail validation or return auth error, not cause server error
@@ -601,7 +595,7 @@ class TestEdgeCases:
         mock_auth_service.register_user.return_value = mock_user
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/register", json=valid_registration_data
+            f"/api/{settings.API_PREFIX}/auth/register", json=valid_registration_data
         )
 
         # Should handle unicode characters properly
@@ -616,7 +610,7 @@ class TestSecurityHeaders:
         mock_auth_service.authenticate_user.side_effect = AuthError("Database connection failed")
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login",
+            f"/api/{settings.API_PREFIX}/auth/login",
             json={"email": "test@example.com", "password": "password"},
         )
 
@@ -636,7 +630,7 @@ class TestSecurityHeaders:
         )
 
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/login", json=valid_login_data
+            f"/api/{settings.API_PREFIX}/auth/login", json=valid_login_data
         )
 
         assert response.status_code == status.HTTP_200_OK
@@ -681,7 +675,7 @@ class TestChangePasswordEndpoint:
         headers = {"Authorization": f"Bearer {mock_tokens['access_token']}"}
         payload = {"current_password": "OldPass123!", "new_password": "NewStrongPass456!"}
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/change-password", json=payload, headers=headers
+            f"/api/{settings.API_PREFIX}/auth/change-password", json=payload, headers=headers
         )
         assert response.status_code == 200
         assert response.json()["message"] == "Password changed successfully."
@@ -696,7 +690,7 @@ class TestChangePasswordEndpoint:
         headers = {"Authorization": f"Bearer {mock_tokens['access_token']}"}
         payload = {"current_password": "WrongPass!", "new_password": "NewStrongPass456!"}
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/change-password", json=payload, headers=headers
+            f"/api/{settings.API_PREFIX}/auth/change-password", json=payload, headers=headers
         )
         assert response.status_code == 400
         assert "Incorrect current password" in response.json()["detail"]
@@ -709,7 +703,7 @@ class TestChangePasswordEndpoint:
         headers = {"Authorization": f"Bearer {mock_tokens['access_token']}"}
         payload = {"current_password": "OldPass123!", "new_password": "weak"}
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/change-password", json=payload, headers=headers
+            f"/api/{settings.API_PREFIX}/auth/change-password", json=payload, headers=headers
         )
         assert response.status_code == 422
         assert "password" in response.text.lower()
@@ -722,7 +716,7 @@ class TestChangePasswordEndpoint:
         headers = {"Authorization": f"Bearer {mock_tokens['access_token']}"}
         payload = {"current_password": "OldPass123!"}  # missing new_password
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/change-password", json=payload, headers=headers
+            f"/api/{settings.API_PREFIX}/auth/change-password", json=payload, headers=headers
         )
         assert response.status_code == 422
         assert "new_password" in response.text
@@ -731,7 +725,7 @@ class TestChangePasswordEndpoint:
         """Test password change without authentication."""
         payload = {"current_password": "OldPass123!", "new_password": "NewStrongPass456!"}
         response = client_with_mocks.post(
-            f"/api/{settings.API_VERSION}/auth/change-password", json=payload
+            f"/api/{settings.API_PREFIX}/auth/change-password", json=payload
         )
         assert response.status_code in (401, 403)
         assert (

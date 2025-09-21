@@ -8,7 +8,7 @@ from app.auth.oauth.service import oauth_manager
 from app.auth.service import AuthService
 from app.auth.utils import get_client_ip
 from app.core.config import settings
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.user.accounts.crud import user_account_crud
 from app.user.sessions.crud import user_session_crud
 
@@ -35,7 +35,7 @@ async def oauth_login(provider: str, request: Request):
 
 
 @router.get("/oauth/{provider}/callback")
-async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_db)):
+async def oauth_callback(provider: str, request: Request, db: Session = Depends(get_async_db)):
     """Handle OAuth callback."""
     if provider not in ["google", "apple"]:
         raise HTTPException(
@@ -95,7 +95,7 @@ async def oauth_callback(provider: str, request: Request, db: Session = Depends(
 
         # Create tokens
         access_token = AuthService._create_token_pair(data={"sub": str(user.id)})
-        refresh_token = AuthService.refresh_tokens(str(user.id))
+        refresh_token = AuthService.refresh(str(user.id))
 
         # Create session
         expires_at = datetime.now(timezone.utc) + timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)

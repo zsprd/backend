@@ -1,7 +1,7 @@
 from typing import TYPE_CHECKING, List, Optional
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy import Boolean, Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,10 +13,7 @@ from app.core.model import BaseModel
 from app.portfolio.holdings.model import PortfolioHolding
 from app.portfolio.transactions.model import PortfolioTransaction
 
-from .enums import (
-    ACCOUNT_SUBTYPE_ENUM,
-    ACCOUNT_TYPE_ENUM,
-)
+from .enums import AccountSubtypeEnum, AccountTypeEnum
 
 if TYPE_CHECKING:
     from app.provider.connections.model import ProviderConnection
@@ -62,15 +59,15 @@ class PortfolioAccount(BaseModel):
     )
 
     # Account classification
-    account_type: Mapped[str] = mapped_column(
-        ACCOUNT_TYPE_ENUM,
+    account_type: Mapped[AccountTypeEnum] = mapped_column(
+        Enum(AccountTypeEnum, name="account_type_enum", create_type=False),
         nullable=False,
         index=True,
         comment="Primary account category: investment, depository, credit, loan",
     )
 
-    account_subtype: Mapped[Optional[str]] = mapped_column(
-        ACCOUNT_SUBTYPE_ENUM,
+    account_subtype: Mapped[Optional[AccountSubtypeEnum]] = mapped_column(
+        Enum(AccountSubtypeEnum, name="account_subtype_enum", create_type=False),
         nullable=True,
         comment="Specific account subtype: brokerage, ira, 401k, etc.",
     )

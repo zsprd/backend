@@ -4,17 +4,20 @@ This script starts the FastAPI development server with proper configuration.
 """
 
 import asyncio
+import importlib
 import logging
+import pkgutil
 import sys
 from pathlib import Path
 
 import uvicorn
 from sqlalchemy import text
 
+import app as app_pkg
+
 # Import after path setup
 from app.core.config import settings
-from app.core.database import SessionLocal, engine
-from app.core.model import Base
+from app.core.database import async_engine, async_session_maker
 
 # Add the current directory to Python path
 current_dir = Path(__file__).parent
@@ -46,13 +49,11 @@ def check_environment():
     return True
 
 
-def test_database_connection():
+async def test_database_connection():
     """Test database connectivity."""
     try:
-        # Test connection
-        db = SessionLocal()
-        db.execute(text("SELECT 1"))
-        db.close()
+        async with async_session_maker() as session:
+            await session.execute(text("SELECT 1"))
         logger.info("✅ Database connection successful")
         return True
     except Exception as e:
@@ -61,23 +62,20 @@ def test_database_connection():
         return False
 
 
-def create_tables():
+async def create_tables() -> bool:
     """Create database tables if they don't exist."""
     try:
         # Import all models to ensure they're registered
-        from app.portfolio.accounts import model
-        from app.portfolio.holdings import model
-        from app.portfolio.transactions import model
-        from app.provider.connections import model
-        from app.provider.institutions import model
-        from app.provider.mappings import model
-        from app.security.master import model
-        from app.security.prices import model
-        from app.user.accounts import model
-        from app.user.sessions import model
+        from app.core.model import Base
+        from app.user.accounts.model import UserAccount  # ensures user model is registered
 
-        # Create tables
-        Base.metadata.create_all(bind=engine)
+        for finder, name, ispkg in pkgutil.walk_packages(app_pkg.__path__, app_pkg.__name__ + "."):
+            if name.endswith(".model"):
+                importlib.import_module(name)
+
+        async with async_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+
         logger.info("✅ Database tables created/verified")
         return True
     except Exception as e:
@@ -93,7 +91,7 @@ def print_startup_info():
     print(f"Environment: {settings.ENVIRONMENT}")
     print(f"Debug Mode: {settings.DEBUG}")
     print(f"Database: {settings.POSTGRES_DB}@{settings.POSTGRES_HOST}")
-    print(f"API Version: {settings.API_VERSION}")
+    print(f"API Version: {settings.API_PREFIX}")
     print(f"CORS Origins: {settings.CORS_ORIGINS}")
     print("=" * 60)
     print("\n📋 Available Endpoints:")
@@ -116,7 +114,7 @@ def print_startup_info():
     print("=" * 60 + "\n")
 
 
-async def main():
+async def main() -> None:
     """Main startup function."""
     print("🔧 Starting ZSPRD Portfolio Analytics Backend...")
 
@@ -125,11 +123,11 @@ async def main():
         sys.exit(1)
 
     # Test database
-    if not test_database_connection():
+    if not await test_database_connection():
         sys.exit(1)
 
     # Create tables
-    if not create_tables():
+    if not await create_tables():
         sys.exit(1)
 
     # Print startup info
@@ -156,6 +154,11 @@ async def main():
     except Exception as e:
         logger.error(f"❌ Server error: {e}")
         sys.exit(1)
+    finally:
+        # Always dispose DB connections on shutdown
+        logger.info("🧹 Disposing database engine...")
+        await async_engine.dispose()
+        logger.info("✅ Database engine disposed")
 
 
 def run_development_server():
@@ -181,79 +184,6 @@ if __name__ == "__main__":
     if not Path(".env").exists():
         print("⚠️  Warning: .env file not found. Please create one based on .env.example")
         if input("Continue anyway? (y/N): ").lower() != "y":
-            sys.exit(1)
-
-    run_development_server()
-
-
-# Additional utility functions for development
-def create_test_user():
-    """Create a test users for development."""
-    from app.user.accounts.crud import CRUDUserAccount as user_crud
-
-    db = SessionLocal()
-    try:
-        # Check if test users exists
-        existing_user = user_crud.get_by_email(db, email="test@zsprd.com")
-        if existing_user:
-            logger.info("Test users already exists")
-            return
-
-        # Create test users
-        user_data = {
-            "email": "test@zsprd.com",
-            "full_name": "Test UserProfile",
-            "is_active": True,
-            "is_verified": True,
-            "base_currency": "USD",
-        }
-
-        user = user_crud.create_from_dict(db, obj_in=user_data)
-        logger.info(f"Created test users: {user.email} (ID: {user.id})")
-
-    except Exception as e:
-        logger.error(f"Failed to create test users: {e}")
-    finally:
-        db.close()
-
-
-def create_sample_data():
-    """Create sample data for development and testing."""
-    logger.info("Creating sample data...")
-
-    # This would create sample accounts, securities, holdings, etc.
-    # For now, just create a test users
-    create_test_user()
-
-
-# CLI interface
-if __name__ == "__main__":
-    import argparse
-
-    parser = argparse.ArgumentParser(description="ZSPRD Backend Development Server")
-    parser.add_argument(
-        "--create-sample-data",
-        action="store_true",
-        help="Create sample data for testing",
-    )
-    parser.add_argument(
-        "--check-only",
-        action="store_true",
-        help="Only check environment and database, don't start server",
-    )
-
-    args = parser.parse_args()
-
-    if args.create_sample_data:
-        create_sample_data()
-        sys.exit(0)
-
-    if args.check_only:
-        if check_environment() and test_database_connection():
-            print("✅ All checks passed!")
-            sys.exit(0)
-        else:
-            print("❌ Some checks failed")
             sys.exit(1)
 
     run_development_server()
