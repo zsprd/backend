@@ -69,6 +69,33 @@ async def update_current_user_profile(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
+@router.delete(
+    "/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete user account",
+    description="Permanently delete the current user's account and all associated data.",
+)
+async def delete_user_account(
+    current_user: Annotated[UserAccount, Depends(get_current_active_user)],
+    service: Annotated[UserService, Depends(get_user_service)],
+) -> Response:
+    """Delete current user's account (soft delete for MVP)."""
+    try:
+        logger.info(
+            "Account deletion requested",
+            extra={"user_id": current_user.id, "action": "delete_account"},
+        )
+        await service.delete_user_account(current_user)
+        logger.info(
+            "Account deleted successfully",
+            extra={"user_id": current_user.id, "action": "delete_account"},
+        )
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except UserError as e:
+        logger.error(f"Account deletion failed: {str(e)}")
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
 @router.post(
     "/me/change-password",
     status_code=status.HTTP_204_NO_CONTENT,

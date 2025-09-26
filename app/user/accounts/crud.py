@@ -127,6 +127,19 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
             logger.error(f"Error retrieving user by ID {user_id}: {type(e).__name__}")
             return None
 
+    async def delete_account(self, user: UserAccount) -> bool:
+        """Delete user account."""
+        try:
+            await self.db.delete(user)
+            await self.db.commit()
+            logger.info(f"User account deleted: {user.id}")
+            return True
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Error deleting user {user.id}: {type(e).__name__}")
+            return False
+
     async def get_user_by_email(
         self, email: str, include_inactive: bool = False
     ) -> Optional[UserAccount]:

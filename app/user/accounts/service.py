@@ -156,6 +156,26 @@ class UserService:
             )
             raise UserError("Failed to deactivate account")
 
+    async def delete_user_account(self, user: UserAccount) -> bool:
+        """Permanently delete a user account."""
+        try:
+            logger.info(f"Deleting account for user: {user.id}")
+
+            success = await self.user_crud.delete_account(user)
+            if not success:
+                raise UserError("Failed to delete account")
+
+            logger.info(f"Account deleted successfully for user: {user.id}")
+            return True
+
+        except UserError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to delete account for user {user.id}: {type(e).__name__}: {str(e)}"
+            )
+            raise UserError("Failed to delete account")
+
     async def _validate_user_for_update(self, user: UserAccount) -> None:
         """Validate user can be updated."""
         if not user:

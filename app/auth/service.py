@@ -157,12 +157,11 @@ class AuthService:
             logger.error(f"Unexpected error during login: {type(e).__name__}: {str(e)}")
             raise AuthError("Login failed due to unexpected error")
 
-    async def logout(self, user: UserAccount, current_access_token: str) -> schema.LogoutResponse:
+    async def logout(self, user: UserAccount) -> schema.LogoutResponse:
         """Logout user and revoke all sessions."""
         logger.info(f"Processing logout for user: {user.id}")
 
         try:
-            tokens.revoke_token(current_access_token)
             # Revoke all user sessions
             revoked_count = await self.session_crud.revoke_all_user_sessions(user.id)
             logger.info(f"Logout successful: {revoked_count} sessions revoked for user {user.id}")
