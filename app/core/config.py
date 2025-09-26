@@ -24,10 +24,10 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
 
     # JWT Token Expiration
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 90  # 30 minutes for balance of securities/UX
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 90  # 90 days for less frequent logins
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30  # 30 minutes for balance of securities/UX
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30  # 30 days for less frequent logins
     VERIFICATION_TOKEN_EXPIRE_HOURS: int = 24  # 24 hours
-    RESET_TOKEN_EXPIRE_HOURS: int = 60  # 1 hour for securities
+    RESET_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour for securities
 
     # OAuth Configuration
     GOOGLE_CLIENT_ID: Optional[str] = None
@@ -53,12 +53,11 @@ class Settings(BaseSettings):
     # Rate Limiting (requests per time window)
     RATE_LIMIT_LOGIN: str = "5/15minutes"  # 5 attempts per 15 minutes
     RATE_LIMIT_REGISTER: str = "3/hour"  # 3 reset requests per hour
-    RATE_LIMIT_PASSWORD: str = "2/hour"  # Max failed login attempts
+    RATE_LIMIT_PASSWORD: str = "2/hour"  # 2 reset requests per hour
 
     # Session Management
     MAX_ACTIVE_SESSIONS: int = 5  # Limit concurrent sessions
-    SESSION_EXPIRE_HOURS: int = 24  # Clean expired sessions daily
-    REMEMBER_ME_EXTEND_DAYS: int = 30  # Extend session by 30 days
+    SESSION_INACTIVE_DAYS: int = 30  # Extend session by 30 days
     ACCOUNT_LOCKOUT_MINUTES: int = 15  # Lockout duration after max attempts
 
     # SecurityReference Headers
@@ -131,7 +130,7 @@ class Settings(BaseSettings):
             "access_token_expire_minutes": self.ACCESS_TOKEN_EXPIRE_MINUTES,
             "refresh_token_expire_days": self.REFRESH_TOKEN_EXPIRE_DAYS,
             "email_verification_expire_hours": self.VERIFICATION_TOKEN_EXPIRE_HOURS,
-            "password_reset_expire_minutes": self.RESET_TOKEN_EXPIRE_HOURS,
+            "password_reset_expire_minutes": self.RESET_TOKEN_EXPIRE_MINUTES,
             "max_login_attempts": self.RATE_LIMIT_PASSWORD,
             "account_lockout_minutes": self.ACCOUNT_LOCKOUT_MINUTES,
             "max_active_sessions": self.MAX_ACTIVE_SESSIONS,

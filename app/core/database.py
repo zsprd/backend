@@ -1,8 +1,11 @@
-from collections.abc import AsyncGenerator
+from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.declarative import declarative_base
 
 from app.core.config import settings
+
+Base = declarative_base()
 
 if not settings.DATABASE_URL:
     raise ValueError("DATABASE_URL is not set in settings.")
@@ -25,8 +28,5 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 __all__ = [
-    "AsyncSession",
-    "async_engine",
-    "async_session_maker",
     "get_async_db",
 ]

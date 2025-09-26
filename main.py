@@ -1,3 +1,11 @@
+"""
+main.py: FastAPI application entry point
+
+- Exposes the FastAPI app instance for Uvicorn/Gunicorn (app = FastAPI(...))
+- Does NOT perform environment checks, DB setup, or model imports
+- For robust startup (env checks, DB setup, model imports), use run_server.py
+"""
+
 import logging
 import os
 import time
@@ -28,7 +36,7 @@ app = FastAPI(
 
 
 # Favicon endpoint
-@app.get("favicon.ico", include_in_schema=False)
+@app.get("/favicon.ico", include_in_schema=False)
 async def favicon():
     favicon_path = "favicon.ico"
     if os.path.exists(favicon_path):

@@ -86,14 +86,3 @@ class BaseModel(Base, TimestampMixin):
         default=uuid4,
         comment="Unique identifier for the record",
     )
-
-
-class BaseModelWithSoftDelete(BaseModel, SoftDeleteMixin):
-    """
-    Abstract base model with UUID primary key, timestamps, and soft delete.
-
-    Used for models that need to preserve historical data and maintain
-    referential integrity even after logical deletion.
-    """
-
-    __abstract__ = True

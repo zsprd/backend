@@ -1,184 +1,171 @@
 import logging
-from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
 
-from fastapi import HTTPException, status
-from sqlalchemy.ext.asyncio import AsyncSession
-
-from app.user.accounts.crud import user_account_crud
+from app.user.accounts import schema
+from app.user.accounts.crud import CRUDUserAccount
 from app.user.accounts.model import UserAccount
-from app.user.accounts.schema import UserAccountUpdate
 
 logger = logging.getLogger(__name__)
 
 
-class UserAccountService:
-    """
-    Service layer for user profile operations (non-auth related).
+class UserError(Exception):
+    """Custom exception for user-related errors."""
 
-    This service handles user profile management, preferences,
-    and account status operations. Authentication-related operations
-    are handled by the AuthService.
-    """
+    pass
 
-    def __init__(self):
-        self.crud = user_account_crud
 
-    # ----------------------
-    # Core Profile Operations
-    # ----------------------
-    async def get_user_by_id(self, db: AsyncSession, user_id: UUID) -> Optional[UserAccount]:
-        """Get user by ID."""
-        logger.debug(f"Fetching user by ID: {user_id}")
-        return await self.crud.get(db, id=user_id)
+class UserService:
+    """User business logic service."""
 
-    async def get_user_by_email(self, db: AsyncSession, email: str) -> Optional[UserAccount]:
+    def __init__(self, user_repo: CRUDUserAccount):
+        self.user_crud = user_repo
+
+    async def get_user_profile(self, user_id: UUID) -> schema.UserAccountRead:
+        """Get user profile by ID."""
+        try:
+            logger.debug(f"Fetching user profile for ID: {user_id}")
+            user = await self.user_crud.get_user_by_id(user_id, False)
+
+            if not user:
+                logger.warning(f"User profile not found for ID: {user_id}")
+                raise UserError("User profile not found")
+
+            logger.debug(f"User profile found for ID: {user_id}")
+            return schema.UserAccountRead.model_validate(user)
+
+        except UserError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get user profile: {type(e).__name__}: {str(e)}")
+            raise UserError("Failed to retrieve user profile")
+
+    async def get_user_by_email(self, email: str) -> Optional[schema.UserAccountRead]:
         """Get user by email address."""
-        logger.debug(f"Fetching user by email: {email}")
-        return await self.crud.get_user_by_email(db, email=email)
+        try:
+            # Validate email format
+            if not email or "@" not in email:
+                logger.warning("Invalid email format provided")
+                raise UserError("Invalid email format")
+
+            logger.debug(f"Fetching user by email: {email[:3]}***")
+
+            user = await self.user_crud.get_user_by_email(email)
+
+            if not user:
+                return None
+
+            return schema.UserAccountRead.model_validate(user)
+
+        except UserError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to get user by email: {type(e).__name__}: {str(e)}")
+            raise UserError("Failed to retrieve user by email")
 
     async def update_user_profile(
-        self,
-        db: AsyncSession,
-        user: UserAccount,
-        profile_update: UserAccountUpdate,
-    ) -> UserAccount:
-        """
-        Update user profile information.
+        self, user: UserAccount, profile_update: schema.UserAccountUpdate
+    ) -> schema.UserAccountRead:
+        """Update user profile information."""
+        try:
+            logger.info(f"Updating profile for user: {user.id}")
 
-        Only updates fields that are provided in the update object.
-        Does not allow updating authentication-related fields.
-        """
-        logger.info(f"Updating profile for user: {user.id}")
+            # Validate user state
+            await self._validate_user_for_update(user)
 
-        # Check if account is active
-        if not user.is_active:
-            logger.warning(f"Profile update attempted on inactive account: {user.id}")
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Cannot update profile for inactive account",
+            # Update user profile (this is now async)
+            updated_user = await self.user_crud.update_profile(user, profile_update)
+
+            if not updated_user:
+                logger.error(f"Failed to update profile for user: {user.id}")
+                raise UserError("Failed to update user profile")
+
+            logger.info(f"Profile updated successfully for user: {user.id}")
+            return schema.UserAccountRead.model_validate(updated_user)
+
+        except UserError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to update profile for user {user.id}: {type(e).__name__}: {str(e)}"
+            )
+            raise UserError("Failed to update user profile")
+
+    async def change_password(
+        self, user: UserAccount, password_update: schema.UserAccountPasswordUpdate
+    ) -> None:
+        """Change user password."""
+        try:
+            logger.info(f"Password change requested for user: {user.id}")
+
+            # Validate user can change password
+            await self._validate_user_for_update(user)
+
+            # Delegate to CRUD layer for secure password handling
+            updated_user = await self.user_crud.update_password(
+                user, password_update.current_password, password_update.new_password
             )
 
-        # Filter out None values from update
-        update_data = profile_update.model_dump(exclude_unset=True)
+            if not updated_user:
+                logger.error(f"Failed to change password for user: {user.id}")
+                raise UserError("Current password is incorrect or password change failed")
 
-        if not update_data:
-            logger.info(f"No fields to update for user: {user.id}")
-            return user
+            logger.info(f"Password changed successfully for user: {user.id}")
 
-        # Update the fields
-        for field, value in update_data.items():
-            setattr(user, field, value)
+        except UserError:
+            raise
+        except Exception as e:
+            logger.error(f"Password change failed for user {user.id}: {type(e).__name__}: {str(e)}")
+            raise UserError("Failed to change password")
 
-        # Update timestamp
-        user.updated_at = datetime.now(timezone.utc)
+    async def mark_email_verified(self, user: UserAccount) -> UserAccount:
+        """Mark user's email as verified."""
+        try:
+            logger.info(f"Marking email as verified for user: {user.id}")
 
-        # Save to database
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
+            verified_user = await self.user_crud.mark_email_verified(user)
+            if not verified_user:
+                raise UserError("Failed to verify email")
 
-        logger.info(f"Profile updated successfully for user: {user.id}")
-        return user
+            return verified_user
 
-    # ----------------------
-    # Profile Validation & Checks
-    # ----------------------
-    async def is_email_available(self, db: AsyncSession, email: str) -> bool:
-        """Check if an email address is available for registration."""
-        logger.debug(f"Checking email availability: {email}")
-        return await self.crud.is_email_available(db, email=email)
+        except UserError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to mark email verified for user {user.id}: {type(e).__name__}: {str(e)}"
+            )
+            raise UserError("Failed to verify email")
 
-    async def validate_user_active(self, db: AsyncSession, user_id: UUID) -> bool:
-        """Check if a user account is active."""
-        user = await self.crud.get(db, id=user_id)
-        return user and user.is_active
+    async def deactivate_user_account(self, user: UserAccount) -> UserAccount:
+        """Deactivate a user account."""
+        try:
+            logger.info(f"Deactivating account for user: {user.id}")
 
-    # ----------------------
-    # Internal Use (Called by Auth Service)
-    # ----------------------
-    async def mark_email_verified(self, db: AsyncSession, user: UserAccount) -> UserAccount:
-        """
-        Mark user's email as verified.
+            deactivated_user = await self.user_crud.deactivate_account(user)
+            if not deactivated_user:
+                raise UserError("Failed to deactivate account")
 
-        This is called by the auth service after email verification.
-        """
-        logger.info(f"Marking email as verified for user: {user.id}")
-        return await self.crud.mark_email_verified(db, user=user)
+            return deactivated_user
 
-    async def deactivate_user_account(self, db: AsyncSession, user: UserAccount) -> UserAccount:
-        """
-        Deactivate a user account.
+        except UserError:
+            raise
+        except Exception as e:
+            logger.error(
+                f"Failed to deactivate account for user {user.id}: {type(e).__name__}: {str(e)}"
+            )
+            raise UserError("Failed to deactivate account")
 
-        This prevents the user from logging in but preserves their data.
-        """
-        logger.info(f"Deactivating account for user: {user.id}")
-        return await self.crud.deactivate(db, user=user)
+    async def _validate_user_for_update(self, user: UserAccount) -> None:
+        """Validate user can be updated."""
+        if not user:
+            raise UserError("User not found")
 
-    async def update_last_login(self, db: AsyncSession, user: UserAccount) -> UserAccount:
-        """
-        Update last login timestamp.
+        if not user.is_active:
+            logger.warning(f"Update attempted on inactive account: {user.id}")
+            raise UserError("Cannot update inactive account")
 
-        This is called by the auth service on successful login.
-        """
-        logger.debug(f"Updating last login for user: {user.id}")
-        return await self.crud.update_last_login(db, user=user)
-
-    async def increment_failed_login_attempts(
-        self, db: AsyncSession, user: UserAccount
-    ) -> UserAccount:
-        """
-        Increment failed login attempts counter.
-
-        Used by auth service for account lockout functionality.
-        """
-        user.failed_login_attempts += 1
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        return user
-
-    async def reset_failed_login_attempts(self, db: AsyncSession, user: UserAccount) -> UserAccount:
-        """
-        Reset failed login attempts after successful login.
-
-        Used by auth service after successful authentication.
-        """
-        user.failed_login_attempts = 0
-        user.locked_until = None
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        return user
-
-    async def lock_account_until(
-        self, db: AsyncSession, user: UserAccount, locked_until: datetime
-    ) -> UserAccount:
-        """
-        Lock account until specified time.
-
-        Used by auth service for temporary account lockout.
-        """
-        user.locked_until = locked_until
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        return user
-
-    # ----------------------
-    # Statistics and Analytics
-    # ----------------------
-    async def get_user_count(self, db: AsyncSession, active_only: bool = True) -> int:
-        """Get total number of users."""
-        logger.debug(f"Getting user count (active_only={active_only})")
-        return await self.crud.count_users(db, active_only=active_only)
-
-    async def get_verified_user_count(self, db: AsyncSession) -> int:
-        """Get number of users with verified emails."""
-        logger.debug("Getting verified user count")
-        return await self.crud.count_verified_users(db)
-
-
-# Singleton instance
-user_account_service = UserAccountService()
+        if user.is_locked:
+            lockout_remaining = user.lockout_time_remaining or 0
+            logger.warning(f"Update attempted on locked account: {user.id}")
+            raise UserError(f"Account is locked. Try again in {lockout_remaining} minutes.")

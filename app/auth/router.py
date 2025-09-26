@@ -1,28 +1,20 @@
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import schema
 from app.auth.service import AuthError, AuthService
 from app.core.config import settings
-from app.core.database import get_async_db
-from app.core.dependencies import get_current_active_user
+from app.core.dependencies import get_auth_service, get_current_user
 from app.user.accounts.model import UserAccount
 
 logger = logging.getLogger(__name__)
 
 # Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
-
-
-async def get_auth_service(db: Annotated[AsyncSession, Depends(get_async_db)]) -> AuthService:
-    """Return an instance of AuthService with injected DB session."""
-    return AuthService(db=db)
-
 
 router = APIRouter()
 
@@ -39,34 +31,29 @@ async def register(
     registration_data: schema.UserRegistrationData,
     background_tasks: BackgroundTasks,
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_async_db)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.RegistrationResponse:
     """Register a new user account with email verification required."""
     client_ip = get_remote_address(request)
-    logger.info(f"Registration attempt from IP: {client_ip}, email: {registration_data.email}")
+    logger.info(
+        "Registration attempt",
+        extra={"client_ip": client_ip, "email": registration_data.email, "action": "register"},
+    )
 
     try:
-        user = await auth_service.register(
-            db=db, registration_data=registration_data, background_tasks=background_tasks
+        result = await auth_service.register(registration_data, background_tasks)
+        logger.info(
+            "Registration successful",
+            extra={"email": registration_data.email, "action": "register"},
         )
-        logger.info(f"Registration successful for user: {user.id}")
+        return result
 
-        return schema.RegistrationResponse(
-            message="Registration successful. Please check your email for verification instructions.",
-            user_id=user.id,
-            email_verification_required=True,
-            user=user,
-        )
     except AuthError as e:
-        logger.warning(f"Registration failed: {str(e)}")
+        logger.error(f"Registration failed: {str(e)}")
         if "already exists" in str(e).lower():
             raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e))
         else:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error during registration: {str(e)}")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Registration failed")
 
 
 @router.post(
@@ -80,40 +67,31 @@ async def register(
 async def login(
     signin_data: schema.SignInRequest,
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_async_db)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.AuthResponse:
     """Authenticate user credentials and return JWT tokens."""
     client_ip = get_remote_address(request)
-    logger.info(f"Login attempt from IP: {client_ip}, email: {signin_data.email}")
+    logger.info(
+        "Login attempt",
+        extra={"client_ip": client_ip, "email": signin_data.email, "action": "login"},
+    )
 
     try:
-        user, access_token, refresh_token = await auth_service.login(
-            db=db, signin_data=signin_data, request=request
-        )
-        logger.info(f"Login successful for user: {user.id}")
+        result = await auth_service.login(signin_data, request)
+        logger.info("Login successful", extra={"email": signin_data.email, "action": "login"})
+        return result
 
-        return schema.AuthResponse(
-            access_token=access_token,
-            refresh_token=refresh_token,
-            token_type="bearer",
-            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert to seconds
-            user=user,
-        )
     except AuthError as e:
-        logger.warning(f"Login failed for {signin_data.email}: {str(e)}")
-        if "locked" in str(e).lower():
+        logger.error(f"Login failed: {str(e)}")
+        if "temporarily locked" in str(e).lower():
             raise HTTPException(status.HTTP_423_LOCKED, detail=str(e))
-        elif "not found" in str(e).lower() or "incorrect" in str(e).lower():
-            # Don't reveal whether email exists
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
         elif "not verified" in str(e).lower():
             raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(e))
+        elif "invalid credentials" in str(e).lower():
+            # Don't reveal whether email exists or which part of credentials is wrong
+            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=str(e))
         else:
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
-    except Exception as e:
-        logger.error(f"Unexpected error during login: {str(e)}")
-        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Login failed")
 
 
 @router.post(
@@ -121,26 +99,23 @@ async def login(
     response_model=schema.LogoutResponse,
     status_code=status.HTTP_200_OK,
     summary="User logout",
-    description="Invalidate user session and optionally revoke refresh token.",
+    description="Invalidate all user sessions (logout from all devices).",
 )
 async def logout(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_async_db)],
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
-    current_user: Annotated[UserAccount, Depends(get_current_active_user)],
-    refresh_data: Optional[schema.RefreshTokenRequest] = None,
 ) -> schema.LogoutResponse:
-    """Invalidate user session and optionally revoke refresh token."""
-    logger.info(f"Logout request for user: {current_user.id}")
-
+    """Invalidate all user sessions for the current user (logout everywhere)."""
     try:
-        refresh_token = getattr(refresh_data, "refresh_token", None) if refresh_data else None
-        await auth_service.logout(db=db, refresh_token=refresh_token, current_user=current_user)
-        logger.info(f"Logout successful for user: {current_user.id}")
+        result = await auth_service.logout(current_user)
+        logger.info(
+            "Logout successful",
+            extra={"user_id": getattr(current_user, "id", "unknown"), "action": "logout"},
+        )
+        return result
 
-        return schema.LogoutResponse(message="Logout successful")
     except AuthError as e:
-        logger.warning(f"Logout failed: {str(e)}")
+        logger.error(f"Logout failed: {str(e)}")
         if "authentication required" in str(e).lower():
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=str(e))
         else:
@@ -156,23 +131,21 @@ async def logout(
 )
 async def verify_email(
     verification_data: schema.EmailConfirmRequest,
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_async_db)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.EmailVerificationResponse:
     """Verify user email address using verification token."""
-    logger.info("Email verification attempt")
+    logger.info(
+        "Email verification attempt",
+        extra={"token": verification_data.token[:10] + "...", "action": "verify_email"},
+    )
 
     try:
-        user = await auth_service.verify_email(db=db, confirmation_data=verification_data)
-        logger.info(f"Email verified successfully for user: {user.id}")
+        result = await auth_service.verify_email(verification_data)
+        logger.info("Email verification successful", extra={"action": "verify_email"})
+        return result
 
-        return schema.EmailVerificationResponse(
-            message="Email address verified successfully",
-            user=user,
-        )
     except AuthError as e:
-        logger.warning(f"Email verification failed: {str(e)}")
+        logger.error(f"Email verification failed: {str(e)}")
         if "expired token" in str(e).lower():
             raise HTTPException(status.HTTP_410_GONE, detail=str(e))
         elif "not found" in str(e).lower():
@@ -190,27 +163,18 @@ async def verify_email(
 )
 async def refresh(
     refresh_data: schema.RefreshTokenRequest,
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_async_db)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.TokenResponse:
     """Generate new access token using valid refresh token."""
-    logger.info("Token refresh attempt")
+    logger.info("Token refresh attempt", extra={"action": "refresh_token"})
 
     try:
-        access_token, new_refresh_token = await auth_service.refresh(
-            db=db, refresh_data=refresh_data
-        )
-        logger.info("Token refresh successful")
+        result = await auth_service.refresh(refresh_data)
+        logger.info("Token refresh successful", extra={"action": "refresh_token"})
+        return result
 
-        return schema.TokenResponse(
-            access_token=access_token,
-            refresh_token=new_refresh_token,
-            token_type="bearer",
-            expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert to seconds
-        )
     except AuthError as e:
-        logger.warning(f"Token refresh failed: {str(e)}")
+        logger.error(f"Token refresh failed: {str(e)}")
         if "expired token" in str(e).lower():
             raise HTTPException(status.HTTP_410_GONE, detail=str(e))
         elif "not found" in str(e).lower():
@@ -231,25 +195,27 @@ async def forgot_password(
     reset_request: schema.ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_async_db)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.ForgotPasswordResponse:
     """Send password reset email if account exists."""
     client_ip = get_remote_address(request)
-    logger.info(f"Password reset request from IP: {client_ip}, email: {reset_request.email}")
-
-    try:
-        await auth_service.forgot_password(
-            db=db, reset_request=reset_request, background_tasks=background_tasks
-        )
-    except AuthError as e:
-        logger.warning(f"Password reset request failed: {str(e)}")
-        # Don't reveal if email exists
-        pass
-
-    return schema.ForgotPasswordResponse(
-        message="If an account with this email exists, password reset instructions have been sent."
+    logger.info(
+        "Password reset request",
+        extra={"client_ip": client_ip, "email": reset_request.email, "action": "forgot_password"},
     )
+    try:
+        result = await auth_service.forgot_password(reset_request, background_tasks)
+        logger.info(
+            "Password reset request processed",
+            extra={"email": reset_request.email, "action": "forgot_password"},
+        )
+        return result
+    except AuthError as e:
+        logger.error(f"Password reset request error: {str(e)}")
+        # Always return the same response for security and type consistency
+        return schema.ForgotPasswordResponse(
+            message="If an account with this email exists, a password reset link has been sent."
+        )
 
 
 @router.post(
@@ -261,22 +227,18 @@ async def forgot_password(
 )
 async def reset_password(
     reset_data: schema.ResetPasswordRequest,
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_async_db)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.PasswordResetResponse:
     """Reset password using valid reset token."""
-    logger.info("Password reset attempt")
+    logger.info("Password reset attempt", extra={"action": "reset_password"})
 
     try:
-        await auth_service.reset_password(db=db, reset_data=reset_data)
-        logger.info("Password reset successful")
+        result = await auth_service.reset_password(reset_data)
+        logger.info("Password reset successful", extra={"action": "reset_password"})
+        return result
 
-        return schema.PasswordResetResponse(
-            message="Password has been reset successfully. Please log in with your new password."
-        )
     except AuthError as e:
-        logger.warning(f"Password reset failed: {str(e)}")
+        logger.error(f"Password reset failed: {str(e)}")
         if "expired token" in str(e).lower():
             raise HTTPException(status.HTTP_410_GONE, detail=str(e))
         elif "not found" in str(e).lower():
@@ -285,13 +247,13 @@ async def reset_password(
             raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-# Health check endpoint for the auth system
 @router.get(
     "/health",
+    status_code=status.HTTP_200_OK,
     summary="Auth system health check",
     description="Check if authentication system is operational.",
     include_in_schema=False,  # Don't include in public API docs
 )
-async def auth_health_check():
+async def auth_health_check() -> dict:
     """Simple health check for auth system."""
     return {"status": "healthy", "service": "auth"}

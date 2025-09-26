@@ -1,4 +1,13 @@
 """
+run_server.py: Development server startup script
+
+- Performs environment checks, DB connectivity tests, and model imports
+- Ensures all models are registered before starting the FastAPI app
+- For production, use main:app as the entry point for Uvicorn/Gunicorn
+- For development, run this script directly (python run_server.py)
+"""
+
+"""
 ZSPRD Portfolio Analytics Backend - Development Server
 This script starts the FastAPI development server with proper configuration.
 """
@@ -34,7 +43,7 @@ logger = logging.getLogger(__name__)
 
 def check_environment():
     """Check if all required environment variables are set."""
-    required_vars = ["SECRET_KEY", "ALPHA_VANTAGE_API_KEY", "DATABASE_URL"]
+    required_vars = ["SECRET_KEY", "DATABASE_URL"]
 
     missing_vars = []
     for var in required_vars:

@@ -4,7 +4,6 @@ from typing import Dict, Optional
 
 from fastapi_mail import ConnectionConfig, FastMail, MessageSchema, MessageType
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from pydantic import EmailStr
 
 from app.core.config import settings
 
@@ -35,11 +34,8 @@ conf = ConnectionConfig(
 )
 
 
-# ----------------------------
-# Core send_email function
-# ----------------------------
-async def send_email(
-    to_email: EmailStr,
+async def _send_email(
+    to_email: str,
     subject: str,
     template: str,
     context: Optional[Dict] = None,
@@ -78,46 +74,46 @@ async def send_email(
 # ----------------------------
 # Convenience wrappers
 # ----------------------------
-async def send_verification_email(
-    to_email: EmailStr, verification_url: str, name: Optional[str] = None
-):
-    return await send_email(
-        to_email=to_email,
+async def send_verification_email(email: str, verification_token: str, name: Optional[str] = None):
+    verification_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
+
+    return await _send_email(
+        to_email=email,
         subject="Verify your email address",
         template="email_verification.html",
         context={
             "verification_url": verification_url,
             "name": name or "User",
-            "expires_in_hours": settings.EMAIL_VERIFICATION_EXPIRE_HOURS,
+            "expires_in_hours": settings.VERIFICATION_TOKEN_EXPIRE_HOURS,
         },
     )
 
 
-async def send_password_reset_email(to_email: EmailStr, reset_url: str, name: Optional[str] = None):
-    return await send_email(
-        to_email=to_email,
+async def send_password_reset_email(email: str, reset_url: str, name: Optional[str] = None):
+    return await _send_email(
+        to_email=email,
         subject="Reset your password",
         template="password_reset.html",
         context={
             "reset_url": reset_url,
             "name": name or "User",
-            "expires_in_minutes": settings.PASSWORD_RESET_EXPIRE_MINUTES,
+            "expires_in_minutes": settings.RESET_TOKEN_EXPIRE_MINUTES,
         },
     )
 
 
-async def send_password_changed_email(to_email: EmailStr, name: Optional[str] = None):
-    return await send_email(
-        to_email=to_email,
+async def send_password_changed_email(email: str, name: Optional[str] = None):
+    return await _send_email(
+        to_email=email,
         subject="Your password has been changed",
         template="password_changed.html",
         context={"name": name or "User"},
     )
 
 
-async def send_welcome_email(to_email: EmailStr, name: Optional[str] = None):
-    return await send_email(
-        to_email=to_email,
+async def send_welcome_email(email: str, name: Optional[str] = None):
+    return await _send_email(
+        to_email=email,
         subject="Welcome to ZSPRD Portfolio Analytics 🎉",
         template="welcome.html",
         context={
@@ -125,3 +121,11 @@ async def send_welcome_email(to_email: EmailStr, name: Optional[str] = None):
             "frontend_url": settings.FRONTEND_URL,
         },
     )
+
+
+__all__ = [
+    "send_welcome_email",
+    "send_verification_email",
+    "send_password_reset_email",
+    "send_password_changed_email",
+]
