@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from pydantic import EmailStr, ValidationError
 from pydantic_settings import BaseSettings
 
-# Always load .env from project root, regardless of working directory
 env_path = Path(__file__).parent.parent.parent / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
 
@@ -54,11 +53,13 @@ class Settings(BaseSettings):
     RATE_LIMIT_LOGIN: str = "5/15minutes"  # 5 attempts per 15 minutes
     RATE_LIMIT_REGISTER: str = "3/hour"  # 3 reset requests per hour
     RATE_LIMIT_PASSWORD: str = "2/hour"  # 2 reset requests per hour
+    RATE_LIMIT_REFRESH: str = "3/day"  # 3 refreshes per day
 
     # Session Management
     MAX_ACTIVE_SESSIONS: int = 5  # Limit concurrent sessions
     SESSION_INACTIVE_DAYS: int = 30  # Extend session by 30 days
     ACCOUNT_LOCKOUT_MINUTES: int = 15  # Lockout duration after max attempts
+    REMEMBER_ME_DAYS: int = 30  # Remember me duration
 
     # SecurityReference Headers
     CORS_ORIGINS: list = [

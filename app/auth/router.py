@@ -50,10 +50,7 @@ async def register(
 
     except AuthError as e:
         logger.error(f"Registration failed: {str(e)}")
-        if "already exists" in str(e).lower():
-            raise HTTPException(status.HTTP_409_CONFLICT, detail=str(e))
-        else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_auth_error(e)
 
 
 @router.post(
@@ -83,15 +80,7 @@ async def login(
 
     except AuthError as e:
         logger.error(f"Login failed: {str(e)}")
-        if "temporarily locked" in str(e).lower():
-            raise HTTPException(status.HTTP_423_LOCKED, detail=str(e))
-        elif "not verified" in str(e).lower():
-            raise HTTPException(status.HTTP_403_FORBIDDEN, detail=str(e))
-        elif "invalid credentials" in str(e).lower():
-            # Don't reveal whether email exists or which part of credentials is wrong
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=str(e))
-        else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_auth_error(e)
 
 
 @router.post(
@@ -116,10 +105,7 @@ async def logout(
 
     except AuthError as e:
         logger.error(f"Logout failed: {str(e)}")
-        if "authentication required" in str(e).lower():
-            raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=str(e))
-        else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_auth_error(e)
 
 
 @router.post(
@@ -146,12 +132,7 @@ async def verify_email(
 
     except AuthError as e:
         logger.error(f"Email verification failed: {str(e)}")
-        if "expired token" in str(e).lower():
-            raise HTTPException(status.HTTP_410_GONE, detail=str(e))
-        elif "not found" in str(e).lower():
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e))
-        else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_auth_error(e)
 
 
 @router.post(
@@ -175,12 +156,7 @@ async def refresh(
 
     except AuthError as e:
         logger.error(f"Token refresh failed: {str(e)}")
-        if "expired token" in str(e).lower():
-            raise HTTPException(status.HTTP_410_GONE, detail=str(e))
-        elif "not found" in str(e).lower():
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e))
-        else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_auth_error(e)
 
 
 @router.post(
@@ -239,12 +215,7 @@ async def reset_password(
 
     except AuthError as e:
         logger.error(f"Password reset failed: {str(e)}")
-        if "expired token" in str(e).lower():
-            raise HTTPException(status.HTTP_410_GONE, detail=str(e))
-        elif "not found" in str(e).lower():
-            raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e))
-        else:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_auth_error(e)
 
 
 @router.get(
@@ -256,4 +227,41 @@ async def reset_password(
 )
 async def auth_health_check() -> dict:
     """Simple health check for auth system."""
-    return {"status": "healthy", "service": "auth"}
+    from datetime import datetime, timezone
+
+    return {"status": "ok", "service": "auth", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+def handle_auth_error(e: AuthError) -> HTTPException:
+    """Convert AuthError to appropriate HTTP status code."""
+    error_msg = str(e).lower()
+
+    # Expired token/session errors -> 410 Gone
+    if any(phrase in error_msg for phrase in ["expired token", "expired session", "has expired"]):
+        return HTTPException(status_code=status.HTTP_410_GONE, detail=str(e))
+
+    # Not found errors -> 404 Not Found
+    if "not found" in error_msg:
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    # Invalid credentials -> 401 Unauthorized
+    if "invalid credentials" in error_msg:
+        return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
+    # Email not verified -> 403 Forbidden
+    if "not verified" in error_msg:
+        return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+    # Account locked -> 423 Locked
+    if "temporarily locked" in error_msg:
+        return HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(e))
+
+    # Already exists -> 409 Conflict
+    if "already exists" in error_msg:
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    if "unexpected error" in error_msg:
+        return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+    # Default to 400 Bad Request
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

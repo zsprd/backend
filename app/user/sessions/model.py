@@ -1,10 +1,9 @@
+import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
-from uuid import UUID
 
 from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, String, func
-from sqlalchemy.dialects.postgresql import INET
-from sqlalchemy.dialects.postgresql import UUID as SQLUUID
+from sqlalchemy.dialects.postgresql import INET, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.model import BaseModel
@@ -31,8 +30,8 @@ class UserSession(BaseModel):
     __tablename__ = "user_sessions"
 
     # Core session data
-    user_id: Mapped[UUID] = mapped_column(
-        SQLUUID(as_uuid=True),
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey("user_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,

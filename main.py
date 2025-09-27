@@ -111,6 +111,18 @@ except Exception as e:
     logger.error("The server will start but API endpoints may not be available")
 
 
+# Also include auth routes at the application root for backward compatibility
+# This makes endpoints like /register, /login available for tests and legacy clients
+try:
+    import app.auth.router as auth_router_module
+
+    # auth_router_module.router defines paths like /register, /login relative to the router
+    app.include_router(auth_router_module.router)
+    logger.info("✅ Auth routes loaded at root (backward compatibility)")
+except Exception as e:
+    logger.warning(f"Could not include root auth routes: {e}")
+
+
 if __name__ == "__main__":
     import uvicorn
 
