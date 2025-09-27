@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -37,7 +38,7 @@ async def get_current_user_profile(
         return user
     except UserError as e:
         logger.error(f"Failed to get profile: {str(e)}")
-        raise HTTPException(status.HTTP_404_NOT_FOUND, detail=str(e))
+        raise handle_user_error(e)
 
 
 @router.patch(
@@ -66,7 +67,7 @@ async def update_current_user_profile(
         return updated_user
     except UserError as e:
         logger.error(f"Service error updating profile: {str(e)}")
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_user_error(e)
 
 
 @router.delete(
@@ -93,7 +94,7 @@ async def delete_user_account(
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except UserError as e:
         logger.error(f"Account deletion failed: {str(e)}")
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_user_error(e)
 
 
 @router.post(
@@ -121,7 +122,7 @@ async def change_user_password(
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except UserError as e:
         logger.error(f"Service error changing password: {str(e)}")
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(e))
+        raise handle_user_error(e)
 
 
 @router.get(
@@ -134,4 +135,39 @@ async def change_user_password(
 async def user_health_check() -> dict:
     """Health check endpoint."""
     logger.info("User service health check requested", extra={"action": "health_check"})
-    return {"status": "ok", "service": "user"}
+    return {"status": "ok", "service": "user", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+def handle_user_error(e: UserError) -> HTTPException:
+    """Convert UserError to appropriate HTTP status code."""
+    error_msg = str(e).lower()
+
+    # Expired token/session errors -> 410 Gone
+    if any(phrase in error_msg for phrase in ["expired token", "expired session", "has expired"]):
+        return HTTPException(status_code=status.HTTP_410_GONE, detail=str(e))
+
+    # Not found errors -> 404 Not Found
+    if "not found" in error_msg:
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+    # Invalid credentials -> 401 Unauthorized
+    if "invalid credentials" in error_msg:
+        return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
+
+    # Email not verified -> 403 Forbidden
+    if "not verified" in error_msg:
+        return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+    # Account locked -> 423 Locked
+    if "temporarily locked" in error_msg:
+        return HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(e))
+
+    # Already exists -> 409 Conflict
+    if "already exists" in error_msg:
+        return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
+
+    if "unexpected error" in error_msg:
+        return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+    # Default to 400 Bad Request
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))

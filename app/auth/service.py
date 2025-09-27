@@ -181,7 +181,7 @@ class AuthService:
             token_data = tokens.verify_token(refresh_data.refresh_token, tokens.TOKEN_TYPE_REFRESH)
             if not token_data or not token_data.get("sub"):
                 logger.warning("Token refresh failed: Invalid token")
-                raise AuthError("Invalid or expired refresh token")
+                raise AuthError("Invalid or expired token")
 
             user_id = token_data["sub"]
 
@@ -238,7 +238,7 @@ class AuthService:
             )
             if not token_data or not token_data.get("sub"):
                 logger.warning("Email verification failed: Invalid token")
-                raise AuthError("Invalid or expired verification token")
+                raise AuthError("Invalid or expired token")
 
             user_id = token_data["sub"]
 
@@ -336,7 +336,7 @@ class AuthService:
             token_data = tokens.verify_token(reset_data.token, tokens.TOKEN_TYPE_RESET)
             if not token_data or not token_data.get("sub"):
                 logger.warning("Password reset failed: Invalid token")
-                raise AuthError("Invalid or expired reset token")
+                raise AuthError("Invalid or expired token")
 
             user_id = token_data["sub"]
 
@@ -380,7 +380,7 @@ class AuthService:
         """Verify access token and return payload, raise AuthError if invalid."""
         token_data = tokens.verify_token(token, tokens.TOKEN_TYPE_ACCESS)
         if not token_data or "sub" not in token_data:
-            raise AuthError("Invalid or expired access token")
+            raise AuthError("Invalid or expired token")
         return token_data
 
     def _extract_ip_address(self, request: Optional[Request]) -> Optional[str]:
