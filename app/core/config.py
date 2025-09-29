@@ -14,8 +14,9 @@ class Settings(BaseSettings):
     # Basic App Settings
     APP_NAME: str = "ZSPRD Portfolio Analytics"
     APP_VERSION: str = "1.0.0"
+    APP_DESCRIPTION: str = "Portfolio analytics and insights platform"
     API_PREFIX: str = "v1"
-    ENVIRONMENT: str = "development"
+    ENVIRONMENT: str = "development"  # Set to "production" in prod
     DEBUG: bool = True  # Set to False in production
 
     # SecurityReference Settings
@@ -56,9 +57,10 @@ class Settings(BaseSettings):
     RATE_LIMIT_REFRESH: str = "3/day"  # 3 refreshes per day
 
     # Session Management
+    MAX_FAILED_ATTEMPTS: int = 5  # Max failed login attempts
+    ACCOUNT_LOCKOUT_MINUTES: int = 15  # Lockout duration after max attempts
     MAX_ACTIVE_SESSIONS: int = 5  # Limit concurrent sessions
     SESSION_INACTIVE_DAYS: int = 30  # Extend session by 30 days
-    ACCOUNT_LOCKOUT_MINUTES: int = 15  # Lockout duration after max attempts
     REMEMBER_ME_DAYS: int = 30  # Remember me duration
 
     # SecurityReference Headers
@@ -122,6 +124,7 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
         case_sensitive = True
 
     @property

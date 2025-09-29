@@ -35,7 +35,7 @@ class UserSubscription(BaseModel):
     )
 
     plan_name: Mapped[PlanTypeEnum] = mapped_column(
-        Enum(PlanTypeEnum, name="plan_type_enum", create_type=False),
+        Enum(PlanTypeEnum, name="plan_type_enum", native_enum=False, create_type=False),
         nullable=False,
         comment="Current subscription plan tier",
     )

@@ -45,14 +45,21 @@ class PortfolioTransaction(BaseModel):
 
     # Transaction classification
     transaction_type: Mapped[TransactionTypeEnum] = mapped_column(
-        Enum(TransactionTypeEnum, name="transaction_type_enum", create_type=False),
+        Enum(
+            TransactionTypeEnum, name="transaction_type_enum", native_enum=False, create_type=False
+        ),
         nullable=False,
         index=True,
         comment="Primary transaction category: buy, sell, dividend, etc.",
     )
 
     transaction_subtype: Mapped[Optional[TransactionSubtypeEnum]] = mapped_column(
-        Enum(TransactionSubtypeEnum, name="transaction_subtype_enum", create_type=False),
+        Enum(
+            TransactionSubtypeEnum,
+            name="transaction_subtype_enum",
+            native_enum=False,
+            create_type=False,
+        ),
         nullable=True,
         comment="Specific transaction subtype for detailed classification",
     )

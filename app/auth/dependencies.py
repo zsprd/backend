@@ -11,38 +11,17 @@ from app.auth.service import AuthService
 from app.core.database import get_async_db
 from app.user.accounts.crud import CRUDUserAccount
 from app.user.accounts.model import UserAccount
-from app.user.accounts.service import UserService
 from app.user.sessions.crud import CRUDUserSession
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 
-# Repository Dependencies (Infrastructure Layer)
-def get_user_repository(db: Annotated[AsyncSession, Depends(get_async_db)]) -> CRUDUserAccount:
-    """Get user repository with database session."""
-    return CRUDUserAccount(db)
-
-
-def get_session_repository(db: Annotated[AsyncSession, Depends(get_async_db)]) -> CRUDUserSession:
-    """Get session repository with database session."""
-    return CRUDUserSession(db)
-
-
-# Service Dependencies (Business Logic Layer)
-def get_user_service(
-    user_repo: Annotated[CRUDUserAccount, Depends(get_user_repository)],
-) -> UserService:
-    """Get user service with injected repository."""
-    return UserService(user_repo)
-
-
-def get_auth_service(
-    user_repo: Annotated[CRUDUserAccount, Depends(get_user_repository)],
-    session_repo: Annotated[CRUDUserSession, Depends(get_session_repository)],
-) -> AuthService:
-    """Get auth service with injected repositories."""
-    return AuthService(user_repo, session_repo)
+async def get_auth_service(db: AsyncSession = Depends(get_async_db)) -> AuthService:
+    return AuthService(
+        user_repo=CRUDUserAccount(db),
+        session_repo=CRUDUserSession(db),
+    )
 
 
 # Authentication Dependencies
@@ -60,7 +39,8 @@ async def get_current_user(
 
         if not user:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-
+        if not user.is_active:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
         return user
 
     except Exception as e:
@@ -68,12 +48,3 @@ async def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         )
-
-
-async def get_current_active_user(
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-) -> UserAccount:
-    """Ensure the user is active."""
-    if not current_user.is_active:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Inactive user")
-    return current_user

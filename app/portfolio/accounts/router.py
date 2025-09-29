@@ -1,354 +1,356 @@
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+import logging
+from typing import Annotated, Any, Dict, Optional
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_db
-from app.core.dependencies import get_current_user
-from app.portfolio.accounts.crud import account_crud
-from app.portfolio.accounts.schema import AccountCreate, AccountResponse, AccountUpdate
-from app.system.logs.crud import audit_log_crud
+from app.auth.dependencies import get_current_user
+from app.core.database import get_async_db
+from app.portfolio.accounts import schema
+from app.portfolio.accounts.crud import CRUDPortfolioAccount
+from app.portfolio.accounts.service import PortfolioAccountError, PortfolioAccountService
+from app.user.accounts.model import UserAccount
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.get("/overview")
-async def get_portfolio_overview(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    base_currency: str = Query("USD", description="Base currency for calculations"),
-):
-    """Get comprehensive portfolios overview across all users accounts."""
-    try:
-        overview = account_crud.get_portfolio_overview(
-            db, user_id=current_user_id, base_currency=base_currency
-        )
-        return overview
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving portfolios overview: {str(e)}",
-        )
+def get_portfolio_service(db: AsyncSession = Depends(get_async_db)) -> PortfolioAccountService:
+    """Get user service with injected repository."""
+    return PortfolioAccountService(CRUDPortfolioAccount(db))
 
 
-@router.get("/with-balances")
-async def get_accounts_with_balances(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    currency: str = Query("USD", description="Currency for balance calculations"),
-):
-    """Get all accounts with current balance calculations."""
-    try:
-        accounts_with_balances = account_crud.get_accounts_with_balances(
-            db, user_id=current_user_id, currency=currency
-        )
-        return {
-            "accounts": accounts_with_balances,
-            "total": len(accounts_with_balances),
-            "currency": currency,
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving accounts with balances: {str(e)}",
-        )
+def handle_portfolio_account_error(e: PortfolioAccountError) -> HTTPException:
+    """Convert PortfolioAccountError to appropriate HTTPException."""
+    error_message = str(e)
+
+    if "not found" in error_message.lower():
+        return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=error_message)
+    elif "access denied" in error_message.lower() or "forbidden" in error_message.lower():
+        return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=error_message)
+    else:
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_message)
 
 
-@router.get("/search")
-async def search_accounts(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    q: str = Query(..., description="Search term", min_length=2),
-    limit: int = Query(20, description="Maximum results", ge=1, le=100),
-):
-    """Search users accounts by name or official name."""
-    try:
-        accounts = account_crud.search_accounts(
-            db, user_id=current_user_id, search_term=q, limit=limit
-        )
-
-        accounts_response = [
-            AccountResponse.model_validate(acc, from_attributes=True) for acc in accounts
-        ]
-
-        return {
-            "accounts": accounts_response,
-            "query": q,
-            "count": len(accounts_response),
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error searching accounts: {str(e)}",
-        )
-
-
-@router.get("/statistics")
-async def get_account_statistics(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-):
-    """Get comprehensive account statistics for the current users."""
-    try:
-        stats = account_crud.get_user_account_statistics(db, user_id=current_user_id)
-        return stats
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving account statistics: {str(e)}",
-        )
-
-
-@router.get("/health")
-async def accounts_health():
-    """Health check for accounts service."""
-    return {
-        "status": "healthy",
-        "service": "accounts",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "features": [
-            "account_management",
-            "portfolio_overview",
-            "sync_integration",
-            "search_and_analytics",
-        ],
-    }
-
-
-# --- DYNAMIC ROUTES AFTER STATIC ROUTES ---
-
-
-@router.get("/", response_model=Dict[str, Any])
+@router.get(
+    "/",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Get user's portfolio accounts",
+    description="Retrieve all portfolio accounts for the authenticated user with pagination and filtering options.",
+)
 async def get_user_accounts(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    skip: int = Query(0, description="Skip records", ge=0),
-    limit: int = Query(100, description="Limit records", ge=1, le=500),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    service: Annotated[PortfolioAccountService, Depends(get_portfolio_service)],
+    limit: int = Query(100, ge=1, le=500, description="Limit records"),
     include_inactive: bool = Query(False, description="Include inactive accounts"),
-    account_type: Optional[str] = Query(None, description="Filter by account security_type"),
-):
-    """Get all accounts for the current users with pagination and filtering."""
+    account_type: Optional[str] = Query(None, description="Filter by account type"),
+) -> Dict[str, Any]:
+    """Get all portfolio accounts for the current user with pagination and filtering."""
     try:
+        logger.info(
+            "Portfolio accounts requested",
+            extra={
+                "user_id": current_user.id,
+                "limit": limit,
+                "include_inactive": include_inactive,
+                "account_type": account_type,
+                "action": "get_accounts",
+            },
+        )
+
         if account_type:
-            accounts = account_crud.get_accounts_by_type(
-                db,
-                user_id=current_user_id,
+            # Use type filtering if specified
+            accounts = await service.get_accounts_by_type(
+                user_id=current_user.id,
                 account_type=account_type,
                 include_inactive=include_inactive,
             )
             # Apply manual pagination for filtered results
-            paginated_accounts = accounts[skip : skip + limit]
+            paginated_accounts = accounts[:limit]
         else:
-            paginated_accounts = account_crud.get_multi_by_user(
-                db,
-                user_id=current_user_id,
-                skip=skip,
-                limit=limit,
-                include_inactive=include_inactive,
+            # Use regular pagination
+            paginated_accounts = await service.get_user_accounts(
+                user_id=current_user.id, limit=limit, include_inactive=include_inactive
             )
 
-        # Convert to response models
-        accounts_response = [
-            AccountResponse.model_validate(acc, from_attributes=True) for acc in paginated_accounts
-        ]
+        # Get total count for pagination info
+        total = await service.get_account_count(current_user.id, include_inactive)
 
-        total = account_crud.count_by_user(db, user_id=current_user_id)
+        logger.info(
+            "Portfolio accounts retrieved successfully",
+            extra={
+                "user_id": current_user.id,
+                "count": len(paginated_accounts),
+                "total": total,
+                "action": "get_accounts",
+            },
+        )
 
         return {
-            "accounts": accounts_response,
+            "accounts": paginated_accounts,
             "total": total,
-            "skip": skip,
             "limit": limit,
-            "count": len(accounts_response),
+            "count": len(paginated_accounts),
         }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving accounts: {str(e)}",
-        )
+
+    except PortfolioAccountError as e:
+        logger.error(f"Portfolio account service error: {str(e)}")
+        raise handle_portfolio_account_error(e)
 
 
-@router.get("/{account_id}", response_model=AccountResponse)
+@router.get(
+    "/{account_id}",
+    response_model=schema.PortfolioAccountRead,
+    status_code=status.HTTP_200_OK,
+    summary="Get specific portfolio account",
+    description="Retrieve a specific portfolio account by ID for the authenticated user.",
+)
 async def get_account(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    account_id: str,
-):
-    """Get a specific account by ID."""
-    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
-
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioAccount not found"
+    account_id: UUID,
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    service: Annotated[PortfolioAccountService, Depends(get_portfolio_service)],
+) -> schema.PortfolioAccountRead:
+    """Get a specific portfolio account by ID."""
+    try:
+        logger.info(
+            "Portfolio account requested",
+            extra={"user_id": current_user.id, "account_id": account_id, "action": "get_account"},
         )
 
-    return AccountResponse.model_validate(account, from_attributes=True)
+        account = await service.get_account_by_id(current_user.id, account_id)
+
+        logger.info(
+            "Portfolio account retrieved successfully",
+            extra={"user_id": current_user.id, "account_id": account_id, "action": "get_account"},
+        )
+
+        return account
+
+    except PortfolioAccountError as e:
+        logger.error(f"Portfolio account service error: {str(e)}")
+        raise handle_portfolio_account_error(e)
 
 
-@router.post("/", response_model=AccountResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=schema.PortfolioAccountRead,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create portfolio account",
+    description="Create a new portfolio account for the authenticated user.",
+)
 async def create_account(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    account_data: AccountCreate,
-):
-    """Create a new account for the current users."""
+    account_data: schema.PortfolioAccountCreate,
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    service: Annotated[PortfolioAccountService, Depends(get_portfolio_service)],
+) -> schema.PortfolioAccountRead:
+    """Create a new portfolio account for the current user."""
     try:
-        # Add user_id to the account data
-        create_data = account_data.model_dump()
-        create_data["user_id"] = current_user_id
-
-        account = account_crud.create_from_dict(db, obj_in=create_data)
-
-        # Log the creation
-        audit_log_crud.log_user_action(
-            db,
-            user_id=current_user_id,
-            action="create",
-            target_category="account",
-            target_id=str(account.id),
-            description=f"Created account: {account.name}",
+        logger.info(
+            "Portfolio account creation requested",
+            extra={
+                "user_id": current_user.id,
+                "account_name": account_data.name,
+                "account_type": account_data.account_type,
+                "action": "create_account",
+            },
         )
 
-        return AccountResponse.model_validate(account, from_attributes=True)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error creating account: {str(e)}",
+        account = await service.create_account(current_user.id, account_data)
+
+        logger.info(
+            "Portfolio account created successfully",
+            extra={
+                "user_id": current_user.id,
+                "account_id": account.id,
+                "account_name": account.name,
+                "action": "create_account",
+            },
         )
 
+        return account
 
-@router.put("/{account_id}", response_model=AccountResponse)
+    except PortfolioAccountError as e:
+        logger.error(f"Portfolio account service error: {str(e)}")
+        raise handle_portfolio_account_error(e)
+
+
+@router.patch(
+    "/{account_id}",
+    response_model=schema.PortfolioAccountRead,
+    status_code=status.HTTP_200_OK,
+    summary="Update portfolio account",
+    description="Update a specific portfolio account for the authenticated user.",
+)
 async def update_account(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    account_id: str,
-    account_update: AccountUpdate,
-):
-    """Update an existing account."""
-    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
-
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioAccount not found"
-        )
-
+    account_id: UUID,
+    account_update: schema.PortfolioAccountUpdate,
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    service: Annotated[PortfolioAccountService, Depends(get_portfolio_service)],
+) -> schema.PortfolioAccountRead:
+    """Update a specific portfolio account."""
     try:
-        # Store old values for audit
-        old_values = {
-            "name": account.name,
-            "official_name": account.official_name,
-            "account_type": account.account_type,
-        }
-
-        updated_account = account_crud.update(db, db_obj=account, obj_in=account_update)
-
-        # Log the update
-        audit_log_crud.log_data_change(
-            db,
-            user_id=current_user_id,
-            action="update",
-            target_category="account",
-            target_id=account_id,
-            old_values=old_values,
-            new_values=account_update.model_dump(exclude_unset=True),
+        logger.info(
+            "Portfolio account update requested",
+            extra={
+                "user_id": current_user.id,
+                "account_id": account_id,
+                "action": "update_account",
+            },
         )
 
-        return AccountResponse.model_validate(updated_account, from_attributes=True)
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Error updating account: {str(e)}",
+        account = await service.update_account(current_user.id, account_id, account_update)
+
+        logger.info(
+            "Portfolio account updated successfully",
+            extra={
+                "user_id": current_user.id,
+                "account_id": account_id,
+                "action": "update_account",
+            },
         )
 
+        return account
 
-@router.delete("/{account_id}")
-async def delete_account(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    account_id: str,
-    hard_delete: bool = Query(False, description="Permanently delete account"),
+    except PortfolioAccountError as e:
+        logger.error(f"Portfolio account service error: {str(e)}")
+        raise handle_portfolio_account_error(e)
+
+
+@router.delete(
+    "/{account_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Deactivate portfolio account",
+    description="Deactivate (soft delete) a specific portfolio account for the authenticated user.",
+)
+async def deactivate_account(
+    account_id: UUID,
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    service: Annotated[PortfolioAccountService, Depends(get_portfolio_service)],
 ):
-    """Delete or deactivate an account."""
-    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
-
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioAccount not found"
+    """Deactivate a specific portfolio account (soft delete)."""
+    try:
+        logger.info(
+            "Portfolio account deactivation requested",
+            extra={
+                "user_id": current_user.id,
+                "account_id": account_id,
+                "action": "deactivate_account",
+            },
         )
 
-    try:
-        if hard_delete:
-            # Permanent deletion (use with caution)
-            account_crud.delete(db, id=account_id)
-            action = "delete"
-            message = "PortfolioAccount permanently deleted"
-        else:
-            # Soft delete (recommended)
-            account_crud.soft_delete(db, account_id=account_id, user_id=current_user_id)
-            action = "deactivate"
-            message = "PortfolioAccount deactivated"
+        await service.deactivate_account(current_user.id, account_id)
 
-        # Log the action
-        audit_log_crud.log_user_action(
-            db,
-            user_id=current_user_id,
-            action=action,
-            target_category="account",
-            target_id=account_id,
-            description=f"{action.title()} account: {account.name}",
+        logger.info(
+            "Portfolio account deactivated successfully",
+            extra={
+                "user_id": current_user.id,
+                "account_id": account_id,
+                "action": "deactivate_account",
+            },
+        )
+
+    except PortfolioAccountError as e:
+        logger.error(f"Portfolio account service error: {str(e)}")
+        raise handle_portfolio_account_error(e)
+
+
+@router.get(
+    "/statistics/overview",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Get account statistics",
+    description="Get comprehensive statistics for the user's portfolio accounts.",
+)
+async def get_account_statistics(
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    service: Annotated[PortfolioAccountService, Depends(get_portfolio_service)],
+) -> Dict[str, Any]:
+    """Get comprehensive account statistics for the current user."""
+    try:
+        logger.info(
+            "Portfolio account statistics requested",
+            extra={"user_id": current_user.id, "action": "get_statistics"},
+        )
+
+        stats = await service.get_account_statistics(current_user.id)
+
+        logger.info(
+            "Portfolio account statistics retrieved successfully",
+            extra={"user_id": current_user.id, "action": "get_statistics"},
+        )
+
+        return stats
+
+    except PortfolioAccountError as e:
+        logger.error(f"Portfolio account service error: {str(e)}")
+        raise handle_portfolio_account_error(e)
+
+
+@router.get(
+    "/search",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Search portfolio accounts",
+    description="Search portfolio accounts by name for the authenticated user.",
+)
+async def search_accounts(
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    service: Annotated[PortfolioAccountService, Depends(get_portfolio_service)],
+    q: str = Query(..., min_length=1, description="Search query"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum results"),
+) -> Dict[str, Any]:
+    """Search portfolio accounts by name."""
+    try:
+        logger.info(
+            "Portfolio account search requested",
+            extra={"user_id": current_user.id, "query": q, "action": "search_accounts"},
+        )
+
+        accounts = await service.search_accounts(current_user.id, q, limit)
+
+        logger.info(
+            "Portfolio account search completed",
+            extra={
+                "user_id": current_user.id,
+                "query": q,
+                "results_count": len(accounts),
+                "action": "search_accounts",
+            },
         )
 
         return {
-            "message": message,
-            "account_id": account_id,
-            "deleted_at": datetime.now(timezone.utc).isoformat(),
+            "accounts": accounts,
+            "query": q,
+            "count": len(accounts),
         }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error deleting account: {str(e)}",
-        )
+
+    except PortfolioAccountError as e:
+        logger.error(f"Portfolio account service error: {str(e)}")
+        raise handle_portfolio_account_error(e)
 
 
-@router.get("/{account_id}/summary")
-async def get_account_summary(
-    *,
-    db: Session = Depends(get_db),
-    current_user_id: str = Depends(get_current_user.id),
-    account_id: str,
-):
-    """Get comprehensive account summary with holdings and performance."""
-    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
+@router.get(
+    "/health",
+    response_model=Dict[str, Any],
+    status_code=status.HTTP_200_OK,
+    summary="Health check",
+    description="Health check endpoint for portfolio accounts service.",
+)
+async def portfolio_accounts_health() -> Dict[str, Any]:
+    """Health check for portfolio accounts service."""
+    from datetime import datetime, timezone
 
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioAccount not found"
-        )
-
-    try:
-        summary = account_crud.get_account_summary(
-            db, account_id=account_id, user_id=current_user_id
-        )
-
-        if not summary:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="PortfolioAccount summary not available",
-            )
-
-        return summary
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving account summary: {str(e)}",
-        )
+    return {
+        "status": "healthy",
+        "service": "portfolio_accounts",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "features": [
+            "account_management",
+            "async_operations",
+            "user_isolation",
+            "search_and_filtering",
+            "statistics",
+        ],
+    }

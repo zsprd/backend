@@ -8,11 +8,11 @@ import pandas as pd
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
+from app.data.integrations.csv.validators import CSVValidator
 from app.portfolio.accounts.crud import account_crud
 from app.portfolio.accounts.model import PortfolioAccount
 from app.portfolio.holdings.crud import holding_crud
 from app.portfolio.transactions.crud import transaction_crud
-from app.provider.integrations.csv.validators import CSVValidator
 from app.security.master.model import SecurityReference
 from app.security.master.service import SecurityMatcher
 from app.security.prices.service import get_market_data_service

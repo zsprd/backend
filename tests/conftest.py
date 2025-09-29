@@ -21,10 +21,10 @@ if PROJECT_ROOT not in sys.path:
 from main import app
 
 from app.auth import schema
+from app.auth.dependencies import get_auth_service
 from app.auth.service import AuthService
 from app.core.config import Settings
 from app.core.database import Base, get_async_db
-from app.core.dependencies import get_auth_service
 
 
 class TestSettings(Settings):

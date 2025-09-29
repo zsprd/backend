@@ -7,7 +7,7 @@ import pandas as pd
 import yfinance as yf
 from sqlalchemy.orm import Session
 
-from app.provider.integrations.alphavantage.service import MarketDataService as AlphaVantageService
+from app.data.integrations.alphavantage.service import MarketDataService as AlphaVantageService
 from app.security.master.crud import security_crud
 from app.security.master.model import SecurityMaster
 from app.security.master.schema import SecurityCreate, SecurityUpdate

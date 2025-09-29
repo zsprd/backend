@@ -1,0 +1,11 @@
+date,symbol,type,quantity,price,fees,currency,description
+15/01/2024,AAPL,buy,100,182.5,9.95,USD,Apple Inc shares purchase
+20/01/2024,MSFT,buy,50,415.75,9.95,USD,Microsoft Corporation shares
+01/02/2024,VTI,buy,25,245.3,0,USD,Vanguard Total Stock Market ETF
+15/02/2024,IWDA,buy,200,85.45,15,GBP,iShares Core MSCI World UCITS ETF
+01/03/2024,BTC-USD,buy,0.5,45000,50,USD,Bitcoin cryptocurrency
+10/03/2024,GOOGL,buy,10,145.25,9.95,USD,Alphabet Inc Class A shares
+15/03/2024,VTI,sell,15,250,0,USD,Partial VTI position sale
+01/04/2024,SPY,buy,20,520.75,0,USD,SPDR S&P 500 ETF Trust
+20/04/2024,TSLA,buy,25,175.5,9.95,USD,Tesla Inc electric vehicle stock
+01/05/2024,,dividend,,,,USD,Quarterly dividend payment - mixed portfolio

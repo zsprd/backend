@@ -8,9 +8,8 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.crud import CRUDBase
-from app.security.master.model import SecurityReference
-from app.security.prices.model import MarketData
-from app.utils.rate_limiter import RateLimiter
+from app.security.master.model import SecurityMaster
+from app.security.prices.model import SecurityPrice
 
 logger = logging.getLogger(__name__)
 
@@ -24,9 +23,6 @@ class AlphaVantageClient:
     def __init__(self):
         self.api_key = settings.ALPHA_VANTAGE_API_KEY
         self.base_url = settings.ALPHA_VANTAGE_BASE_URL
-        self.rate_limiter = RateLimiter(
-            max_requests=settings.ALPHA_VANTAGE_RATE_LIMIT, time_window=60  # 1 minute
-        )
 
     async def fetch_daily_data(
         self, symbol: str, outputsize: str = "compact"
@@ -170,30 +166,28 @@ class MarketDataService:
     def __init__(self, db: Session):
         self.db = db
         self.client = AlphaVantageClient()
-        self.market_data_crud = CRUDBase(MarketData)
+        self.market_data_crud = CRUDBase(SecurityMaster)
 
     async def update_security_data(self, security_id: str, force_refresh: bool = False) -> bool:
         """
         Update market data for a specific securities.
 
         Args:
-            security_id: SecurityReference ID to update
+            security_id: SecurityMaster ID to update
             force_refresh: Force refresh even if data exists
         """
         # Get securities details
-        security = (
-            self.db.query(SecurityReference).filter(SecurityReference.id == security_id).first()
-        )
+        security = self.db.query(SecurityMaster).filter(SecurityMaster.id == security_id).first()
         if not security:
-            logger.error(f"SecurityReference {security_id} not found")
+            logger.error(f"SecurityMaster {security_id} not found")
             return False
 
         # Check if we need to update data
         if not force_refresh:
             latest_data = (
-                self.db.query(MarketData)
-                .filter(MarketData.security_id == security_id)
-                .order_by(MarketData.date.desc())
+                self.db.query(SecurityPrice)
+                .filter(SecurityPrice.security_id == security_id)
+                .order_by(SecurityPrice.date.desc())
                 .first()
             )
 
@@ -215,7 +209,7 @@ class MarketDataService:
             return False
 
     async def _process_stock_data(
-        self, security: SecurityReference, data: Optional[Dict[str, Any]]
+        self, security: SecurityMaster, data: Optional[Dict[str, Any]]
     ) -> bool:
         """Process and store stock/ETF market data."""
         if not data or "Time Series (Daily)" not in data:
@@ -230,8 +224,8 @@ class MarketDataService:
 
                 # Check if data already exists
                 existing = (
-                    self.db.query(MarketData)
-                    .filter(MarketData.security_id == security.id, MarketData.date == date)
+                    self.db.query(SecurityPrice)
+                    .filter(SecurityPrice.security_id == security.id, SecurityPrice.date == date)
                     .first()
                 )
 
@@ -239,7 +233,7 @@ class MarketDataService:
                     continue
 
                 # Create new market data entry
-                market_data = MarketData(
+                market_data = SecurityPrice(
                     security_id=security.id,
                     date=date,
                     open=float(price_data["1. open"]),
@@ -263,7 +257,7 @@ class MarketDataService:
         return True
 
     async def _process_crypto_data(
-        self, security: SecurityReference, data: Optional[Dict[str, Any]]
+        self, security: SecurityMaster, data: Optional[Dict[str, Any]]
     ) -> bool:
         """Process and store cryptocurrency market data."""
         if not data or "Time Series (Digital Currency Daily)" not in data:
@@ -278,8 +272,8 @@ class MarketDataService:
 
                 # Check if data already exists
                 existing = (
-                    self.db.query(MarketData)
-                    .filter(MarketData.security_id == security.id, MarketData.date == date)
+                    self.db.query(SecurityPrice)
+                    .filter(SecurityPrice.security_id == security.id, SecurityPrice.date == date)
                     .first()
                 )
 
@@ -287,7 +281,7 @@ class MarketDataService:
                     continue
 
                 # Create new market data entry
-                market_data = MarketData(
+                market_data = SecurityPrice(
                     security_id=security.id,
                     date=date,
                     open=float(price_data["1a. open (USD)"]),

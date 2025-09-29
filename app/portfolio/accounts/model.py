@@ -1,8 +1,8 @@
+import uuid
 from typing import TYPE_CHECKING, List, Optional
-from uuid import UUID
 
-from sqlalchemy import Boolean, Enum, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy import Boolean, ForeignKey, String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.analytics.exposure.model import AnalyticsExposure
@@ -16,8 +16,7 @@ from app.portfolio.transactions.model import PortfolioTransaction
 from .enums import AccountSubtypeEnum, AccountTypeEnum
 
 if TYPE_CHECKING:
-    from app.provider.connections.model import ProviderConnection
-    from app.provider.institutions.model import ProviderInstitution
+    from app.data.connections.model import DataConnection
     from app.user.accounts.model import UserAccount
 
 
@@ -32,69 +31,30 @@ class PortfolioAccount(BaseModel):
 
     __tablename__ = "portfolio_accounts"
 
-    user_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True),
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey("user_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the account owner",
     )
+    account_type: Mapped[AccountTypeEnum] = mapped_column(String(50), nullable=False, index=True)
+    account_subtype: Mapped[Optional[AccountSubtypeEnum]] = mapped_column(String(50), nullable=True)
+    currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    institution_id: Mapped[Optional[UUID]] = mapped_column(
-        PGUUID(as_uuid=True),
-        ForeignKey("provider_institutions.id", ondelete="SET NULL"),
-        nullable=True,
-        comment="Reference to the financial institution (if applicable)",
+    connection_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("data_connections.id", ondelete="SET NULL"), nullable=True
     )
-
-    connection_id: Mapped[Optional[UUID]] = mapped_column(
-        PGUUID(as_uuid=True),
-        ForeignKey("provider_connections.id", ondelete="SET NULL"),
-        nullable=True,
-        comment="Reference to the provider connection for data sync",
-    )
-
-    name: Mapped[str] = mapped_column(
-        String(255), nullable=False, comment="User-friendly account name or nickname"
-    )
-
-    # Account classification
-    account_type: Mapped[AccountTypeEnum] = mapped_column(
-        Enum(AccountTypeEnum, name="account_type_enum", create_type=False),
-        nullable=False,
-        index=True,
-        comment="Primary account category: investment, depository, credit, loan",
-    )
-
-    account_subtype: Mapped[Optional[AccountSubtypeEnum]] = mapped_column(
-        Enum(AccountSubtypeEnum, name="account_subtype_enum", create_type=False),
-        nullable=True,
-        comment="Specific account subtype: brokerage, ira, 401k, etc.",
-    )
-
-    currency: Mapped[str] = mapped_column(
-        String(3), default="USD", nullable=False, comment="Base currency for this account"
-    )
-
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, default=True, nullable=False, comment="Whether this account is actively tracked"
-    )
-
-    data_source: Mapped[str] = mapped_column(
-        String(50), default="manual", nullable=False, comment="Source of this account's data"
-    )
+    data_source: Mapped[str] = mapped_column(String(50), default="manual", nullable=False)
 
     # Relationships
     user_accounts: Mapped["UserAccount"] = relationship(
         "UserAccount", back_populates="portfolio_accounts"
     )
 
-    provider_institutions: Mapped[Optional["ProviderInstitution"]] = relationship(
-        "ProviderInstitution", back_populates="portfolio_accounts"
-    )
-
-    provider_connections: Mapped[Optional["ProviderConnection"]] = relationship(
-        "ProviderConnection", back_populates="portfolio_accounts"
+    data_connections: Mapped[Optional["DataConnection"]] = relationship(
+        "DataConnection", back_populates="portfolio_accounts"
     )
 
     portfolio_holdings: Mapped[List["PortfolioHolding"]] = relationship(

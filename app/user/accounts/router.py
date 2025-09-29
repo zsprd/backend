@@ -3,15 +3,22 @@ from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.dependencies import get_current_active_user, get_user_service
+from app.auth.dependencies import get_current_user
+from app.core.database import get_async_db
 from app.user.accounts import schema
+from app.user.accounts.crud import CRUDUserAccount
 from app.user.accounts.model import UserAccount
 from app.user.accounts.service import UserError, UserService
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter()
+
+
+def get_user_service(db: AsyncSession = Depends(get_async_db)) -> UserService:
+    """Get user service with injected repository."""
+    return UserService(user_repo=CRUDUserAccount(db))
 
 
 @router.get(
@@ -22,7 +29,7 @@ router = APIRouter()
     description="Retrieve the authenticated user's profile information including email, name, preferences, and account status.",
 )
 async def get_current_user_profile(
-    current_user: Annotated[UserAccount, Depends(get_current_active_user)],
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     service: Annotated[UserService, Depends(get_user_service)],
 ) -> schema.UserAccountRead:
     """Get current user's profile information."""
@@ -50,7 +57,7 @@ async def get_current_user_profile(
 )
 async def update_current_user_profile(
     profile_update: schema.UserAccountUpdate,
-    current_user: Annotated[UserAccount, Depends(get_current_active_user)],
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     service: Annotated[UserService, Depends(get_user_service)],
 ) -> schema.UserAccountRead:
     """Update current user's profile information."""
@@ -77,7 +84,7 @@ async def update_current_user_profile(
     description="Permanently delete the current user's account and all associated data.",
 )
 async def delete_user_account(
-    current_user: Annotated[UserAccount, Depends(get_current_active_user)],
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     service: Annotated[UserService, Depends(get_user_service)],
 ) -> Response:
     """Delete current user's account (soft delete for MVP)."""
@@ -105,7 +112,7 @@ async def delete_user_account(
 )
 async def change_user_password(
     password_update: schema.UserAccountPasswordUpdate,
-    current_user: Annotated[UserAccount, Depends(get_current_active_user)],
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     service: Annotated[UserService, Depends(get_user_service)],
 ) -> Response:
     """Change current user's password."""
