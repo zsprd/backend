@@ -1,11 +1,12 @@
 import logging
-from datetime import datetime, timezone
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
+from app.auth.rate_limiter import rate_limit
+from app.core.config import settings
 from app.core.database import get_async_db
 from app.user.accounts import schema
 from app.user.accounts.crud import CRUDUserAccount
@@ -55,6 +56,7 @@ async def get_current_user_profile(
     summary="Update current user profile",
     description="Update the authenticated user's profile information such as name, language, country, and currency preferences.",
 )
+@rate_limit(settings.RATE_LIMIT_UPDATE)
 async def update_current_user_profile(
     profile_update: schema.UserAccountUpdate,
     current_user: Annotated[UserAccount, Depends(get_current_user)],
@@ -110,6 +112,7 @@ async def delete_user_account(
     summary="Change user password",
     description="Change the authenticated user's password with current password verification.",
 )
+@rate_limit(settings.RATE_LIMIT_PASSWORD)
 async def change_user_password(
     password_update: schema.UserAccountPasswordUpdate,
     current_user: Annotated[UserAccount, Depends(get_current_user)],
@@ -130,19 +133,6 @@ async def change_user_password(
     except UserError as e:
         logger.error(f"Service error changing password: {str(e)}")
         raise handle_user_error(e)
-
-
-@router.get(
-    "/health",
-    status_code=status.HTTP_200_OK,
-    summary="User service health check",
-    description="Check the health status of the user service.",
-    include_in_schema=False,
-)
-async def user_health_check() -> dict:
-    """Health check endpoint."""
-    logger.info("User service health check requested", extra={"action": "health_check"})
-    return {"status": "ok", "service": "user", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def handle_user_error(e: UserError) -> HTTPException:

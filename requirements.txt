@@ -1,32 +1,33 @@
 # Environment and configuration
-python-dotenv
+python-dotenv==1.1.1
 
-# FastAPI and ASGI
-fastapi==0.117.1
+# FastAPI and related packages
+fastapi==0.118.0
 uvicorn==0.37.0
-starlette==0.48.0
-slowapi>=0.1.7
+pydantic==2.11.9
+pydantic-settings==2.11.0
+email-validator==2.3.0
+bleach==6.2.0
 
-# Database
+# Database and ORM
 SQLAlchemy==2.0.43
 psycopg2==2.9.10
 alembic==1.16.5
 asyncpg==0.30.0
+greenlet==3.2.4
 
-# Pydantic and validation
-pydantic==2.11.9
-pydantic-settings==2.11.0
-email-validator==2.3.0
+# Caching and session management
+redis==6.4.0
 
-# Authentication and securities
+# Authentication and security
 python-jose==3.5.0
-passlib[bcrypt]==1.7.4
-cryptography==46.0.1
-authlib==1.6.4
-httpx==0.28.1
+passlib==1.7.4
+#cryptography==46.0.1
+#authlib==1.6.4
+#httpx==0.28.1
 bcrypt==4.3.0
 
-# HTTP client
+# HTTP clients
 requests==2.32.5
 
 # Date and time
@@ -43,15 +44,16 @@ scikit-learn==1.7.2
 # Development tools
 black==25.9.0
 isort==6.0.1
-flake8==7.3.0
 pytest==8.4.2
-mypy==1.18.2
 
 # Third-party services
 yfinance==0.2.66
-rapidfuzz==3.14.1
+#rapidfuzz==3.14.1
 
 # Testing and debugging
-pytest==8.4.2
-pytest-cov==7.0.0
-aiohttp==3.12.15
+#pytest-cov==7.0.0
+#aiohttp==3.12.15
+
+# Email handling
+fastapi_mail==1.5.0
+jinja2==3.1.6

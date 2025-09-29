@@ -329,28 +329,3 @@ async def search_accounts(
     except PortfolioAccountError as e:
         logger.error(f"Portfolio account service error: {str(e)}")
         raise handle_portfolio_account_error(e)
-
-
-@router.get(
-    "/health",
-    response_model=Dict[str, Any],
-    status_code=status.HTTP_200_OK,
-    summary="Health check",
-    description="Health check endpoint for portfolio accounts service.",
-)
-async def portfolio_accounts_health() -> Dict[str, Any]:
-    """Health check for portfolio accounts service."""
-    from datetime import datetime, timezone
-
-    return {
-        "status": "healthy",
-        "service": "portfolio_accounts",
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-        "features": [
-            "account_management",
-            "async_operations",
-            "user_isolation",
-            "search_and_filtering",
-            "statistics",
-        ],
-    }

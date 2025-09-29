@@ -2,17 +2,15 @@ import logging
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from slowapi import Limiter
-from slowapi.util import get_remote_address
 
 from app.auth import schema
 from app.auth.dependencies import get_auth_service, get_current_user
+from app.auth.rate_limiter import rate_limit
 from app.auth.service import AuthError, AuthService, SessionContext
 from app.core.config import settings
 from app.user.accounts.model import UserAccount
 
 logger = logging.getLogger(__name__)
-limiter = Limiter(key_func=get_remote_address)
 router = APIRouter()
 
 
@@ -23,14 +21,14 @@ router = APIRouter()
     summary="Register new user",
     description="Create a new user account with email verification required.",
 )
-@limiter.limit(settings.RATE_LIMIT_REGISTER)
+@rate_limit(settings.RATE_LIMIT_REGISTER)
 async def register(
     registration_data: schema.UserRegistrationData,
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.RegistrationResponse:
     """Register a new user account with email verification required."""
-    client_ip = get_remote_address(request)
+    client_ip = _extract_ip_address(request)
     logger.info(
         "Registration attempt",
         extra={"client_ip": client_ip, "email": registration_data.email, "action": "register"},
@@ -57,14 +55,14 @@ async def register(
     summary="User authentication",
     description="Authenticate user credentials and return JWT tokens.",
 )
-@limiter.limit(settings.RATE_LIMIT_LOGIN)
+@rate_limit(settings.RATE_LIMIT_LOGIN)
 async def login(
     signin_data: schema.SignInRequest,
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.AuthResponse:
     """Authenticate user credentials and return JWT tokens."""
-    client_ip = get_remote_address(request)
+    client_ip = _extract_ip_address(request)
     logger.info(
         "Login attempt",
         extra={"client_ip": client_ip, "email": signin_data.email, "action": "login"},
@@ -117,6 +115,7 @@ async def logout(
     summary="Verify email address",
     description="Verify user email address using verification token.",
 )
+@rate_limit(settings.RATE_LIMIT_VERIFY)
 async def verify_email(
     verification_data: schema.EmailConfirmRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -144,7 +143,7 @@ async def verify_email(
     summary="Refresh access token",
     description="Generate new access token using valid refresh token.",
 )
-@limiter.limit(settings.RATE_LIMIT_REFRESH)
+@rate_limit(settings.RATE_LIMIT_REFRESH)
 async def refresh(
     request: Request,
     refresh_data: schema.RefreshTokenRequest,
@@ -170,14 +169,14 @@ async def refresh(
     summary="Request password reset",
     description="Send password reset email if account exists.",
 )
-@limiter.limit(settings.RATE_LIMIT_PASSWORD)
+@rate_limit(settings.RATE_LIMIT_PASSWORD)
 async def forgot_password(
     reset_request: schema.ForgotPasswordRequest,
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.ForgotPasswordResponse:
     """Send password reset email if account exists."""
-    client_ip = get_remote_address(request)
+    client_ip = _extract_ip_address(request)
     logger.info(
         "Password reset request",
         extra={"client_ip": client_ip, "email": reset_request.email, "action": "forgot_password"},
@@ -204,6 +203,7 @@ async def forgot_password(
     summary="Reset password",
     description="Reset password using valid reset token.",
 )
+@rate_limit(settings.RATE_LIMIT_PASSWORD)
 async def reset_password(
     reset_data: schema.ResetPasswordRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -219,20 +219,6 @@ async def reset_password(
     except AuthError as e:
         logger.error(f"Password reset failed: {str(e)}")
         raise handle_auth_error(e)
-
-
-@router.get(
-    "/health",
-    status_code=status.HTTP_200_OK,
-    summary="Auth system health check",
-    description="Check if authentication system is operational.",
-    include_in_schema=False,  # Don't include in public API docs
-)
-async def auth_health_check() -> dict:
-    """Simple health check for auth system."""
-    from datetime import datetime, timezone
-
-    return {"status": "ok", "service": "auth", "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _extract_ip_address(request: Optional[Request]) -> Optional[str]:

@@ -29,4 +29,6 @@ async def get_async_db() -> AsyncGenerator[AsyncSession, None]:
 
 __all__ = [
     "get_async_db",
+    "async_engine",
+    "async_session_maker",
 ]

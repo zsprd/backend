@@ -7,11 +7,6 @@ run_server.py: Development server startup script
 - For development, run this script directly (python run_server.py)
 """
 
-"""
-ZSPRD Portfolio Analytics Backend - Development Server
-This script starts the FastAPI development server with proper configuration.
-"""
-
 import asyncio
 import importlib
 import logging
@@ -27,6 +22,7 @@ import app as app_pkg
 # Import after path setup
 from app.core.config import settings
 from app.core.database import async_engine, async_session_maker
+from app.core.redis import redis_client
 
 # Add the current directory to Python path
 current_dir = Path(__file__).parent
@@ -71,6 +67,27 @@ async def test_database_connection():
         return False
 
 
+async def test_redis_connection():
+    """Test Redis connectivity."""
+    try:
+        if redis_client.is_available():
+            logger.info("✅ Redis connection successful")
+            logger.info("   - Token blacklist: Redis backend")
+            logger.info("   - Rate limiting: Redis backend")
+            logger.info("   - Caching: Redis backend")
+            return True
+        else:
+            logger.warning("⚠️  Redis unavailable - using in-memory fallback")
+            logger.warning("   - Token blacklist: In-memory (NOT production ready)")
+            logger.warning("   - Rate limiting: In-memory (NOT distributed)")
+            logger.warning("   - Caching: In-memory (NOT distributed)")
+            return True  # Don't fail startup, just warn
+    except Exception as e:
+        logger.error(f"⚠️  Redis connection check failed: {e}")
+        logger.warning("   - Continuing with in-memory fallback")
+        return True  # Don't fail startup
+
+
 async def create_tables() -> bool:
     """Create database tables if they don't exist."""
     try:
@@ -100,6 +117,10 @@ def print_startup_info():
     print(f"Environment: {settings.ENVIRONMENT}")
     print(f"Debug Mode: {settings.DEBUG}")
     print(f"Database: {settings.POSTGRES_DB}@{settings.POSTGRES_HOST}")
+    if redis_client.is_available():
+        print(f"Redis: ✅ Connected")
+    else:
+        print(f"Redis: ⚠️ Unavailable (using in-memory fallback)")
     print(f"API Version: {settings.API_PREFIX}")
     print(f"CORS Origins: {settings.CORS_ORIGINS}")
     print("=" * 60)
@@ -135,6 +156,9 @@ async def main() -> None:
     if not await test_database_connection():
         sys.exit(1)
 
+    # Test Redis (don't fail if unavailable)
+    await test_redis_connection()
+
     # Create tables
     if not await create_tables():
         sys.exit(1)
@@ -168,6 +192,10 @@ async def main() -> None:
         logger.info("🧹 Disposing database engine...")
         await async_engine.dispose()
         logger.info("✅ Database engine disposed")
+
+        # Add Redis cleanup
+        redis_client.close()
+        logger.info("✅ Redis connection closed")
 
 
 def run_development_server():

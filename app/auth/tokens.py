@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Set
 from jose import JWTError, jwt
 
 from app.core.config import settings
+from app.core.redis import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -23,26 +24,121 @@ class TokenError(Exception):
 
 
 class TokenBlacklist:
-    # TODO: Replace with Redis implementation for production.
+    """
+    Token blacklist with Redis backend and in-memory fallback.
+
+    Uses Redis with TTL for automatic expiration of blacklisted tokens.
+    Falls back to in-memory set when Redis is unavailable.
+    """
 
     def __init__(self):
-        self._blacklist: Set[str] = set()
-        logger.warning("Using in-memory token blacklist - not suitable for production")
+        self._memory_blacklist: Set[str] = set()
+        self._use_redis = redis_client.is_available()
 
-    def add(self, jti: str) -> None:
-        """Add token JTI to blacklist."""
-        self._blacklist.add(jti)
+        if self._use_redis:
+            logger.info("✅ Token blacklist using Redis backend")
+        else:
+            logger.warning("⚠️ Token blacklist using in-memory - NOT suitable for production.")
+
+    def add(self, jti: str, ttl_seconds: int = None) -> bool:
+        """Add token JTI to blacklist with optional TTL."""
+        if not ttl_seconds:
+            # Default to maximum possible token lifetime
+            ttl_seconds = max(
+                settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+                settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400,
+                settings.RESET_TOKEN_EXPIRE_MINUTES * 60,
+                settings.VERIFICATION_TOKEN_EXPIRE_HOURS * 3600,
+            )
+
+        if redis_client.is_available():
+            try:
+                key = f"blacklist:token:{jti}"
+                redis_client.setex(key, ttl_seconds, "1")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to add token to Redis blacklist: {e}")
+                # Fallback to memory
+                self._memory_blacklist.add(jti)
+                return True
+        else:
+            self._memory_blacklist.add(jti)
+            return True
 
     def contains(self, jti: str) -> bool:
         """Check if token JTI is blacklisted."""
-        return jti in self._blacklist
+        if redis_client.is_available():
+            try:
+                key = f"blacklist:token:{jti}"
+                return redis_client.exists(key) > 0
+            except Exception as e:
+                logger.error(f"Failed to check Redis blacklist: {e}")
+                # Fallback to memory
+                return jti in self._memory_blacklist
+        else:
+            return jti in self._memory_blacklist
+
+    def remove(self, jti: str) -> bool:
+        """Remove token JTI from blacklist (rarely needed)."""
+        if redis_client.is_available():
+            try:
+                key = f"blacklist:token:{jti}"
+                return redis_client.delete(key) > 0
+            except Exception as e:
+                logger.error(f"Failed to remove from Redis blacklist: {e}")
+                self._memory_blacklist.discard(jti)
+                return False
+        else:
+            self._memory_blacklist.discard(jti)
+            return True
+
+    def blacklist_all_user_tokens(self, user_id: str, ttl_seconds: int = None) -> bool:
+        """Blacklist all tokens for a specific user."""
+        if not ttl_seconds:
+            ttl_seconds = settings.REFRESH_TOKEN_EXPIRE_DAYS * 86400
+
+        if redis_client.is_available():
+            try:
+                key = f"blacklist:user:{user_id}"
+                timestamp = datetime.now(timezone.utc).isoformat()
+                redis_client.setex(key, ttl_seconds, timestamp)
+                logger.info(f"All tokens blacklisted for user {user_id}")
+                return True
+            except Exception as e:
+                logger.error(f"Failed to blacklist user tokens: {e}")
+                return False
+        else:
+            logger.warning(f"Cannot blacklist all user tokens without Redis (user: {user_id}).")
+            return False
+
+    def is_user_blacklisted(self, user_id: str, token_issued_at: datetime) -> bool:
+        """Check if a user's tokens issued before a certain time are blacklisted."""
+        if redis_client.is_available():
+            try:
+                key = f"blacklist:user:{user_id}"
+                blacklist_timestamp = redis_client.get(key)
+
+                if blacklist_timestamp:
+                    blacklist_dt = datetime.fromisoformat(blacklist_timestamp)
+                    return token_issued_at < blacklist_dt
+                return False
+            except Exception as e:
+                logger.error(f"Failed to check user blacklist: {e}")
+                return False
+        return False
 
     def remove_expired(self) -> None:
-        # TODO: Implement when using Redis with TTL.
-        pass
+        """Remove expired tokens from blacklist."""
+        if redis_client.is_available():
+            # Redis handles expiration automatically via TTL
+            logger.debug("Redis TTL handles automatic blacklist cleanup")
+        else:
+            # With in-memory storage, we can't know when tokens expire
+            # without storing the full token or expiration time
+            logger.debug("In-memory blacklist cannot auto-cleanup without token metadata")
 
 
-# Initialize token blacklist (replace with Redis in production)
+# Initialize token blacklist (uses Redis if available, falls back to in-memory)
 token_blacklist = TokenBlacklist()
 
 
@@ -94,11 +190,20 @@ def verify_token(token: str, expected_type: str) -> Optional[Dict[str, Any]]:
             )
             return None
 
-        # Check if token is blacklisted
+        # Check if specific token is blacklisted
         jti = payload.get("jti")
         if jti and token_blacklist.contains(jti):
             logger.warning(f"Blacklisted token used: {jti}")
             return None
+
+        # Check if all user tokens are blacklisted
+        user_id = payload.get("sub")
+        iat = payload.get("iat")
+        if user_id and iat:
+            issued_at = datetime.fromtimestamp(iat, tz=timezone.utc)
+            if token_blacklist.is_user_blacklisted(user_id, issued_at):
+                logger.warning(f"User token blacklisted: {user_id} (issued at {issued_at})")
+                return None
 
         # JWT library handles expiration, but we can double-check
         exp = payload.get("exp")
@@ -117,13 +222,23 @@ def verify_token(token: str, expected_type: str) -> Optional[Dict[str, Any]]:
 
 
 def revoke_token(token: str) -> bool:
+    """Revoke a specific token by adding its JTI to the blacklist."""
     try:
-        # Get JTI without full verification (token might be expired)
+        # Get JTI and expiration without full verification
         unverified_payload = jwt.get_unverified_claims(token)
         jti = unverified_payload.get("jti")
+        exp = unverified_payload.get("exp")
 
         if jti:
-            token_blacklist.add(jti)
+            # Calculate TTL based on token expiration
+            ttl_seconds = None
+            if exp:
+                now = datetime.now(timezone.utc)
+                exp_dt = datetime.fromtimestamp(exp, tz=timezone.utc)
+                if exp_dt > now:
+                    ttl_seconds = int((exp_dt - now).total_seconds())
+
+            token_blacklist.add(jti, ttl_seconds)
             logger.info(f"Token revoked: {jti}")
             return True
         else:
@@ -135,9 +250,18 @@ def revoke_token(token: str) -> bool:
         return False
 
 
-def revoke_all_user_tokens(user_id: str) -> None:
-    # TODO: Implement when using Redis or database storage.
-    logger.info(f"Token revocation requested for user {user_id}")
+def revoke_all_user_tokens(user_id: str) -> bool:
+    """Revoke all tokens for a specific user."""
+    try:
+        success = token_blacklist.blacklist_all_user_tokens(user_id)
+        if success:
+            logger.info(f"All tokens revoked for user {user_id}")
+        else:
+            logger.warning(f"Failed to revoke all tokens for user {user_id}")
+        return success
+    except Exception as e:
+        logger.error(f"Error revoking all user tokens: {e}")
+        return False
 
 
 def is_token_expired(token: str) -> bool:
@@ -191,6 +315,10 @@ def _generate_jti() -> str:
 
 
 async def cleanup_expired_blacklist() -> None:
-    # TODO: Implement when using Redis with TTL or database storage.
+    """Cleanup expired tokens from blacklist."""
+    if redis_client.is_available():
+        logger.info("Redis TTL automatically handles token blacklist cleanup")
+    else:
+        logger.info("In-memory token blacklist - manual cleanup not available")
+
     token_blacklist.remove_expired()
-    logger.info("Token blacklist cleanup completed")

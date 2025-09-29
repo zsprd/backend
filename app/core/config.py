@@ -51,10 +51,12 @@ class Settings(BaseSettings):
     REQUIRE_PASSWORD_SPECIAL: bool = False
 
     # Rate Limiting (requests per time window)
-    RATE_LIMIT_LOGIN: str = "5/15minutes"  # 5 attempts per 15 minutes
-    RATE_LIMIT_REGISTER: str = "3/hour"  # 3 reset requests per hour
-    RATE_LIMIT_PASSWORD: str = "2/hour"  # 2 reset requests per hour
-    RATE_LIMIT_REFRESH: str = "3/day"  # 3 refreshes per day
+    RATE_LIMIT_REGISTER: str = "3/hour"
+    RATE_LIMIT_LOGIN: str = "5/15minutes"
+    RATE_LIMIT_REFRESH: str = "100/hour"
+    RATE_LIMIT_PASSWORD: str = "5/hour"
+    RATE_LIMIT_VERIFY: str = "10/hour"
+    RATE_LIMIT_UPDATE: str = "20/hour"
 
     # Session Management
     MAX_FAILED_ATTEMPTS: int = 5  # Max failed login attempts

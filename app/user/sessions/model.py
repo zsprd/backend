@@ -118,7 +118,6 @@ class UserSession(BaseModel):
             "idx_user_sessions_cleanup",
             "expires_at",
             "is_active",
-            postgresql_where="expires_at < NOW()",
         ),
         Index("idx_user_sessions_security_monitoring", "ip_address", "created_at", "user_id"),
         Index("idx_user_sessions_token_lookup", "refresh_token", "is_active", "expires_at"),
