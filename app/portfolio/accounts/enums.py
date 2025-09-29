@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class AccountTypeEnum(str, Enum):
+class AccountTypeEnum(Enum):
     """
     Primary account classification for financial accounts.
 
@@ -16,7 +16,7 @@ class AccountTypeEnum(str, Enum):
     OTHER = "other"  # Catch-all for other account types
 
 
-class AccountSubtypeEnum(str, Enum):
+class AccountSubtypeEnum(Enum):
     """
     Detailed account classification for specific account types.
 

@@ -1,320 +1,242 @@
-from datetime import datetime, timezone
-from decimal import Decimal
-from typing import Any, Dict, List, Optional
+import logging
+from typing import List, Optional
+from uuid import UUID
 
-from sqlalchemy import and_, or_, update
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import and_, func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.crud import CRUDBase
+from app.portfolio.accounts import schema
 from app.portfolio.accounts.model import PortfolioAccount
-from app.portfolio.accounts.schema import AccountCreate, AccountUpdate
+
+logger = logging.getLogger(__name__)
 
 
-class CRUDAccount(CRUDBase[PortfolioAccount, AccountCreate, AccountUpdate]):
+class CRUDPortfolioAccount(
+    CRUDBase[PortfolioAccount, schema.PortfolioAccountCreate, schema.PortfolioAccountUpdate]
+):
 
-    def get_multi_by_user(
-        self,
-        db: Session,
-        *,
-        user_id: str,
-        skip: int = 0,
-        limit: int = 100,
-        include_inactive: bool = False,
+    def __init__(self, db: AsyncSession):
+        super().__init__(PortfolioAccount)
+        self.db = db
+
+    async def get_multi_by_user(
+        self, user_id: UUID, limit: int = 100, include_inactive: bool = False
     ) -> List[PortfolioAccount]:
-        """Get multiple accounts for a specific users with optional filters."""
-        query = (
-            db.query(PortfolioAccount)
-            .options(joinedload(PortfolioAccount.institution))
-            .filter(PortfolioAccount.user_id == user_id)
-        )
+        """Get multiple portfolio accounts for a user with pagination."""
+        try:
+            query = select(PortfolioAccount).where(PortfolioAccount.user_id == user_id)
 
-        if not include_inactive:
-            query = query.filter(PortfolioAccount.is_active)
+            if not include_inactive:
+                query = query.where(PortfolioAccount.is_active == True)
 
-        return query.offset(skip).limit(limit).all()
+            query = query.limit(limit).order_by(PortfolioAccount.created_at.desc())
 
-    def get_by_user_and_id(
-        self, db: Session, *, user_id: str, account_id: str
+            result = await self.db.execute(query)
+            return result.scalars().all()
+
+        except Exception as e:
+            logger.error(f"Failed to get portfolio accounts for user {user_id}: {str(e)}")
+            raise
+
+    async def get_by_user_and_id(
+        self, user_id: UUID, account_id: UUID
     ) -> Optional[PortfolioAccount]:
-        """Get a specific account for a users."""
-        return (
-            db.query(PortfolioAccount)
-            .options(joinedload(PortfolioAccount.institution))
-            .filter(and_(PortfolioAccount.id == account_id, PortfolioAccount.user_id == user_id))
-            .first()
-        )
+        """Get a specific portfolio account by user ID and account ID."""
+        try:
+            query = select(PortfolioAccount).where(
+                and_(PortfolioAccount.user_id == user_id, PortfolioAccount.id == account_id)
+            )
 
-    def count_by_user(self, db: Session, *, user_id: str) -> int:
-        """Count total accounts for a users."""
-        return db.query(PortfolioAccount).filter(PortfolioAccount.user_id == user_id).count()
+            result = await self.db.execute(query)
+            return result.scalar_one_or_none()
 
-    def get_account_summary(
-        self, db: Session, *, account_id: str, user_id: str
-    ) -> Optional[Dict[str, Any]]:
-        """Get account summary with calculated values."""
-        account = self.get_by_user_and_id(db, user_id=user_id, account_id=account_id)
-        if not account:
-            return None
+        except Exception as e:
+            logger.error(
+                f"Failed to get portfolio account {account_id} for user {user_id}: {str(e)}"
+            )
+            raise
 
-        # Get holdings summary
-        from app.portfolio.holdings.crud import holding_crud
+    async def get_active_by_user(self, user_id: UUID) -> List[PortfolioAccount]:
+        """Get all active portfolio accounts for a user."""
+        try:
+            query = (
+                select(PortfolioAccount)
+                .where(
+                    and_(PortfolioAccount.user_id == user_id, PortfolioAccount.is_active == True)
+                )
+                .order_by(PortfolioAccount.created_at.desc())
+            )
 
-        holdings = holding_crud.get_by_account(db, account_id=account_id)
+            result = await self.db.execute(query)
+            return result.scalars().all()
 
-        total_market_value = sum(h.market_value or Decimal("0") for h in holdings)
-        total_cost_basis = sum(h.cost_basis_total or Decimal("0") for h in holdings)
-        unrealized_gain_loss = total_market_value - total_cost_basis
-        unrealized_gain_loss_percent = (
-            (unrealized_gain_loss / total_cost_basis * 100)
-            if total_cost_basis > 0
-            else Decimal("0")
-        )
+        except Exception as e:
+            logger.error(f"Failed to get active portfolio accounts for user {user_id}: {str(e)}")
+            raise
 
-        # Get cash transactions for cash balance (simplified)
-        from app.portfolio.transactions.crud import transaction_crud
-
-        transactions = transaction_crud.get_by_account(db, account_id=account_id)
-        cash_balance = sum(
-            t.amount
-            for t in transactions
-            if getattr(t, "security_type", None) in ["deposit", "interest"]
-        ) - sum(
-            abs(t.amount)
-            for t in transactions
-            if getattr(t, "security_type", None) in ["withdrawal", "purchase"]
-        )
-        cash_balance = float(max(cash_balance, Decimal("0")))
-        return {
-            "account_id": account_id,
-            "name": account.name,
-            "currency": account.currency,
-            "total_market_value": total_market_value,
-            "total_cost_basis": total_cost_basis,
-            "unrealized_gain_loss": unrealized_gain_loss,
-            "unrealized_gain_loss_percent": unrealized_gain_loss_percent,
-            "cash_balance": cash_balance,
-            "holdings_count": len(holdings),
-            "last_updated": account.updated_at,
-        }
-
-    def soft_delete(
-        self, db: Session, *, account_id: str, user_id: str
-    ) -> Optional[PortfolioAccount]:
-        """Soft delete an account by setting is_active to False."""
-        account = self.get_by_user_and_id(db, user_id=user_id, account_id=account_id)
-        if account:
-            account.is_active = False
-            db.commit()
-            db.refresh(account)
-        return account
-
-    def get_accounts_with_balances(
-        self, db: Session, *, user_id: str, currency: str = "USD"
-    ) -> List[dict]:
-        """Get accounts with current balance calculations."""
-        accounts = self.get_multi_by_user(db, user_id=user_id)
-
-        accounts_with_balances = []
-        for account in accounts:
-            summary = self.get_account_summary(db, account_id=str(account.id), user_id=user_id)
-            if summary:
-                accounts_with_balances.append({**summary, "account": account})
-
-        return accounts_with_balances
-
-    def update_account_last_sync(
-        self,
-        db: Session,
-        *,
-        account_id: str,
-        user_id: str,
-        sync_status: Optional[str] = "completed",
-    ) -> Optional[PortfolioAccount]:
-        """Update account last sync timestamp and status."""
-        account = self.get_by_user_and_id(db, user_id=user_id, account_id=account_id)
-        if account:
-            account.updated_at = datetime.now(timezone.utc)
-            db.add(account)
-            db.commit()
-            db.refresh(account)
-        return account
-
-    def bulk_update_sync_status(
-        self, db: Session, *, user_id: str, account_ids: List[str], sync_status: str
-    ) -> int:
-        """Bulk update sync status for multiple accounts."""
-        stmt = (
-            update(PortfolioAccount)
-            .where(and_(PortfolioAccount.user_id == user_id, PortfolioAccount.id.in_(account_ids)))
-            .values(sync_status=sync_status, updated_at=datetime.now(timezone.utc))
-        )
-        result = db.execute(stmt)
-        db.commit()
-        return result.rowcount
-
-    def get_multi_by_type(
-        self,
-        db: Session,
-        *,
-        user_id: str,
-        account_type: str,
-        include_inactive: bool = False,
+    async def get_by_type(
+        self, user_id: UUID, account_type: str, include_inactive: bool = False
     ) -> List[PortfolioAccount]:
-        """Get accounts filtered by security_type/type."""
-        query = db.query(PortfolioAccount).filter(
-            and_(PortfolioAccount.user_id == user_id, PortfolioAccount.account_type == account_type)
-        )
-
-        if not include_inactive:
-            query = query.filter(PortfolioAccount.is_active)
-
-        return query.all()
-
-    def get_portfolio_overview(
-        self, db: Session, *, user_id: str, base_currency: str = "USD"
-    ) -> Dict[str, Any]:
-        """Get comprehensive portfolios overview across all accounts."""
-        accounts = self.get_multi_by_user(db, user_id=user_id)
-
-        total_value = Decimal("0")
-        total_cost_basis = Decimal("0")
-        by_account_type = {}
-        by_currency = {}
-        account_summaries = []
-
-        for account in accounts:
-            summary = self.get_account_summary(db, account_id=str(account.id), user_id=user_id)
-
-            if summary:
-                account_summaries.append({"account": account, "summary": summary})
-
-                # Add to totals
-                market_value = summary.get("total_market_value", Decimal("0"))
-                cost_basis = summary.get("total_cost_basis", Decimal("0"))
-
-                total_value += market_value
-                total_cost_basis += cost_basis
-
-                # Group by account type
-                account_type = account.account_type
-                if account_type not in by_account_type:
-                    by_account_type[account_type] = {
-                        "count": 0,
-                        "total_value": Decimal("0"),
-                        "accounts": [],
-                    }
-
-                by_account_type[account_type]["count"] += 1
-                by_account_type[account_type]["total_value"] += market_value
-                by_account_type[account_type]["accounts"].append(account.id)
-
-                # Group by currency
-                currency = account.currency
-                if currency not in by_currency:
-                    by_currency[currency] = Decimal("0")
-                by_currency[currency] += market_value
-
-        unrealized_gain_loss = total_value - total_cost_basis
-        unrealized_gain_loss_percent = (
-            (unrealized_gain_loss / total_cost_basis * 100)
-            if total_cost_basis > 0
-            else Decimal("0")
-        )
-
-        return {
-            "user_id": user_id,
-            "base_currency": base_currency,
-            "total_accounts": len(accounts),
-            "active_accounts": len([a for a in accounts if a.is_active]),
-            "total_portfolio_value": total_value,
-            "total_cost_basis": total_cost_basis,
-            "unrealized_gain_loss": unrealized_gain_loss,
-            "unrealized_gain_loss_percent": round(unrealized_gain_loss_percent, 2),
-            "by_account_type": by_account_type,
-            "by_currency": by_currency,
-            "account_summaries": account_summaries,
-            "last_updated": datetime.now(timezone.utc),
-        }
-
-    def get_user_account_statistics(self, db: Session, *, user_id: str) -> Dict[str, Any]:
-        """Get comprehensive account statistics for a users."""
-        accounts = self.get_multi_by_user(db, user_id=user_id, include_inactive=True)
-
-        total_accounts = len(accounts)
-        active_accounts = len([a for a in accounts if a.is_active])
-        inactive_accounts = total_accounts - active_accounts
-
-        # Group by account security_type
-        by_category = {}
-        for account in accounts:
-            category = account.account_type
-            if category not in by_category:
-                by_category[category] = {"active": 0, "inactive": 0, "total": 0}
-
-            by_category[category]["total"] += 1
-            if account.is_active:
-                by_category[category]["active"] += 1
-            else:
-                by_category[category]["inactive"] += 1
-
-        # Recently created accounts (last 30 days)
-        from datetime import timedelta
-
-        recent_cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-        recent_accounts = [a for a in accounts if a.created_at >= recent_cutoff]
-
-        return {
-            "user_id": user_id,
-            "total_accounts": total_accounts,
-            "active_accounts": active_accounts,
-            "inactive_accounts": inactive_accounts,
-            "recent_accounts_30d": len(recent_accounts),
-            "by_category": by_category,
-            "oldest_account": (min(accounts, key=lambda x: x.created_at) if accounts else None),
-            "newest_account": (max(accounts, key=lambda x: x.created_at) if accounts else None),
-        }
-
-    def search_by_name(
-        self, db: Session, *, user_id: str, search_term: str, limit: int = 10
-    ) -> List[PortfolioAccount]:
-        """Search users accounts by name or official name."""
-
-        query = (
-            db.query(PortfolioAccount)
-            .filter(
+        """Get portfolio accounts by type for a user."""
+        try:
+            query = select(PortfolioAccount).where(
                 and_(
                     PortfolioAccount.user_id == user_id,
-                    PortfolioAccount.is_active,
-                    PortfolioAccount.name.ilike(f"%{search_term}%"),
+                    PortfolioAccount.account_type == account_type,
                 )
             )
-            .limit(limit)
-        )
 
-        return query.all()
+            if not include_inactive:
+                query = query.where(PortfolioAccount.is_active == True)
 
-    def get_stale_accounts(
-        self, db: Session, *, user_id: Optional[str] = None, hours_since_sync: int = 24
-    ) -> List[PortfolioAccount]:
-        """Get accounts that haven't been synced recently."""
-        from datetime import timedelta
+            query = query.order_by(PortfolioAccount.created_at.desc())
 
-        sync_cutoff = datetime.now(timezone.utc) - timedelta(hours=hours_since_sync)
+            result = await self.db.execute(query)
+            return result.scalars().all()
 
-        query = db.query(PortfolioAccount).filter(
-            and_(
-                PortfolioAccount.is_active,
-                or_(
-                    PortfolioAccount.updated_at < sync_cutoff, PortfolioAccount.updated_at.is_(None)
-                ),
+        except Exception as e:
+            logger.error(
+                f"Failed to get portfolio accounts by type {account_type} for user {user_id}: {str(e)}"
             )
-        )
+            raise
 
-        if user_id:
-            query = query.filter(PortfolioAccount.user_id == user_id)
+    async def create(self, obj_in: schema.PortfolioAccountCreate) -> PortfolioAccount:
+        """Create a new portfolio account."""
+        try:
+            db_obj = PortfolioAccount(**obj_in.model_dump())
+            self.db.add(db_obj)
+            await self.db.commit()
+            await self.db.refresh(db_obj)
+            return db_obj
 
-        return query.all()
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to create portfolio account: {str(e)}")
+            raise
 
+    async def update(
+        self, db_obj: PortfolioAccount, obj_in: schema.PortfolioAccountUpdate
+    ) -> PortfolioAccount:
+        """Update a portfolio account."""
+        try:
+            obj_data = obj_in.model_dump(exclude_unset=True)
 
-# Create instance
-account_crud = CRUDAccount(PortfolioAccount)
+            for field, value in obj_data.items():
+                setattr(db_obj, field, value)
+
+            await self.db.commit()
+            await self.db.refresh(db_obj)
+            return db_obj
+
+        except Exception as e:
+            await self.db.rollback()
+            logger.error(f"Failed to update portfolio account {db_obj.id}: {str(e)}")
+            raise
+
+    async def count_by_user(self, user_id: UUID, include_inactive: bool = False) -> int:
+        """Count portfolio accounts for a user."""
+        try:
+            query = select(func.count(PortfolioAccount.id)).where(
+                PortfolioAccount.user_id == user_id
+            )
+
+            if not include_inactive:
+                query = query.where(PortfolioAccount.is_active == True)
+
+            result = await self.db.execute(query)
+            return result.scalar()
+
+        except Exception as e:
+            logger.error(f"Failed to count portfolio accounts for user {user_id}: {str(e)}")
+            raise
+
+    async def search_accounts(
+        self, user_id: UUID, search_term: str, limit: int = 10
+    ) -> List[PortfolioAccount]:
+        """Search portfolio accounts by name for a user."""
+        try:
+            query = (
+                select(PortfolioAccount)
+                .where(
+                    and_(
+                        PortfolioAccount.user_id == user_id,
+                        PortfolioAccount.name.ilike(f"%{search_term}%"),
+                        PortfolioAccount.is_active == True,
+                    )
+                )
+                .limit(limit)
+                .order_by(PortfolioAccount.name)
+            )
+
+            result = await self.db.execute(query)
+            return result.scalars().all()
+
+        except Exception as e:
+            logger.error(f"Failed to search portfolio accounts for user {user_id}: {str(e)}")
+            raise
+
+    async def get_user_account_statistics(self, user_id: UUID) -> dict:
+        """Get comprehensive statistics for a user's portfolio accounts."""
+        try:
+            # Get basic counts
+            total_query = select(func.count(PortfolioAccount.id)).where(
+                PortfolioAccount.user_id == user_id
+            )
+            active_query = select(func.count(PortfolioAccount.id)).where(
+                and_(PortfolioAccount.user_id == user_id, PortfolioAccount.is_active == True)
+            )
+
+            total_result = await self.db.execute(total_query)
+            active_result = await self.db.execute(active_query)
+
+            total_accounts = total_result.scalar()
+            active_accounts = active_result.scalar()
+
+            # Get account type breakdown
+            type_query = (
+                select(
+                    PortfolioAccount.account_type, func.count(PortfolioAccount.id).label("count")
+                )
+                .where(
+                    and_(PortfolioAccount.user_id == user_id, PortfolioAccount.is_active == True)
+                )
+                .group_by(PortfolioAccount.account_type)
+            )
+
+            type_result = await self.db.execute(type_query)
+            account_types = {row.account_type: row.count for row in type_result}
+
+            return {
+                "total_accounts": total_accounts,
+                "active_accounts": active_accounts,
+                "inactive_accounts": total_accounts - active_accounts,
+                "account_types": account_types,
+                "last_updated": None,  # You can add logic to track last sync/update
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to get portfolio account statistics for user {user_id}: {str(e)}")
+            raise
+
+    async def get_accounts_with_holdings(self, user_id: UUID) -> List[PortfolioAccount]:
+        """Get portfolio accounts with their holdings preloaded."""
+        try:
+            query = (
+                select(PortfolioAccount)
+                .options(selectinload(PortfolioAccount.portfolio_holdings))
+                .where(
+                    and_(PortfolioAccount.user_id == user_id, PortfolioAccount.is_active == True)
+                )
+                .order_by(PortfolioAccount.created_at.desc())
+            )
+
+            result = await self.db.execute(query)
+            return result.scalars().all()
+
+        except Exception as e:
+            logger.error(
+                f"Failed to get portfolio accounts with holdings for user {user_id}: {str(e)}"
+            )
+            raise

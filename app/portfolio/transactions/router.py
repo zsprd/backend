@@ -6,8 +6,9 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import get_current_user
 from app.core.database import get_db
-from app.core.dependencies import get_current_user
+from app.data.integrations.csv.service import CSVProcessorResult
 from app.portfolio.accounts.crud import account_crud
 from app.portfolio.transactions.crud import transaction_crud
 from app.portfolio.transactions.schema import (
@@ -15,7 +16,6 @@ from app.portfolio.transactions.schema import (
     TransactionResponse,
     TransactionUpdate,
 )
-from app.provider.integrations.csv.service import CSVProcessorResult
 from app.system.logs.crud import audit_log_crud
 
 logger = logging.getLogger(__name__)
@@ -736,7 +736,7 @@ async def upload_transactions_csv(
         )
 
         # Process the CSV
-        from app.provider.integrations.csv.service import get_csv_processor
+        from app.data.integrations.csv.service import get_csv_processor
 
         processor = get_csv_processor(db)
 
@@ -796,7 +796,7 @@ async def upload_transactions_csv(
 
 def _validate_transactions_csv(content: bytes, processor) -> CSVProcessorResult:
     """Validate transactions CSV without importing."""
-    from app.provider.integrations.csv.service import CSVProcessorResult
+    from app.data.integrations.csv.service import CSVProcessorResult
 
     result = CSVProcessorResult()
 

@@ -12,7 +12,7 @@ if not settings.DATABASE_URL:
 
 async_engine = create_async_engine(
     settings.DATABASE_URL,
-    echo=settings.DEBUG,
+    # echo=settings.DEBUG,
 )
 
 async_session_maker = async_sessionmaker(

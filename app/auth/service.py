@@ -1,11 +1,8 @@
 import logging
+from dataclasses import dataclass
 from typing import Optional
 
-from fastapi import BackgroundTasks, Request
-
-import app.auth.tokens as tokens
-import app.core.email as send_email
-from app.auth import schema
+from app.auth import email, schema, tokens
 from app.core.config import settings
 from app.user.accounts.crud import CRUDUserAccount
 from app.user.accounts.model import UserAccount
@@ -20,8 +17,16 @@ class AuthError(Exception):
     pass
 
 
+@dataclass
+class SessionContext:
+    """Context information for session creation."""
+
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+
+
 class AuthService:
-    """Authentication business logic service."""
+    """Pure authentication business logic service."""
 
     def __init__(self, user_repo: CRUDUserAccount, session_repo: CRUDUserSession):
         self.user_crud = user_repo
@@ -30,7 +35,6 @@ class AuthService:
     async def register(
         self,
         registration_data: schema.UserRegistrationData,
-        background_tasks: Optional[BackgroundTasks] = None,
     ) -> schema.RegistrationResponse:
         """Register a new user account."""
         logger.info(f"Processing user registration for email: {registration_data.email}")
@@ -59,19 +63,19 @@ class AuthService:
 
             # Generate email verification token
             verification_token = tokens.create_verification_token(str(user.id))
+            verification_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
 
-            # Queue verification email
-            if background_tasks:
-                verification_url = (
-                    f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
-                )
-                background_tasks.add_task(
-                    send_email.send_verification_email,
+            # Send verification email
+            try:
+                await email.send_verification_email(
                     user.email,
                     verification_url,
                     user.full_name,
                 )
-                logger.info(f"Verification email scheduled for user: {user.id}")
+                logger.info(f"Verification email sent to user: {user.id}")
+            except Exception as e:
+                logger.warning(f"Failed to send verification email: {type(e).__name__}: {str(e)}")
+                # Don't fail registration if email fails
 
             return schema.RegistrationResponse(
                 message="User registered successfully. Please verify your email.",
@@ -87,7 +91,7 @@ class AuthService:
             raise AuthError("Registration failed due to unexpected error")
 
     async def login(
-        self, signin_data: schema.SignInRequest, request: Optional[Request] = None
+        self, signin_data: schema.SignInRequest, session_context: Optional[SessionContext] = None
     ) -> schema.AuthResponse:
         """Authenticate user and create session."""
         logger.info(f"Processing login request for email: {signin_data.email}")
@@ -128,11 +132,10 @@ class AuthService:
             access_token = tokens.create_access_token(str(user.id))
             refresh_token = tokens.create_refresh_token(str(user.id))
 
-            # Extract request metadata
-            ip_address = self._extract_ip_address(request)
-            user_agent = self._extract_user_agent(request)
+            # Create user session with provided context
+            ip_address = session_context.ip_address if session_context else None
+            user_agent = session_context.user_agent if session_context else None
 
-            # Create user session
             session = await self.session_crud.create_user_session(
                 user, refresh_token, ip_address, user_agent
             )
@@ -267,11 +270,10 @@ class AuthService:
             # Send welcome email
             if verified_user.email:
                 try:
-                    await send_email.send_welcome_email(
-                        verified_user.email, verified_user.full_name
-                    )
+                    await email.send_welcome_email(verified_user.email, verified_user.full_name)
+                    logger.info(f"Welcome email sent to user: {user_id}")
                 except Exception as e:
-                    logger.warning(f"Failed to send welcome email: {type(e).__name__}")
+                    logger.warning(f"Failed to send welcome email: {type(e).__name__}: {str(e)}")
 
             return schema.EmailVerificationResponse(
                 message="Email verified successfully. Welcome!",
@@ -289,27 +291,27 @@ class AuthService:
     async def forgot_password(
         self,
         reset_request: schema.ForgotPasswordRequest,
-        background_tasks: Optional[BackgroundTasks] = None,
     ) -> schema.ForgotPasswordResponse:
         """Send password reset email if user exists."""
-        email = reset_request.email
-        logger.info(f"Processing password reset request for email: {email}")
+        logger.info(f"Processing password reset request for email: {reset_request.email}")
 
         try:
             # Get user (but don't reveal if they exist)
-            user = await self.user_crud.get_user_by_email(email)
+            user = await self.user_crud.get_user_by_email(reset_request.email)
 
             if user and user.is_active and user.hashed_password:
                 # Generate reset token using user ID (not email)
                 reset_token = tokens.create_reset_token(str(user.id))
                 reset_url = f"{settings.FRONTEND_URL}/reset-password?token={reset_token}"
 
-                # Queue reset email
-                if background_tasks:
-                    background_tasks.add_task(
-                        send_email.send_password_reset_email, email, reset_url, user.full_name
+                # Send password reset email
+                try:
+                    await email.send_password_reset_email(user.email, reset_url, user.full_name)
+                    logger.info(f"Password reset email sent to user: {user.id}")
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to send password reset email: {type(e).__name__}: {str(e)}"
                     )
-                    logger.info(f"Password reset email scheduled for user: {user.id}")
             else:
                 logger.info(f"Password reset requested for non-existent/inactive user: {email}")
 
@@ -360,10 +362,11 @@ class AuthService:
             # Send confirmation email
             if user.email:
                 try:
-                    await send_email.send_password_changed_email(user.email, user.full_name)
+                    await email.send_password_changed_email(user.email, user.full_name)
+                    logger.info(f"Password change confirmation email sent to user: {user_id}")
                 except Exception as e:
                     logger.warning(
-                        f"Failed to send password change confirmation: {type(e).__name__}"
+                        f"Failed to send password change confirmation: {type(e).__name__}: {str(e)}"
                     )
 
             return schema.PasswordResetResponse(
@@ -382,64 +385,3 @@ class AuthService:
         if not token_data or "sub" not in token_data:
             raise AuthError("Invalid or expired token")
         return token_data
-
-    def _extract_ip_address(self, request: Optional[Request]) -> Optional[str]:
-        """Extract IP address from request with proxy support."""
-        if not request:
-            return None
-
-        # Check proxy headers
-        forwarded_for = request.headers.get("X-Forwarded-For")
-        if forwarded_for:
-            # Take first IP from comma-separated list
-            ip = forwarded_for.split(",")[0].strip()
-            if self._is_valid_ip(ip):
-                return ip
-
-        # Check other proxy headers
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip and self._is_valid_ip(real_ip):
-            return real_ip
-
-        # Fall back to direct connection
-        if hasattr(request, "client") and request.client:
-            return request.client.host
-
-        return None
-
-    def _extract_user_agent(self, request: Optional[Request]) -> Optional[str]:
-        """Extract and sanitize user agent from request."""
-        if not request:
-            return None
-
-        user_agent = request.headers.get("User-Agent", "")
-        if not user_agent:
-            return None
-
-        # Truncate and sanitize
-        sanitized = user_agent[:500].strip()
-
-        # Remove potential XSS
-        if "<" in sanitized or ">" in sanitized:
-            sanitized = "".join(c for c in sanitized if c not in "<>")
-
-        return sanitized or None
-
-    def _is_valid_ip(self, ip: str) -> bool:
-        """Basic IP address validation."""
-        if not ip or ip == "unknown":
-            return False
-
-        # Basic IPv4 validation
-        parts = ip.split(".")
-        if len(parts) == 4:
-            try:
-                return all(0 <= int(part) <= 255 for part in parts)
-            except ValueError:
-                pass
-
-        # Basic IPv6 validation (simplified)
-        if ":" in ip and len(ip) <= 45:
-            return True
-
-        return False

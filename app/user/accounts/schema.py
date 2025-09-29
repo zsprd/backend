@@ -40,6 +40,10 @@ class UserAccountRead(UserAccountBase):
     created_at: datetime = Field(..., description="Account creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
+    active_session: Optional[UUID] = Field(
+        None, description="Active session ID if user is currently logged in"
+    )
+
 
 class UserAccountCreate(UserAccountBase):
     """
@@ -96,7 +100,7 @@ class UserAccountCreate(UserAccountBase):
         if len(name) < 2:
             raise ValueError("Full name must be at least 2 characters")
 
-        # Allow letters, spaces, hyphens, apostrophes, and basic unicode
+        # Allow letters, spaces, hyphens, apostrophes, and basic Unicode
         if not re.match(r"^[\w\s\-'.]+$", name, re.UNICODE):
             raise ValueError("Full name contains invalid characters")
 

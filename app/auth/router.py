@@ -1,21 +1,18 @@
 import logging
-from typing import Annotated
+from typing import Annotated, Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 
 from app.auth import schema
-from app.auth.service import AuthError, AuthService
+from app.auth.dependencies import get_auth_service, get_current_user
+from app.auth.service import AuthError, AuthService, SessionContext
 from app.core.config import settings
-from app.core.dependencies import get_auth_service, get_current_user
 from app.user.accounts.model import UserAccount
 
 logger = logging.getLogger(__name__)
-
-# Initialize rate limiter
 limiter = Limiter(key_func=get_remote_address)
-
 router = APIRouter()
 
 
@@ -29,7 +26,6 @@ router = APIRouter()
 @limiter.limit(settings.RATE_LIMIT_REGISTER)
 async def register(
     registration_data: schema.UserRegistrationData,
-    background_tasks: BackgroundTasks,
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.RegistrationResponse:
@@ -41,7 +37,8 @@ async def register(
     )
 
     try:
-        result = await auth_service.register(registration_data, background_tasks)
+        result = await auth_service.register(registration_data)
+
         logger.info(
             "Registration successful",
             extra={"email": registration_data.email, "action": "register"},
@@ -74,7 +71,12 @@ async def login(
     )
 
     try:
-        result = await auth_service.login(signin_data, request)
+        # Extract session context from request
+        session_context = SessionContext(
+            ip_address=_extract_ip_address(request), user_agent=_extract_user_agent(request)
+        )
+
+        result = await auth_service.login(signin_data, session_context)
         logger.info("Login successful", extra={"email": signin_data.email, "action": "login"})
         return result
 
@@ -142,7 +144,9 @@ async def verify_email(
     summary="Refresh access token",
     description="Generate new access token using valid refresh token.",
 )
+@limiter.limit(settings.RATE_LIMIT_REFRESH)
 async def refresh(
+    request: Request,
     refresh_data: schema.RefreshTokenRequest,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.TokenResponse:
@@ -169,7 +173,6 @@ async def refresh(
 @limiter.limit(settings.RATE_LIMIT_PASSWORD)
 async def forgot_password(
     reset_request: schema.ForgotPasswordRequest,
-    background_tasks: BackgroundTasks,
     request: Request,
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
 ) -> schema.ForgotPasswordResponse:
@@ -179,13 +182,16 @@ async def forgot_password(
         "Password reset request",
         extra={"client_ip": client_ip, "email": reset_request.email, "action": "forgot_password"},
     )
+
     try:
-        result = await auth_service.forgot_password(reset_request, background_tasks)
+        result = await auth_service.forgot_password(reset_request)
+
         logger.info(
             "Password reset request processed",
             extra={"email": reset_request.email, "action": "forgot_password"},
         )
         return result
+
     except AuthError as e:
         logger.error(f"Password reset request error: {str(e)}")
         # Always return the same response for security and type consistency
@@ -230,6 +236,70 @@ async def auth_health_check() -> dict:
     from datetime import datetime, timezone
 
     return {"status": "ok", "service": "auth", "timestamp": datetime.now(timezone.utc).isoformat()}
+
+
+def _extract_ip_address(request: Optional[Request]) -> Optional[str]:
+    """Extract IP address from request with proxy support."""
+    if not request:
+        return None
+
+    # Check proxy headers
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # Take first IP from comma-separated list
+        ip = forwarded_for.split(",")[0].strip()
+        if _is_valid_ip(ip):
+            return ip
+
+    # Check other proxy headers
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip and _is_valid_ip(real_ip):
+        return real_ip
+
+    # Fall back to direct connection
+    if hasattr(request, "client") and request.client:
+        return request.client.host
+
+    return None
+
+
+def _extract_user_agent(request: Optional[Request]) -> Optional[str]:
+    """Extract and sanitize user agent from request."""
+    if not request:
+        return None
+
+    user_agent = request.headers.get("User-Agent", "")
+    if not user_agent:
+        return None
+
+    # Truncate and sanitize
+    sanitized = user_agent[:500].strip()
+
+    # Remove potential XSS
+    if "<" in sanitized or ">" in sanitized:
+        sanitized = "".join(c for c in sanitized if c not in "<>")
+
+    return sanitized or None
+
+
+def _is_valid_ip(ip: str) -> bool:
+    """Basic IP address validation."""
+    if not ip or ip == "unknown":
+        return False
+
+    # Basic IPv4 validation
+    parts = ip.split(".")
+    if len(parts) == 4:
+        try:
+            return all(0 <= int(part) <= 255 for part in parts)
+        except ValueError:
+            pass
+
+    # Basic IPv6 validation (simplified)
+    if ":" in ip and len(ip) <= 45:
+        return True
+
+    return False
 
 
 def handle_auth_error(e: AuthError) -> HTTPException:
