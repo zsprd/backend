@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Welcome to ZSPRD Portfolio Analytics</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600&family=Noto+Serif:wght@600;700&family=Noto+Emoji&display=swap"
+          rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Noto Sans', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        .email-container {
+            max-width: 600px;
+            margin: 20px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(1, 4, 138, 0.08);
+        }
+
+        .header {
+            background-color: #ffffff;
+            border-bottom: 3px solid #01048A;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        .logo {
+            max-width: 200px;
+            height: auto;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            font-family: 'Noto Serif', serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: #01048A;
+            margin: 0;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .content h2 {
+            font-family: 'Noto Serif', serif;
+            font-size: 24px;
+            font-weight: 600;
+            color: #01048A;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .content-icon {
+            font-family: 'Noto Emoji', sans-serif;
+            font-size: 28px;
+            color: #000;
+        }
+
+        .content p {
+            font-size: 16px;
+            color: #4a4a4a;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .features {
+            margin: 30px 0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: #f8f9ff;
+            border-radius: 8px;
+            border-left: 4px solid #1AA7E8;
+        }
+
+        .feature-icon {
+            width: 40px;
+            height: 40px;
+            background-color: #F8BD25;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 18px;
+            font-family: 'Noto Emoji', sans-serif;
+            color: #000;
+        }
+
+        .feature-text h3 {
+            font-family: 'Noto Sans', sans-serif;
+            font-size: 16px;
+            font-weight: 600;
+            color: #01048A;
+            margin-bottom: 5px;
+        }
+
+        .feature-text p {
+            font-size: 14px;
+            color: #666;
+            margin: 0;
+        }
+
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+
+        .cta-button {
+            display: inline-block;
+            background-color: #01048A;
+            color: #ffffff;
+            text-decoration: none;
+            padding: 18px 36px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 18px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(1, 4, 138, 0.3);
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 25px rgba(248, 189, 37, 0.4);
+        }
+
+        .next-steps {
+            background-color: #f8f9ff;
+            padding: 25px;
+            border-radius: 8px;
+            margin: 30px 0;
+        }
+
+        .next-steps h3 {
+            font-family: 'Noto Serif', serif;
+            font-size: 18px;
+            font-weight: 600;
+            color: #01048A;
+            margin-bottom: 15px;
+        }
+
+        .steps-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .steps-list li {
+            padding: 8px 0;
+            font-size: 14px;
+            color: #666;
+            position: relative;
+            padding-left: 25px;
+        }
+
+        .steps-list li:before {
+            content: "→";
+            position: absolute;
+            left: 0;
+            color: #1AA7E8;
+            font-weight: bold;
+        }
+
+        .footer {
+            background-color: #f8f9ff;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e0e6ff;
+        }
+
+        .footer p {
+            font-size: 14px;
+            color: #666;
+            margin: 5px 0;
+        }
+
+        .footer .company-name {
+            font-weight: 600;
+            color: #01048A;
+        }
+
+        .support-link {
+            color: #1AA7E8;
+            text-decoration: none;
+        }
+
+        @media screen and (max-width: 600px) {
+            .email-container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+
+            .header, .content, .footer {
+                padding: 30px 20px;
+            }
+
+            .header h1 {
+                font-size: 20px;
+            }
+
+            .content h2 {
+                font-size: 20px;
+            }
+
+            .cta-button {
+                padding: 16px 32px;
+                font-size: 16px;
+            }
+
+            .feature-item {
+                flex-direction: column;
+                text-align: center;
+            }
+
+            .feature-icon {
+                margin-bottom: 10px;
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="email-container">
+    <div class="header">
+        <img alt="ZSPRD Portfolio Analytics" class="logo" src="./Primary-Logo-Light.png">
+        <h1>Welcome to ZSPRD Portfolio Analytics</h1>
+    </div>
+
+    <div class="content">
+        <h2><span class="content-icon">🎉</span>Hello {{name}},</h2>
+
+        <p>Congratulations! Your ZSPRD Portfolio Analytics account has been successfully verified and is now ready to
+            use. You now have access to institutional-quality portfolio analytics designed specifically for individual
+            investors like you.</p>
+
+        <div class="features">
+            <div class="feature-item">
+                <div class="feature-icon">📊</div>
+                <div class="feature-text">
+                    <h3>Portfolio Performance Tracking</h3>
+                    <p>Monitor returns, growth patterns, and historical performance trends</p>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">⚖️</div>
+                <div class="feature-text">
+                    <h3>Risk Assessment Tools</h3>
+                    <p>Track Value at Risk (VaR), volatility metrics, and risk exposure analysis</p>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">🥧</div>
+                <div class="feature-text">
+                    <h3>Asset Allocation Analysis</h3>
+                    <p>Visualize sector distribution, geographic exposure, and allocation breakdown</p>
+                </div>
+            </div>
+
+            <div class="feature-item">
+                <div class="feature-icon">📋</div>
+                <div class="feature-text">
+                    <h3>Professional Reports</h3>
+                    <p>Generate comprehensive portfolio reports with institutional-grade insights</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cta-container">
+            <a class="cta-button" href="{{dashboard_url}}">Access Your Dashboard</a>
+        </div>
+
+        <div class="next-steps">
+            <h3>Get Started in Minutes:</h3>
+            <ul class="steps-list">
+                <li>Upload your first portfolio or connect your brokerage account</li>
+                <li>Review your portfolio's risk and performance metrics</li>
+                <li>Explore optimization suggestions to improve your allocation</li>
+                <li>Set up alerts for important portfolio changes</li>
+            </ul>
+        </div>
+
+        <p>Our platform uses the same analytical frameworks trusted by institutional investors, now accessible through
+            an intuitive interface designed for individual portfolios.</p>
+    </div>
+
+    <div class="footer">
+        <p class="company-name">ZSPRD Portfolio Analytics</p>
+        <p>Making institutional-quality portfolio analytics accessible to individual investors</p>
+        <p style="margin-top: 15px;">
+            Questions? Our support team is here to help:
+            <a class="support-link" href="mailto:{{support_email}}">{{support_email}}</a>
+        </p>
+        <p style="margin-top: 20px; font-size: 12px; color: #999;">
+            This is an automated message. Please do not reply to this email.
+        </p>
+    </div>
+</div>
+</body>
+</html>

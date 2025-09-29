@@ -194,10 +194,7 @@ async def forgot_password(
 
     except AuthError as e:
         logger.error(f"Password reset request error: {str(e)}")
-        # Always return the same response for security and type consistency
-        return schema.ForgotPasswordResponse(
-            message="If an account with this email exists, a password reset link has been sent."
-        )
+        raise handle_auth_error(e)
 
 
 @router.post(

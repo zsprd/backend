@@ -30,9 +30,6 @@ from app.core.database import Base, get_async_db
 class TestSettings(Settings):
     """Test-specific settings that load from .env.test file."""
 
-    # Add any test-specific fields that might be in your .env.test
-    SLOWAPI_ENABLED: bool = False  # Rate limiting for tests
-
     class Config:
         env_file = ".env.test"
         extra = "ignore"  # Ignore extra fields that aren't defined
