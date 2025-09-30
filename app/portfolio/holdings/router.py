@@ -76,7 +76,7 @@ async def import_holdings_csv(
 async def get_user_holdings(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
     as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
     skip: int = Query(0, description="Skip records", ge=0),
@@ -86,8 +86,8 @@ async def get_user_holdings(
     try:
         if account_id:
             # Verify users owns the account
-            account = CRUDPortfolioAccount.get_by_user_and_id(
-                db, user_id=current_user_id, account_id=account_id
+            account = await CRUDPortfolioAccount.get_by_user_and_id(
+                db, user_id=current_user.id, account_id=account_id
             )
             if not account:
                 raise HTTPException(
@@ -103,8 +103,8 @@ async def get_user_holdings(
             from app.portfolio.accounts.model import PortfolioAccount
 
             # Get all users account IDs
-            stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user_id)
-            result = db.execute(stmt)
+            stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user.id)
+            result = await db.execute(stmt)
             account_ids = [str(row[0]) for row in result.fetchall()]
 
             if not account_ids:
@@ -135,7 +135,7 @@ async def get_user_holdings(
 async def get_holding(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     holding_id: str,
 ):
     """Get a specific holding by ID."""
@@ -147,8 +147,8 @@ async def get_holding(
         )
 
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=str(holding.account_id)
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
     if not account:
@@ -161,13 +161,13 @@ async def get_holding(
 async def create_holding(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     holding_data: HoldingCreate,
 ):
     """Create a new holding."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=str(holding_data.account_id)
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=str(holding_data.account_id)
     )
 
     if not account:
@@ -182,7 +182,7 @@ async def create_holding(
         # Log the creation
         audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="create",
             target_category="holding",
             target_id=str(holding.id),
@@ -201,7 +201,7 @@ async def create_holding(
 async def update_holding(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     holding_id: str,
     holding_update: HoldingUpdate,
 ):
@@ -214,8 +214,8 @@ async def update_holding(
         )
 
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=str(holding.account_id)
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
     if not account:
@@ -227,7 +227,7 @@ async def update_holding(
         # Log the update
         audit_log_crud.log_data_change(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="update",
             target_category="holding",
             target_id=holding_id,
@@ -246,7 +246,7 @@ async def update_holding(
 async def delete_holding(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     holding_id: str,
 ):
     """Delete a holding."""
@@ -258,8 +258,8 @@ async def delete_holding(
         )
 
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=str(holding.account_id)
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
     if not account:
@@ -271,7 +271,7 @@ async def delete_holding(
         # Log the deletion
         audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="delete",
             target_category="holding",
             target_id=holding_id,
@@ -294,15 +294,15 @@ async def delete_holding(
 async def get_account_holdings(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: str,
     as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
     current_only: bool = Query(True, description="Get only current holdings (non-zero positions)"),
 ):
     """Get holdings for a specific account."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -331,14 +331,14 @@ async def get_account_holdings(
 async def get_account_holdings_summary(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: str,
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """Get comprehensive holdings summary for a specific account."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -363,13 +363,13 @@ async def get_account_holdings_summary(
 async def get_portfolio_allocation(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """Get portfolios allocation across all users accounts."""
     try:
         allocation = holding_crud.get_portfolio_allocation(
-            db, user_id=current_user_id, base_currency=base_currency
+            db, user_id=current_user.id, base_currency=base_currency
         )
         return allocation
     except Exception as e:
@@ -383,7 +383,7 @@ async def get_portfolio_allocation(
 async def get_holding_history(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     security_id: str,
     account_id: Optional[str] = Query(None, description="Filter by account"),
     start_date: Optional[date] = Query(None, description="Start date"),
@@ -394,8 +394,8 @@ async def get_holding_history(
     try:
         if account_id:
             # Verify users owns the account
-            account = CRUDPortfolioAccount.get_by_user_and_id(
-                db, user_id=current_user_id, account_id=account_id
+            account = await CRUDPortfolioAccount.get_by_user_and_id(
+                db, user_id=current_user.id, account_id=account_id
             )
             if not account:
                 raise HTTPException(
@@ -418,8 +418,8 @@ async def get_holding_history(
             from app.portfolio.accounts.model import PortfolioAccount
 
             # Get all users account IDs
-            stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user_id)
-            result = db.execute(stmt)
+            stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user.id)
+            result = await db.execute(stmt)
             account_ids = [str(row[0]) for row in result.fetchall()]
 
             holdings = []
@@ -451,7 +451,7 @@ async def get_holding_history(
 async def bulk_update_market_values(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     holdings_updates: List[Dict[str, Any]],
 ):
     """Bulk update market values for holdings."""
@@ -472,8 +472,8 @@ async def bulk_update_market_values(
             if not holding:
                 continue
 
-            account = CRUDPortfolioAccount.get_by_user_and_id(
-                db, user_id=current_user_id, account_id=str(holding.account_id)
+            account = await CRUDPortfolioAccount.get_by_user_and_id(
+                db, user_id=current_user.id, account_id=str(holding.account_id)
             )
             if not account:
                 raise HTTPException(
@@ -486,7 +486,7 @@ async def bulk_update_market_values(
         # Log bulk update
         audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="bulk_update",
             target_category="holding",
             description=f"Bulk updated market values for {updated_count} holdings",
@@ -509,15 +509,15 @@ async def bulk_update_market_values(
 async def create_holdings_snapshot(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: str,
     as_of_date: date = Query(..., description="Snapshot date"),
     holdings_data: List[Dict[str, Any]],
 ):
     """Create a complete holdings snapshot for an account."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -542,7 +542,7 @@ async def create_holdings_snapshot(
         # Log snapshot creation
         audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="create_snapshot",
             target_category="holding",
             target_id=account_id,
@@ -574,7 +574,7 @@ async def create_holdings_snapshot(
 async def upload_holdings_csv(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: str,
     file: UploadFile = File(...),
     dry_run: bool = Form(False, description="Validate only, don't import"),
@@ -589,8 +589,8 @@ async def upload_holdings_csv(
     """
 
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -619,7 +619,7 @@ async def upload_holdings_csv(
         # Log the upload attempt
         audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="csv_upload_attempt",
             target_category="holdings",
             target_id=account_id,
@@ -643,7 +643,7 @@ async def upload_holdings_csv(
             # Log the result
             audit_log_crud.log_user_action(
                 db,
-                user_id=current_user_id,
+                user_id=current_user.id,
                 action="csv_import_completed",
                 target_category="holdings",
                 target_id=account_id,
@@ -675,7 +675,7 @@ async def upload_holdings_csv(
         # Log the error
         audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="csv_upload_error",
             target_category="holdings",
             target_id=account_id,

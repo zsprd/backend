@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # Set to "production" in prod
     DEBUG: bool = True  # Set to False in production
 
-    # SecurityReference Settings
+    # Security Settings
     SECRET_KEY: str  # Must be set in .env
     ALGORITHM: str = "HS256"
 
@@ -42,7 +42,7 @@ class Settings(BaseSettings):
     FRONTEND_URL: str = "http://localhost:3000"
     OAUTH_REDIRECT_URI: str = "http://localhost:3000/auth/callback"
 
-    # Password SecurityReference Requirements
+    # Password Security Requirements
     MIN_PASSWORD_LENGTH: int = 8
     MAX_PASSWORD_LENGTH: int = 128
     REQUIRE_PASSWORD_UPPERCASE: bool = True
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     SESSION_INACTIVE_DAYS: int = 30  # Extend session by 30 days
     REMEMBER_ME_DAYS: int = 30  # Remember me duration
 
-    # SecurityReference Headers
+    # Security Headers
     CORS_ORIGINS: list = [
         "http://localhost:3000",  # Next.js dev
         "https://app.zsprd.com",  # Production frontend
@@ -108,7 +108,7 @@ class Settings(BaseSettings):
     LOG_FILE: Optional[str] = None
     SENTRY_DSN: Optional[str] = None
 
-    # SecurityReference Monitoring
+    # Security Monitoring
     ENABLE_AUDIT_LOGS: bool = True
     TRACK_LOGIN_ATTEMPTS: bool = True
     ALERT_ON_SUSPICIOUS_LOGIN: bool = True
@@ -119,7 +119,7 @@ class Settings(BaseSettings):
     REDOC_URL: str = "/api/v1/redoc"
     OPENAPI_URL: str = "/api/v1/openapi.json"
 
-    # Production SecurityReference Settings
+    # Production Security Settings
     REQUIRE_HTTPS: bool = False  # Set to True in production
     SECURE_COOKIES: bool = False  # Set to True in production
     HSTS_MAX_AGE: int = 31536000  # 1 year
@@ -185,13 +185,13 @@ except ValidationError as e:
     print(f"\n[ERROR] Settings validation error: {e}\n", file=sys.stderr)
     sys.exit(1)
 
-# SecurityReference middleware configuration
+# Security middleware configuration
 SECURITY_HEADERS = {
     "X-Content-Type-Options": "nosniff",
     "X-Frame-Options": "DENY",
     "X-XSS-Protection": "1; mode=block",
-    "Strict-Transport-SecurityReference": f"max-age={settings.HSTS_MAX_AGE}; includeSubDomains",
-    "Content-SecurityReference-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
+    "Strict-Transport-Security": f"max-age={settings.HSTS_MAX_AGE}; includeSubDomains",
+    "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';",
     "Referrer-Policy": "strict-origin-when-cross-origin",
     "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
 }

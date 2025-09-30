@@ -5,10 +5,9 @@ from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
 from app.core.crud import CRUDBase
-from app.security.master.model import SecurityReference
-from app.security.prices.model import ExchangeRate, SecurityPrice
+from app.security.master.model import SecurityMaster
+from app.security.prices.model import SecurityPrice
 from app.security.prices.schema import (
-    ExchangeRateCreate,
     MarketDataCreate,
     MarketDataUpdate,
 )
@@ -188,8 +187,8 @@ class CRUDMarketData(CRUDBase[SecurityPrice, MarketDataCreate, MarketDataUpdate]
         )
 
         securities_needing_update = (
-            db.query(SecurityReference.id)
-            .filter(and_(SecurityReference.is_active, ~SecurityReference.id.in_(subquery)))
+            db.query(SecurityMaster.id)
+            .filter(and_(SecurityMaster.is_active, ~SecurityMaster.id.in_(subquery)))
             .limit(limit)
             .all()
         )
@@ -290,78 +289,3 @@ class CRUDMarketData(CRUDBase[SecurityPrice, MarketDataCreate, MarketDataUpdate]
 
         db.commit()
         return deleted_count
-
-
-class CRUDExchangeRate(CRUDBase[ExchangeRate, ExchangeRateCreate, None]):
-
-    def get_rate(
-        self,
-        db: Session,
-        *,
-        base_currency: str,
-        quote_currency: str,
-        target_date: Optional[date] = None,
-    ) -> Optional[ExchangeRate]:
-        """Get exchange rate for a currency pair on a specific date."""
-        if not target_date:
-            target_date = date.today()
-
-        # Try exact date first
-        exact_match = (
-            db.query(ExchangeRate)
-            .filter(
-                and_(
-                    ExchangeRate.base_currency == base_currency,
-                    ExchangeRate.quote_currency == quote_currency,
-                    ExchangeRate.rate_date == target_date,
-                )
-            )
-            .first()
-        )
-
-        if exact_match:
-            return exact_match
-
-        # Get closest date before
-        return (
-            db.query(ExchangeRate)
-            .filter(
-                and_(
-                    ExchangeRate.base_currency == base_currency,
-                    ExchangeRate.quote_currency == quote_currency,
-                    ExchangeRate.rate_date <= target_date,
-                )
-            )
-            .order_by(desc(ExchangeRate.rate_date))
-            .first()
-        )
-
-    def get_latest_rates(self, db: Session, *, base_currency: str) -> List[ExchangeRate]:
-        """Get latest exchange rates for a base currency."""
-        subquery = (
-            db.query(
-                ExchangeRate.quote_currency,
-                func.max(ExchangeRate.rate_date).label("max_date"),
-            )
-            .filter(ExchangeRate.base_currency == base_currency)
-            .group_by(ExchangeRate.quote_currency)
-            .subquery()
-        )
-
-        return (
-            db.query(ExchangeRate)
-            .join(
-                subquery,
-                and_(
-                    ExchangeRate.quote_currency == subquery.c.quote_currency,
-                    ExchangeRate.rate_date == subquery.c.max_date,
-                ),
-            )
-            .scalars()
-            .all()
-        )
-
-
-# Create instances
-market_data_crud = CRUDMarketData(SecurityPrice)
-exchange_rate_crud = CRUDExchangeRate(ExchangeRate)

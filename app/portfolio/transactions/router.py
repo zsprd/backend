@@ -84,7 +84,7 @@ async def import_transactions_csv(
 async def get_user_transactions(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
     start_date: Optional[date] = Query(None, description="Start date filter"),
     end_date: Optional[date] = Query(None, description="End date filter"),
@@ -98,8 +98,8 @@ async def get_user_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = CRUDPortfolioAccount.get_by_user_and_id(
-                db, user_id=current_user_id, account_id=account_id
+            account = await CRUDPortfolioAccount.get_by_user_and_id(
+                db, user_id=current_user.id, account_id=account_id
             )
             if not account:
                 raise HTTPException(
@@ -107,7 +107,7 @@ async def get_user_transactions(
                     detail="Access denied or account not found",
                 )
 
-            transactions = transaction_crud.get_by_account(
+            transactions = await transaction_crud.get_by_account(
                 db,
                 account_id=account_id,
                 skip=skip,
@@ -118,9 +118,9 @@ async def get_user_transactions(
             )
         else:
             # Get transactions across all users accounts
-            transactions = transaction_crud.get_by_user(
+            transactions = await transaction_crud.get_by_user(
                 db,
-                user_id=current_user_id,
+                user_id=current_user.id,
                 skip=skip,
                 limit=limit,
                 start_date=start_date,
@@ -139,11 +139,11 @@ async def get_user_transactions(
 async def get_transaction(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transaction_id: str,
 ):
     """Get a specific transaction by ID."""
-    transaction = transaction_crud.get(db, id=transaction_id)
+    transaction = await transaction_crud.get(db, id=transaction_id)
 
     if not transaction:
         raise HTTPException(
@@ -151,8 +151,8 @@ async def get_transaction(
         )
 
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=str(transaction.account_id)
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
     if not account:
@@ -165,13 +165,13 @@ async def get_transaction(
 async def create_transaction(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transaction_data: TransactionCreate,
 ):
     """Create a new transaction."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=str(transaction_data.account_id)
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=str(transaction_data.account_id)
     )
 
     if not account:
@@ -181,12 +181,12 @@ async def create_transaction(
         )
 
     try:
-        transaction = transaction_crud.create(db, obj_in=transaction_data)
+        transaction = await transaction_crud.create(db, obj_in=transaction_data)
 
         # Log the creation
-        audit_log_crud.log_user_action(
+        await audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="create",
             target_category="transaction",
             target_id=str(transaction.id),
@@ -205,12 +205,12 @@ async def create_transaction(
 async def update_transaction(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transaction_id: str,
     transaction_update: TransactionUpdate,
 ):
     """Update an existing transaction."""
-    transaction = transaction_crud.get(db, id=transaction_id)
+    transaction = await transaction_crud.get(db, id=transaction_id)
 
     if not transaction:
         raise HTTPException(
@@ -218,22 +218,22 @@ async def update_transaction(
         )
 
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=str(transaction.account_id)
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
     if not account:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     try:
-        updated_transaction = transaction_crud.update(
+        updated_transaction = await transaction_crud.update(
             db, db_obj=transaction, obj_in=transaction_update
         )
 
         # Log the update
-        audit_log_crud.log_data_change(
+        await audit_log_crud.log_data_change(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="update",
             target_category="transaction",
             target_id=transaction_id,
@@ -252,11 +252,11 @@ async def update_transaction(
 async def delete_transaction(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transaction_id: str,
 ):
     """Delete a transaction."""
-    transaction = transaction_crud.get(db, id=transaction_id)
+    transaction = await transaction_crud.get(db, id=transaction_id)
 
     if not transaction:
         raise HTTPException(
@@ -264,20 +264,20 @@ async def delete_transaction(
         )
 
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=str(transaction.account_id)
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
     if not account:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     try:
-        transaction_crud.delete(db, id=transaction_id)
+        await transaction_crud.delete(db, id=transaction_id)
 
         # Log the deletion
-        audit_log_crud.log_user_action(
+        await audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="delete",
             target_category="transaction",
             target_id=transaction_id,
@@ -300,15 +300,15 @@ async def delete_transaction(
 async def get_account_transaction_summary(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str,
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
 ):
     """Get transaction summary for a specific account."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -318,7 +318,7 @@ async def get_account_transaction_summary(
         )
 
     try:
-        summary = transaction_crud.get_transaction_summary(
+        summary = await transaction_crud.get_transaction_summary(
             db, account_id=account_id, start_date=start_date, end_date=end_date
         )
         return summary
@@ -333,14 +333,14 @@ async def get_account_transaction_summary(
 async def get_portfolio_transaction_summary(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
 ):
     """Get transaction summary across all users accounts."""
     try:
-        summary = transaction_crud.get_portfolio_summary(
-            db, user_id=current_user_id, start_date=start_date, end_date=end_date
+        summary = await transaction_crud.get_portfolio_summary(
+            db, user_id=current_user.id, start_date=start_date, end_date=end_date
         )
         return summary
     except Exception as e:
@@ -354,15 +354,15 @@ async def get_portfolio_transaction_summary(
 async def get_monthly_transaction_activity(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str,
     year: int,
     month: Optional[int] = Query(None, description="Specific month (1-12)", ge=1, le=12),
 ):
     """Get monthly transaction activity for an account."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -372,7 +372,7 @@ async def get_monthly_transaction_activity(
         )
 
     try:
-        activity = transaction_crud.get_monthly_activity(
+        activity = await transaction_crud.get_monthly_activity(
             db, account_id=account_id, year=year, month=month
         )
         return activity
@@ -387,7 +387,7 @@ async def get_monthly_transaction_activity(
 async def get_security_transactions(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     security_id: str,
     account_id: Optional[str] = Query(None, description="Filter by account"),
     start_date: Optional[date] = Query(None, description="Start date"),
@@ -397,8 +397,8 @@ async def get_security_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = CRUDPortfolioAccount.get_by_user_and_id(
-                db, user_id=current_user_id, account_id=account_id
+            account = await CRUDPortfolioAccount.get_by_user_and_id(
+                db, user_id=current_user.id, account_id=account_id
             )
             if not account:
                 raise HTTPException(
@@ -406,11 +406,11 @@ async def get_security_transactions(
                     detail="Access denied or account not found",
                 )
 
-        transactions = transaction_crud.get_security_transactions(
+        transactions = await transaction_crud.get_security_transactions(
             db,
             security_id=security_id,
             account_id=account_id,
-            user_id=current_user_id if not account_id else None,
+            user_id=current_user.id if not account_id else None,
             start_date=start_date,
             end_date=end_date,
         )
@@ -427,15 +427,15 @@ async def get_security_transactions(
 async def get_realized_gains_losses(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str,
     tax_year: Optional[int] = Query(None, description="Tax year filter"),
     security_id: Optional[str] = Query(None, description="Filter by securities"),
 ):
     """Calculate realized gains/losses for tax reporting."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -445,14 +445,14 @@ async def get_realized_gains_losses(
         )
 
     try:
-        gains_losses = transaction_crud.calculate_realized_gains_losses(
+        gains_losses = await transaction_crud.calculate_realized_gains_losses(
             db, account_id=account_id, security_id=security_id, tax_year=tax_year
         )
 
         # Log tax report access
-        audit_log_crud.log_user_action(
+        await audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="tax_report",
             target_category="transaction",
             target_id=account_id,
@@ -471,7 +471,7 @@ async def get_realized_gains_losses(
 async def get_tax_summary(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     tax_year: int,
 ):
     """Get comprehensive tax summary across all accounts."""
@@ -481,8 +481,8 @@ async def get_tax_summary(
 
         from app.portfolio.accounts.model import PortfolioAccount
 
-        stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user_id)
-        result = db.execute(stmt)
+        stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user.id)
+        result = await db.execute(stmt)
         account_ids = [str(row[0]) for row in result.fetchall()]
 
         if not account_ids:
@@ -499,7 +499,7 @@ async def get_tax_summary(
         by_account = {}
 
         for account_id in account_ids:
-            gains_losses = transaction_crud.calculate_realized_gains_losses(
+            gains_losses = await transaction_crud.calculate_realized_gains_losses(
                 db, account_id=account_id, tax_year=tax_year
             )
 
@@ -510,9 +510,9 @@ async def get_tax_summary(
         net_realized = total_gains - total_losses
 
         # Log tax summary access
-        audit_log_crud.log_user_action(
+        await audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="tax_summary",
             target_category="transaction",
             description=f"Generated tax summary for {tax_year}",
@@ -538,7 +538,7 @@ async def get_tax_summary(
 async def bulk_import_transactions(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transactions_data: List[Dict[str, Any]],
 ):
     """Bulk import transactions."""
@@ -557,8 +557,8 @@ async def bulk_import_transactions(
                 account_ids.add(account_id)
 
         for account_id in account_ids:
-            account = CRUDPortfolioAccount.get_by_user_and_id(
-                db, user_id=current_user_id, account_id=account_id
+            account = await CRUDPortfolioAccount.get_by_user_and_id(
+                db, user_id=current_user.id, account_id=account_id
             )
             if not account:
                 raise HTTPException(
@@ -566,14 +566,14 @@ async def bulk_import_transactions(
                     detail=f"Access denied for account {account_id}",
                 )
 
-        transactions = transaction_crud.bulk_import_transactions(
+        transactions = await transaction_crud.bulk_import_transactions(
             db, transactions_data=transactions_data
         )
 
         # Log bulk import
-        audit_log_crud.log_user_action(
+        await audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="bulk_import",
             target_category="transaction",
             description=f"Bulk imported {len(transactions)} transactions",
@@ -600,14 +600,14 @@ async def bulk_import_transactions(
 async def upload_transactions_csv(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str = Query(..., description="Target account ID"),
     file: UploadFile = File(..., description="CSV file with transactions"),
 ):
     """Upload and process transactions from CSV file."""
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -649,14 +649,14 @@ async def upload_transactions_csv(
                 detail="No valid transactions found in CSV",
             )
 
-        transactions = transaction_crud.bulk_import_transactions(
+        transactions = await transaction_crud.bulk_import_transactions(
             db, transactions_data=transactions_data
         )
 
         # Log CSV import
-        audit_log_crud.log_user_action(
+        await audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="csv_import",
             target_category="transaction",
             target_id=account_id,
@@ -682,7 +682,7 @@ async def upload_transactions_csv(
 async def search_transactions(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     q: str = Query(..., description="Search term", min_length=2),
     account_id: Optional[str] = Query(None, description="Filter by account"),
     start_date: Optional[date] = Query(None, description="Start date"),
@@ -693,8 +693,8 @@ async def search_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = CRUDPortfolioAccount.get_by_user_and_id(
-                db, user_id=current_user_id, account_id=account_id
+            account = await CRUDPortfolioAccount.get_by_user_and_id(
+                db, user_id=current_user.id, account_id=account_id
             )
             if not account:
                 raise HTTPException(
@@ -702,7 +702,7 @@ async def search_transactions(
                     detail="Access denied or account not found",
                 )
 
-            transactions = transaction_crud.get_by_account(
+            transactions = await transaction_crud.get_by_account(
                 db,
                 account_id=account_id,
                 start_date=start_date,
@@ -711,9 +711,9 @@ async def search_transactions(
                 limit=limit,
             )
         else:
-            transactions = transaction_crud.get_by_user(
+            transactions = await transaction_crud.get_by_user(
                 db,
-                user_id=current_user_id,
+                user_id=current_user.id,
                 start_date=start_date,
                 end_date=end_date,
                 skip=0,
@@ -751,7 +751,7 @@ async def search_transactions(
 async def upload_transactions_csv(
     *,
     db: AsyncSession = Depends(get_async_db),
-    current_user_id: str = Depends(get_current_user.id),
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str,
     file: UploadFile = File(...),
     dry_run: bool = Form(False, description="Validate only, don't import"),
@@ -766,8 +766,8 @@ async def upload_transactions_csv(
     """
 
     # Verify users owns the account
-    account = CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user_id, account_id=account_id
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
     )
 
     if not account:
@@ -794,9 +794,9 @@ async def upload_transactions_csv(
         content = await file.read()
 
         # Log the upload attempt
-        audit_log_crud.log_user_action(
+        await audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="csv_upload_attempt",
             target_category="transactions",
             target_id=account_id,
@@ -818,9 +818,9 @@ async def upload_transactions_csv(
             )
 
             # Log the result
-            audit_log_crud.log_user_action(
+            await audit_log_crud.log_user_action(
                 db,
-                user_id=current_user_id,
+                user_id=current_user.id,
                 action="csv_import_completed",
                 target_category="transactions",
                 target_id=account_id,
@@ -850,9 +850,9 @@ async def upload_transactions_csv(
         logger.error(error_msg)
 
         # Log the error
-        audit_log_crud.log_user_action(
+        await audit_log_crud.log_user_action(
             db,
-            user_id=current_user_id,
+            user_id=current_user.id,
             action="csv_upload_error",
             target_category="transactions",
             target_id=account_id,

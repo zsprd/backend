@@ -19,14 +19,14 @@ from uuid import UUID
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from app.portfolio.accounts.crud import portfolio_account_crud
-from app.portfolio.holdings.crud import portfolio_holding_crud
-from app.portfolio.holdings.schema import PortfolioHoldingCreate
-from app.portfolio.transactions.crud import portfolio_transaction_crud
-from app.portfolio.transactions.schema import PortfolioTransactionCreate
+from app.portfolio.accounts.crud import CRUDPortfolioAccount
+from app.portfolio.holdings.crud import CRUDHolding
+from app.portfolio.holdings.schema import HoldingCreate
+from app.portfolio.transactions.crud import CRUDTransaction
+from app.portfolio.transactions.schema import TransactionCreate
 from app.security.master.crud import security_crud
 from app.security.master.model import SecurityMaster
-from app.security.master.schema import SecurityMasterCreate
+from app.security.master.schema import SecurityCreate
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,7 @@ class SecurityMatcher:
             security_type = self._guess_security_type(symbol)
 
             # Create security data
-            security_data = SecurityMasterCreate(
+            security_data = SecurityCreate(
                 symbol=symbol,
                 name=name or symbol,  # Use symbol as name if not provided
                 security_type=security_type,
@@ -304,7 +304,7 @@ class CSVProcessor:
 
         try:
             # Verify account exists and user has access
-            account = portfolio_account_crud.get(self.db, id=account_id)
+            account = CRUDPortfolioAccount.get(self.db, id=account_id)
             if not account:
                 result.errors.append(f"Account {account_id} not found")
                 return result
@@ -362,7 +362,7 @@ class CSVProcessor:
 
         try:
             # Verify account
-            account = portfolio_account_crud.get(self.db, id=account_id)
+            account = CRUDPortfolioAccount.get(self.db, id=account_id)
             if not account:
                 result.errors.append(f"Account {account_id} not found")
                 return result
@@ -461,7 +461,7 @@ class CSVProcessor:
         tx_category, tx_side = self._map_transaction_type(tx_type)
 
         # Create transaction
-        tx_data = PortfolioTransactionCreate(
+        tx_data = TransactionCreate(
             account_id=account.id,
             security_id=security.id if security else None,
             transaction_type=tx_category,
@@ -474,7 +474,7 @@ class CSVProcessor:
             description=row.get("description", "") or f"{tx_type.upper()} {symbol or ''}",
         )
 
-        transaction = portfolio_transaction_crud.create(self.db, obj_in=tx_data)
+        transaction = CRUDTransaction.create(self.db, obj_in=tx_data)
         result.processed_rows.append({"type": "transaction", "id": str(transaction.id)})
 
     def _process_holding_row(
@@ -507,7 +507,7 @@ class CSVProcessor:
             as_of_date = datetime.now().date()
 
         # Create holding
-        holding_data = PortfolioHoldingCreate(
+        holding_data = HoldingCreate(
             account_id=account.id,
             security_id=security.id,
             quantity=quantity,
@@ -516,7 +516,7 @@ class CSVProcessor:
             as_of_date=as_of_date,
         )
 
-        holding = portfolio_holding_crud.create(self.db, obj_in=holding_data)
+        holding = CRUDHolding.create(self.db, obj_in=holding_data)
         result.processed_rows.append({"type": "holding", "id": str(holding.id)})
 
     def _validate_transaction_row(self, row: pd.Series, result: CSVProcessorResult):
