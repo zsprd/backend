@@ -8,16 +8,12 @@ run_server.py: Development server startup script
 """
 
 import asyncio
-import importlib
 import logging
-import pkgutil
 import sys
 from pathlib import Path
 
 import uvicorn
 from sqlalchemy import text
-
-import app as app_pkg
 
 # Import after path setup
 from app.core.config import settings
@@ -93,11 +89,7 @@ async def create_tables() -> bool:
     try:
         # Import all models to ensure they're registered
         from app.core.model import Base
-        from app.user.accounts.model import UserAccount  # ensures user model is registered
-
-        for finder, name, ispkg in pkgutil.walk_packages(app_pkg.__path__, app_pkg.__name__ + "."):
-            if name.endswith(".model"):
-                importlib.import_module(name)
+        import app.models
 
         async with async_engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)

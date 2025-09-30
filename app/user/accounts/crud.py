@@ -59,7 +59,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Unexpected error creating user: {email} - {type(e).__name__}")
+            logger.error(f"Unexpected error creating user: {email} - {type(e).__name__} - {str(e)}")
             return None
 
     async def create_oauth_user(
@@ -96,7 +96,9 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Unexpected error creating OAuth user: {email} - {type(e).__name__}")
+            logger.error(
+                f"Unexpected error creating OAuth user: {email} - {type(e).__name__} - {str(e)}"
+            )
             return None
 
     async def get_user_by_id(
@@ -124,7 +126,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
             return result.scalar_one_or_none()
 
         except Exception as e:
-            logger.error(f"Error retrieving user by ID {user_id}: {type(e).__name__}")
+            logger.error(f"Error retrieving user by ID {user_id}: {type(e).__name__} - {str(e)}")
             return None
 
     async def delete_account(self, user: UserAccount) -> bool:
@@ -137,7 +139,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error deleting user {user.id}: {type(e).__name__}")
+            logger.error(f"Error deleting user {user.id}: {type(e).__name__} - {str(e)}")
             return False
 
     async def get_user_by_email(
@@ -154,7 +156,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
             return result.scalar_one_or_none()
 
         except Exception as e:
-            logger.error(f"Error retrieving user by email: {type(e).__name__}")
+            logger.error(f"Error retrieving user by email: {type(e).__name__} - {str(e)}")
             return None
 
     async def authenticate_user(self, user: UserAccount, password: str) -> bool:
@@ -198,7 +200,9 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error during authentication for user {user.id}: {type(e).__name__}")
+            logger.error(
+                f"Error during authentication for user {user.id}: {type(e).__name__} - {str(e)}"
+            )
             return False
 
     async def update_last_login(self, user: UserAccount) -> None:
@@ -211,7 +215,9 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error updating last login for user {user.id}: {type(e).__name__}")
+            logger.error(
+                f"Error updating last login for user {user.id}: {type(e).__name__} - {str(e)}"
+            )
 
     async def update_password(
         self, user: UserAccount, current_password: str, new_password: str
@@ -244,7 +250,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
         except Exception as e:
             await self.db.rollback()
             logger.error(
-                f"Unexpected error updating password for user {user.id}: {type(e).__name__}"
+                f"Unexpected error updating password for user {user.id}: {type(e).__name__} - {str(e)}"
             )
             return None
 
@@ -268,7 +274,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
         except Exception as e:
             await self.db.rollback()
             logger.error(
-                f"Unexpected error resetting password for user {user.id}: {type(e).__name__}"
+                f"Unexpected error resetting password for user {user.id}: {type(e).__name__} - {str(e)}"
             )
             return None
 
@@ -288,7 +294,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
         except Exception as e:
             await self.db.rollback()
             logger.error(
-                f"Unexpected error marking email verified for user {user.id}: {type(e).__name__}"
+                f"Unexpected error marking email verified for user {user.id}: {type(e).__name__} - {str(e)}"
             )
             return None
 
@@ -308,7 +314,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
         except Exception as e:
             await self.db.rollback()
             logger.error(
-                f"Unexpected error deactivating account for user {user.id}: {type(e).__name__}"
+                f"Unexpected error deactivating account for user {user.id}: {type(e).__name__} - {str(e)}"
             )
             return None
 
@@ -321,7 +327,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
             return result.scalar() > 0
 
         except Exception as e:
-            logger.error(f"Error checking email availability: {type(e).__name__}")
+            logger.error(f"Error checking email availability: {type(e).__name__} - {str(e)}")
             return True  # Err on the side of caution
 
     async def cleanup_locked_accounts(self) -> int:
@@ -353,7 +359,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error during lockout cleanup: {type(e).__name__}")
+            logger.error(f"Error during lockout cleanup: {type(e).__name__} - {str(e)}")
             return 0
 
     async def update_profile(
@@ -392,7 +398,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
         except Exception as e:
             await self.db.rollback()
             logger.error(
-                f"Unexpected error updating profile for user {user.id}: {type(e).__name__}"
+                f"Unexpected error updating profile for user {user.id}: {type(e).__name__} - {str(e)}"
             )
             return None
 
@@ -415,7 +421,9 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
 
         except Exception as e:
             await self.db.rollback()
-            logger.error(f"Error handling failed login for user {user.id}: {type(e).__name__}")
+            logger.error(
+                f"Error handling failed login for user {user.id}: {type(e).__name__} - {str(e)}"
+            )
 
     async def _reset_failed_attempts(self, user: UserAccount) -> None:
         """Reset failed login attempts and unlock account."""
@@ -427,14 +435,16 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
             # Note: Caller should commit
 
         except Exception as e:
-            logger.error(f"Error resetting failed attempts for user {user.id}: {type(e).__name__}")
+            logger.error(
+                f"Error resetting failed attempts for user {user.id}: {type(e).__name__} - {str(e)}"
+            )
 
     def _hash_password(self, password: str) -> str:
         """Hash password using bcrypt."""
         try:
             return pwd_context.hash(password)
         except Exception as e:
-            logger.error(f"Error hashing password: {type(e).__name__}")
+            logger.error(f"Error hashing password: {type(e).__name__} - {str(e)}")
             raise
 
     def _verify_password(self, plain_password: str, hashed_password: str) -> bool:
@@ -442,7 +452,7 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
         try:
             return pwd_context.verify(plain_password, hashed_password)
         except Exception as e:
-            logger.error(f"Error verifying password: {type(e).__name__}")
+            logger.error(f"Error verifying password: {type(e).__name__} - {str(e)}")
             return False
 
     def _needs_rehash(self, hashed_password: str) -> bool:
@@ -450,5 +460,5 @@ class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate
         try:
             return pwd_context.needs_update(hashed_password)
         except Exception as e:
-            logger.error(f"Error checking password rehash: {type(e).__name__}")
+            logger.error(f"Error checking password rehash: {type(e).__name__} - {str(e)}")
             return False

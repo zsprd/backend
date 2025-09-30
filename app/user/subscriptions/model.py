@@ -3,13 +3,11 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
 from uuid import UUID
 
-from sqlalchemy import DECIMAL, Date, Enum, ForeignKey, String
+from sqlalchemy import DECIMAL, Date, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.model import BaseModel
-
-from .enums import PlanTypeEnum
 
 if TYPE_CHECKING:
     from app.user.accounts.model import UserAccount
@@ -34,8 +32,8 @@ class UserSubscription(BaseModel):
         comment="Reference to the subscribing user",
     )
 
-    plan_name: Mapped[PlanTypeEnum] = mapped_column(
-        Enum(PlanTypeEnum, name="plan_type_enum", native_enum=False, create_type=False),
+    plan_name: Mapped[str] = mapped_column(
+        String(50),
         nullable=False,
         comment="Current subscription plan tier",
     )

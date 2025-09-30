@@ -4,14 +4,12 @@ from sqlalchemy import JSON, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.model import BaseModel
-
+from ..identifiers.model import SecurityIdentifier
+from ..prices.model import SecurityPrice
 from ...corporate.actions.model import CorporateAction
 from ...corporate.dividends.model import CorporateDividend
 from ...portfolio.holdings.model import PortfolioHolding
 from ...portfolio.transactions.model import PortfolioTransaction
-from ..identifiers.model import SecurityIdentifier
-from ..prices.model import SecurityPrice
-from .enums import SECURITY_SUBTYPE_ENUM, SECURITY_TYPE_ENUM
 
 
 class SecurityMaster(BaseModel):
@@ -36,14 +34,14 @@ class SecurityMaster(BaseModel):
 
     # Security classification for analytics
     security_type: Mapped[str] = mapped_column(
-        SECURITY_TYPE_ENUM,
+        String(50),
         nullable=False,
         index=True,
         comment="Broad asset class: equity, debt, fund, option, etc.",
     )
 
     security_subtype: Mapped[Optional[str]] = mapped_column(
-        SECURITY_SUBTYPE_ENUM,
+        String(50),
         nullable=True,
         comment="Specific security type: common stock, ETF, corporate bond",
     )

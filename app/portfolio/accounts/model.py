@@ -13,8 +13,6 @@ from app.core.model import BaseModel
 from app.portfolio.holdings.model import PortfolioHolding
 from app.portfolio.transactions.model import PortfolioTransaction
 
-from .enums import AccountSubtypeEnum, AccountTypeEnum
-
 if TYPE_CHECKING:
     from app.data.connections.model import DataConnection
     from app.user.accounts.model import UserAccount
@@ -37,8 +35,8 @@ class PortfolioAccount(BaseModel):
         nullable=False,
         index=True,
     )
-    account_type: Mapped[AccountTypeEnum] = mapped_column(String(50), nullable=False, index=True)
-    account_subtype: Mapped[Optional[AccountSubtypeEnum]] = mapped_column(String(50), nullable=True)
+    account_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
+    account_subtype: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

@@ -1,26 +1,81 @@
 import logging
 from datetime import UTC, date, datetime
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Annotated
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.core.database import get_async_db
-from app.data.integrations.csv.service import CSVProcessorResult
-from app.portfolio.accounts.crud import account_crud
+from app.data.integrations.csv.service import CSVProcessorResult, get_csv_processor
+from app.portfolio.accounts.crud import CRUDPortfolioAccount
 from app.portfolio.holdings.crud import holding_crud
 from app.portfolio.holdings.schema import HoldingCreate, HoldingResponse, HoldingUpdate
 from app.system.logs.crud import audit_log_crud
+from app.user.accounts.model import UserAccount
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+@router.post("/accounts/{account_id}/import-csv")
+async def import_holdings_csv(
+    account_id: UUID,
+    file: Annotated[UploadFile, File()],
+    dry_run: Annotated[bool, Query()] = False,
+    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
+    db: Annotated[AsyncSession, Depends(get_async_db)] = None,
+) -> dict:
+    """
+    Import holdings from CSV file.
+
+    Args:
+        account_id: Portfolio account ID
+        file: CSV file to upload
+        dry_run: If true, validate only without importing
+
+    Returns:
+        Import results with success/error counts
+    """
+
+    # Verify user owns the account
+    account = await CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user.id, account_id=account_id
+    )
+    if not account:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied or account not found"
+        )
+
+    # Validate file
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be a CSV")
+
+    # Check file size
+    contents = await file.read()
+    if len(contents) > 10 * 1024 * 1024:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File size must be less than 10MB",
+        )
+
+    # Process CSV
+    processor = get_csv_processor(db)
+    result = processor.process_holdings_csv(
+        csv_content=contents,
+        account_id=account_id,
+        source=f"csv_upload_{current_user.id}",
+        dry_run=dry_run,
+    )
+
+    return result.to_dict()
+
+
 @router.get("/", response_model=List[HoldingResponse])
 async def get_user_holdings(
     *,
-    db: Session = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
     as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
@@ -31,7 +86,7 @@ async def get_user_holdings(
     try:
         if account_id:
             # Verify users owns the account
-            account = account_crud.get_by_user_and_id(
+            account = CRUDPortfolioAccount.get_by_user_and_id(
                 db, user_id=current_user_id, account_id=account_id
             )
             if not account:
@@ -79,7 +134,7 @@ async def get_user_holdings(
 @router.get("/{holding_id}", response_model=HoldingResponse)
 async def get_holding(
     *,
-    db: Session = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     holding_id: str,
 ):
@@ -92,7 +147,7 @@ async def get_holding(
         )
 
     # Verify users owns the account
-    account = account_crud.get_by_user_and_id(
+    account = CRUDPortfolioAccount.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(holding.account_id)
     )
 
@@ -105,13 +160,13 @@ async def get_holding(
 @router.post("/", response_model=HoldingResponse, status_code=status.HTTP_201_CREATED)
 async def create_holding(
     *,
-    db: Session = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     holding_data: HoldingCreate,
 ):
     """Create a new holding."""
     # Verify users owns the account
-    account = account_crud.get_by_user_and_id(
+    account = CRUDPortfolioAccount.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(holding_data.account_id)
     )
 
@@ -145,7 +200,7 @@ async def create_holding(
 @router.put("/{holding_id}", response_model=HoldingResponse)
 async def update_holding(
     *,
-    db: Session = Depends(get_async_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     holding_id: str,
     holding_update: HoldingUpdate,
@@ -159,7 +214,7 @@ async def update_holding(
         )
 
     # Verify users owns the account
-    account = account_crud.get_by_user_and_id(
+    account = CRUDPortfolioAccount.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(holding.account_id)
     )
 
@@ -190,7 +245,7 @@ async def update_holding(
 @router.delete("/{holding_id}")
 async def delete_holding(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     holding_id: str,
 ):
@@ -203,7 +258,7 @@ async def delete_holding(
         )
 
     # Verify users owns the account
-    account = account_crud.get_by_user_and_id(
+    account = CRUDPortfolioAccount.get_by_user_and_id(
         db, user_id=current_user_id, account_id=str(holding.account_id)
     )
 
@@ -238,7 +293,7 @@ async def delete_holding(
 @router.get("/{account_id}", response_model=List[HoldingResponse])
 async def get_account_holdings(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     account_id: str,
     as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
@@ -246,7 +301,9 @@ async def get_account_holdings(
 ):
     """Get holdings for a specific account."""
     # Verify users owns the account
-    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
+    account = CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user_id, account_id=account_id
+    )
 
     if not account:
         raise HTTPException(
@@ -273,14 +330,16 @@ async def get_account_holdings(
 @router.get("/{account_id}/summary")
 async def get_account_holdings_summary(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     account_id: str,
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """Get comprehensive holdings summary for a specific account."""
     # Verify users owns the account
-    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
+    account = CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user_id, account_id=account_id
+    )
 
     if not account:
         raise HTTPException(
@@ -303,7 +362,7 @@ async def get_account_holdings_summary(
 @router.get("/portfolio/allocation")
 async def get_portfolio_allocation(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
@@ -323,7 +382,7 @@ async def get_portfolio_allocation(
 @router.get("/securities/{security_id}/history")
 async def get_holding_history(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     security_id: str,
     account_id: Optional[str] = Query(None, description="Filter by account"),
@@ -335,7 +394,7 @@ async def get_holding_history(
     try:
         if account_id:
             # Verify users owns the account
-            account = account_crud.get_by_user_and_id(
+            account = CRUDPortfolioAccount.get_by_user_and_id(
                 db, user_id=current_user_id, account_id=account_id
             )
             if not account:
@@ -391,7 +450,7 @@ async def get_holding_history(
 @router.post("/bulk-update-prices")
 async def bulk_update_market_values(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     holdings_updates: List[Dict[str, Any]],
 ):
@@ -413,7 +472,7 @@ async def bulk_update_market_values(
             if not holding:
                 continue
 
-            account = account_crud.get_by_user_and_id(
+            account = CRUDPortfolioAccount.get_by_user_and_id(
                 db, user_id=current_user_id, account_id=str(holding.account_id)
             )
             if not account:
@@ -449,7 +508,7 @@ async def bulk_update_market_values(
 @router.post("/{account_id}/snapshot")
 async def create_holdings_snapshot(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     account_id: str,
     as_of_date: date = Query(..., description="Snapshot date"),
@@ -457,7 +516,9 @@ async def create_holdings_snapshot(
 ):
     """Create a complete holdings snapshot for an account."""
     # Verify users owns the account
-    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
+    account = CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user_id, account_id=account_id
+    )
 
     if not account:
         raise HTTPException(
@@ -512,7 +573,7 @@ async def create_holdings_snapshot(
 @router.post("/{account_id}/csv-upload")
 async def upload_holdings_csv(
     *,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user_id: str = Depends(get_current_user.id),
     account_id: str,
     file: UploadFile = File(...),
@@ -528,7 +589,9 @@ async def upload_holdings_csv(
     """
 
     # Verify users owns the account
-    account = account_crud.get_by_user_and_id(db, user_id=current_user_id, account_id=account_id)
+    account = CRUDPortfolioAccount.get_by_user_and_id(
+        db, user_id=current_user_id, account_id=account_id
+    )
 
     if not account:
         raise HTTPException(

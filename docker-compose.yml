@@ -32,6 +32,20 @@ services:
       timeout: 5s
       retries: 5
 
+  # Database Migrations
+  migrate:
+    build: .
+    container_name: zsprd_migrate
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: alembic upgrade head
+    restart: "no"  # Run once and exit
+
   # PostgreSQL Administration
   pgadmin:
     image: dpage/pgadmin4:latest
@@ -54,6 +68,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - DEBUG=${DEBUG}
       - DATABASE_URL=${DATABASE_URL}
       - REDIS_URL=${REDIS_URL}
       - SECRET_KEY=${SECRET_KEY}
@@ -64,8 +79,16 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     volumes:
-      - .:/app  # Mount source code for development
+      - .:/app
+    healthcheck:
+      test: [ 'CMD', 'curl', '-f', 'http://localhost:8000/health' ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
     command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 
 volumes:

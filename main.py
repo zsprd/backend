@@ -13,8 +13,11 @@ import time
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
+from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.database import async_engine
+from app.core.redis import redis_client
 
 # Configure logging
 logging.basicConfig(
@@ -81,11 +84,25 @@ async def global_exception_handler(request: Request, exc: Exception):
 @app.get("/health")
 async def health_check():
     """Health check endpoint for monitoring and deployment."""
-    return {
-        "status": "healthy",
-        "version": settings.APP_VERSION,
-        "environment": settings.ENVIRONMENT,
-    }
+    redis_status = "unknown"
+    db_status = "unknown"
+
+    try:
+        if redis_client.is_available():
+            redis_status = "connected"
+        else:
+            redis_status = "disconnected"
+    except Exception as e:
+        redis_status = f"disconnected: {str(e)}"
+
+    try:
+        async with async_engine.begin() as connection:
+            await connection.execute(text("SELECT 1"))
+            db_status = "connected"
+    except Exception as e:
+        db_status = f"disconnected: {str(e)}"
+
+    return {"status": "healthy", "database": db_status, "redis": redis_status}
 
 
 # Root endpoint
@@ -102,6 +119,7 @@ async def root():
 
 # Only include API router after all models are properly defined
 try:
+    from app import models
     from app.api.v1.router import api_router
 
     app.include_router(api_router, prefix=f"/api/{settings.API_PREFIX}")

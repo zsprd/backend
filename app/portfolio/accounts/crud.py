@@ -105,7 +105,8 @@ class CRUDPortfolioAccount(
     async def create(self, obj_in: schema.PortfolioAccountCreate) -> PortfolioAccount:
         """Create a new portfolio account."""
         try:
-            db_obj = PortfolioAccount(**obj_in.model_dump())
+            data = obj_in.model_dump(mode="json")
+            db_obj = PortfolioAccount(**data)
             self.db.add(db_obj)
             await self.db.commit()
             await self.db.refresh(db_obj)
@@ -121,7 +122,7 @@ class CRUDPortfolioAccount(
     ) -> PortfolioAccount:
         """Update a portfolio account."""
         try:
-            obj_data = obj_in.model_dump(exclude_unset=True)
+            obj_data = obj_in.model_dump(exclude_unset=True, mode="json")
 
             for field, value in obj_data.items():
                 setattr(db_obj, field, value)

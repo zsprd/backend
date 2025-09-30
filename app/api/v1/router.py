@@ -5,6 +5,7 @@ from fastapi import APIRouter
 # import app.analytics.risk.router as risk
 # import app.analytics.summary.router as summary
 import app.auth.router as auth
+import app.data.integrations.csv.router as csv_import
 import app.portfolio.accounts.router as account
 
 # import app.portfolio.holdings.router as holding
@@ -18,6 +19,7 @@ api_router = APIRouter()
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(user.router, prefix="/user", tags=["User"])
 api_router.include_router(account.router, prefix="/portfolios/accounts", tags=["Portfolio"])
+api_router.include_router(csv_import.router, prefix="/data/csv", tags=["CSV Import"])
 # api_router.include_router(holding.router, prefix="/portfolios/holdings", tags=["Portfolio"])
 # api_router.include_router(transaction.router, prefix="/portfolios/transactions", tags=["Portfolio"])
 # api_router.include_router(exposure.router, prefix="/analytics/exposure", tags=["Analytics"])
