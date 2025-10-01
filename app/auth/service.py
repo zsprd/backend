@@ -4,8 +4,8 @@ from typing import Optional
 
 from app.auth import email, schema, tokens
 from app.core.config import settings
-from app.user.accounts.crud import UserAccountRepository
 from app.user.accounts.model import UserAccount
+from app.user.accounts.repository import UserAccountRepository
 from app.user.sessions.crud import UserSessionRepository
 
 logger = logging.getLogger(__name__)

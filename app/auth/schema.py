@@ -4,7 +4,7 @@ from uuid import UUID
 import bleach
 from pydantic import BaseModel, Field, field_validator, validate_email
 
-from app.user.accounts.schema import UserAccountRead
+from app.user.accounts.schemas import UserAccountRead
 
 
 class UserRegistrationData(BaseModel):

@@ -9,8 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import tokens
 from app.auth.service import AuthService
 from app.core.database import get_async_db
-from app.user.accounts.crud import UserAccountRepository
 from app.user.accounts.model import UserAccount
+from app.user.accounts.repository import UserAccountRepository
 from app.user.sessions.crud import UserSessionRepository
 
 logger = logging.getLogger(__name__)
