@@ -9,7 +9,7 @@ from app.auth.rate_limiter import rate_limit
 from app.core.config import settings
 from app.core.database import get_async_db
 from app.user.accounts import schema
-from app.user.accounts.crud import CRUDUserAccount
+from app.user.accounts.crud import UserAccountRepository
 from app.user.accounts.model import UserAccount
 from app.user.accounts.service import UserError, UserService
 
@@ -19,7 +19,7 @@ router = APIRouter()
 
 def get_user_service(db: AsyncSession = Depends(get_async_db)) -> UserService:
     """Get user service with injected repository."""
-    return UserService(user_repo=CRUDUserAccount(db))
+    return UserService(UserAccountRepository(db))
 
 
 @router.get(

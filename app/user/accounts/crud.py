@@ -8,7 +8,7 @@ from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.user.accounts.model import UserAccount
 from app.user.accounts.schema import UserAccountCreate, UserAccountUpdate
 
@@ -16,7 +16,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 logger = logging.getLogger(__name__)
 
 
-class CRUDUserAccount(CRUDBase[UserAccount, UserAccountCreate, UserAccountUpdate]):
+class UserAccountRepository(BaseRepository[UserAccount, UserAccountCreate, UserAccountUpdate]):
     """CRUD operations for user accounts."""
 
     def __init__(self, db: AsyncSession):

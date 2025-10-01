@@ -13,7 +13,7 @@ from app.auth.dependencies import get_current_user
 from app.core.database import get_async_db
 from app.data.integrations.csv.service import CSVProcessorResult
 from app.data.integrations.csv.service import get_csv_processor
-from app.portfolio.accounts.crud import CRUDPortfolioAccount
+from app.portfolio.accounts.crud import PortfolioAccountRepository
 from app.portfolio.transactions.crud import transaction_crud
 from app.portfolio.transactions.schema import (
     TransactionCreate,
@@ -48,7 +48,7 @@ async def import_transactions_csv(
     """
 
     # Verify user owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
     if not account:
@@ -98,7 +98,7 @@ async def get_user_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = await CRUDPortfolioAccount.get_by_user_and_id(
+            account = await PortfolioAccountRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -151,7 +151,7 @@ async def get_transaction(
         )
 
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
@@ -170,7 +170,7 @@ async def create_transaction(
 ):
     """Create a new transaction."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(transaction_data.account_id)
     )
 
@@ -218,7 +218,7 @@ async def update_transaction(
         )
 
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
@@ -264,7 +264,7 @@ async def delete_transaction(
         )
 
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
@@ -307,7 +307,7 @@ async def get_account_transaction_summary(
 ):
     """Get transaction summary for a specific account."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -361,7 +361,7 @@ async def get_monthly_transaction_activity(
 ):
     """Get monthly transaction activity for an account."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -397,7 +397,7 @@ async def get_security_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = await CRUDPortfolioAccount.get_by_user_and_id(
+            account = await PortfolioAccountRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -434,7 +434,7 @@ async def get_realized_gains_losses(
 ):
     """Calculate realized gains/losses for tax reporting."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -557,7 +557,7 @@ async def bulk_import_transactions(
                 account_ids.add(account_id)
 
         for account_id in account_ids:
-            account = await CRUDPortfolioAccount.get_by_user_and_id(
+            account = await PortfolioAccountRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -606,7 +606,7 @@ async def upload_transactions_csv(
 ):
     """Upload and process transactions from CSV file."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -693,7 +693,7 @@ async def search_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = await CRUDPortfolioAccount.get_by_user_and_id(
+            account = await PortfolioAccountRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -766,7 +766,7 @@ async def upload_transactions_csv(
     """
 
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 

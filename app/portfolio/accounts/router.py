@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user
 from app.core.database import get_async_db
 from app.portfolio.accounts import schema
-from app.portfolio.accounts.crud import CRUDPortfolioAccount
+from app.portfolio.accounts.crud import PortfolioAccountRepository
 from app.portfolio.accounts.service import PortfolioAccountError, PortfolioAccountService
 from app.user.accounts.model import UserAccount
 
@@ -18,7 +18,7 @@ router = APIRouter()
 
 def get_portfolio_service(db: AsyncSession = Depends(get_async_db)) -> PortfolioAccountService:
     """Get user service with injected repository."""
-    return PortfolioAccountService(CRUDPortfolioAccount(db))
+    return PortfolioAccountService(PortfolioAccountRepository(db))
 
 
 def handle_portfolio_account_error(e: PortfolioAccountError) -> HTTPException:

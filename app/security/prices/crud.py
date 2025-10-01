@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.security.master.model import SecurityMaster
 from app.security.prices.model import SecurityPrice
 from app.security.prices.schema import (
@@ -13,7 +13,7 @@ from app.security.prices.schema import (
 )
 
 
-class CRUDMarketData(CRUDBase[SecurityPrice, MarketDataCreate, MarketDataUpdate]):
+class MarketDataRepository(BaseRepository[SecurityPrice, MarketDataCreate, MarketDataUpdate]):
 
     def get_by_security(
         self,

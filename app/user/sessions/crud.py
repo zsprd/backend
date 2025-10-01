@@ -7,7 +7,7 @@ from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.user.accounts.model import UserAccount
 from app.user.sessions.model import UserSession
 from app.user.sessions.schema import UserSessionCreate, UserSessionUpdate
@@ -15,7 +15,7 @@ from app.user.sessions.schema import UserSessionCreate, UserSessionUpdate
 logger = logging.getLogger(__name__)
 
 
-class CRUDUserSession(CRUDBase[UserSession, UserSessionCreate, UserSessionUpdate]):
+class UserSessionRepository(BaseRepository[UserSession, UserSessionCreate, UserSessionUpdate]):
     """CRUD operations for user sessions."""
 
     def __init__(self, db: AsyncSession):

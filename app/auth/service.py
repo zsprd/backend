@@ -4,9 +4,9 @@ from typing import Optional
 
 from app.auth import email, schema, tokens
 from app.core.config import settings
-from app.user.accounts.crud import CRUDUserAccount
+from app.user.accounts.crud import UserAccountRepository
 from app.user.accounts.model import UserAccount
-from app.user.sessions.crud import CRUDUserSession
+from app.user.sessions.crud import UserSessionRepository
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +28,7 @@ class SessionContext:
 class AuthService:
     """Pure authentication business logic service."""
 
-    def __init__(self, user_repo: CRUDUserAccount, session_repo: CRUDUserSession):
+    def __init__(self, user_repo: UserAccountRepository, session_repo: UserSessionRepository):
         self.user_crud = user_repo
         self.session_crud = session_repo
 

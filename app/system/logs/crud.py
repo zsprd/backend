@@ -4,11 +4,11 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, desc, func, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.system.logs.model import SystemLog
 
 
-class CRUDAuditLog(CRUDBase[SystemLog, None, None]):
+class AuditLogRepository(BaseRepository[SystemLog, None, None]):
     """CRUD operations for SystemLog model."""
 
     def create_log(
@@ -389,4 +389,4 @@ class CRUDAuditLog(CRUDBase[SystemLog, None, None]):
 
 
 # Create instance
-audit_log_crud = CRUDAuditLog(SystemLog)
+audit_log_crud = AuditLogRepository(SystemLog)

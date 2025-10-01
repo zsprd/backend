@@ -3,7 +3,7 @@ from typing import List
 from uuid import UUID
 
 from app.portfolio.accounts import schema
-from app.portfolio.accounts.crud import CRUDPortfolioAccount
+from app.portfolio.accounts.crud import PortfolioAccountRepository
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ class PortfolioAccountError(Exception):
 class PortfolioAccountService:
     """Portfolio account business logic service."""
 
-    def __init__(self, portfolio_account_repo: CRUDPortfolioAccount):
+    def __init__(self, portfolio_account_repo: PortfolioAccountRepository):
         self.portfolio_account_repo = portfolio_account_repo
 
     async def get_user_accounts(

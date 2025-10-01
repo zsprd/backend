@@ -7,7 +7,7 @@ import aiohttp
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.security.master.model import SecurityMaster
 from app.security.prices.model import SecurityPrice
 
@@ -166,7 +166,7 @@ class MarketDataService:
     def __init__(self, db: Session):
         self.db = db
         self.client = AlphaVantageClient()
-        self.market_data_crud = CRUDBase(SecurityMaster)
+        self.market_data_crud = BaseRepository(SecurityMaster)
 
     async def update_security_data(self, security_id: str, force_refresh: bool = False) -> bool:
         """

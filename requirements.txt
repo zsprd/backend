@@ -36,7 +36,7 @@ requests==2.32.5
 
 # Financial calculations
 numpy==2.3.3
-pandas==2.3.2
+pandas==2.3.3
 scipy==1.16.2
 pyfolio-reloaded==0.9.9
 empyrical-reloaded==0.5.12
@@ -44,8 +44,9 @@ scikit-learn==1.7.2
 
 # Development tools
 black==25.9.0
-isort==6.0.1
+isort==6.1.0
 pytest==8.4.2
+pytest_asyncio==1.2.0
 
 # Third-party services
 yfinance==0.2.66

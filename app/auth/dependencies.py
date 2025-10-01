@@ -9,9 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import tokens
 from app.auth.service import AuthService
 from app.core.database import get_async_db
-from app.user.accounts.crud import CRUDUserAccount
+from app.user.accounts.crud import UserAccountRepository
 from app.user.accounts.model import UserAccount
-from app.user.sessions.crud import CRUDUserSession
+from app.user.sessions.crud import UserSessionRepository
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
@@ -19,8 +19,8 @@ security = HTTPBearer()
 
 async def get_auth_service(db: AsyncSession = Depends(get_async_db)) -> AuthService:
     return AuthService(
-        user_repo=CRUDUserAccount(db),
-        session_repo=CRUDUserSession(db),
+        user_repo=UserAccountRepository(db),
+        session_repo=UserSessionRepository(db),
     )
 
 

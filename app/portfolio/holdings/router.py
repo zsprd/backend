@@ -8,15 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.core.database import get_async_db
-from app.data.integrations.csv.service import CSVProcessorResult, get_csv_processor
-from app.portfolio.accounts.crud import CRUDPortfolioAccount
-from app.portfolio.holdings.crud import holding_crud
-from app.portfolio.holdings.schema import HoldingCreate, HoldingResponse, HoldingUpdate
+from app.data.integrations.csv.service import CSVProcessorResult
+from app.portfolio.accounts.crud import PortfolioAccountRepository
+from app.portfolio.holdings.repository import HoldingRepository
+from app.portfolio.holdings.schemas import HoldingCreate, HoldingRead, HoldingUpdate
+from app.portfolio.holdings.service import PortfolioHoldingsService
 from app.system.logs.crud import audit_log_crud
 from app.user.accounts.model import UserAccount
 
-logger = logging.getLogger(__name__)
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post("/accounts/{account_id}/import-csv")
@@ -27,52 +28,17 @@ async def import_holdings_csv(
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     db: Annotated[AsyncSession, Depends(get_async_db)] = None,
 ) -> dict:
-    """
-    Import holdings from CSV file.
-
-    Args:
-        account_id: Portfolio account ID
-        file: CSV file to upload
-        dry_run: If true, validate only without importing
-
-    Returns:
-        Import results with success/error counts
-    """
-
-    # Verify user owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user.id, account_id=account_id
-    )
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied or account not found"
-        )
-
-    # Validate file
-    if not file.filename.endswith(".csv"):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="File must be a CSV")
-
-    # Check file size
-    contents = await file.read()
-    if len(contents) > 10 * 1024 * 1024:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File size must be less than 10MB",
-        )
-
-    # Process CSV
-    processor = get_csv_processor(db)
-    result = processor.process_holdings_csv(
-        csv_content=contents,
+    """Import holdings from CSV file."""
+    return await PortfolioHoldingsService.import_holdings_csv(
+        db=db,
         account_id=account_id,
-        source=f"csv_upload_{current_user.id}",
+        file=file,
         dry_run=dry_run,
+        current_user=current_user,
     )
 
-    return result.to_dict()
 
-
-@router.get("/", response_model=List[HoldingResponse])
+@router.get("/", response_model=List[HoldingRead])
 async def get_user_holdings(
     *,
     db: AsyncSession = Depends(get_async_db),
@@ -83,55 +49,19 @@ async def get_user_holdings(
     limit: int = Query(100, description="Limit records", ge=1, le=500),
 ):
     """Get holdings for the current users with optional filtering."""
-    try:
-        if account_id:
-            # Verify users owns the account
-            account = await CRUDPortfolioAccount.get_by_user_and_id(
-                db, user_id=current_user.id, account_id=account_id
-            )
-            if not account:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Access denied or account not found",
-                )
-
-            holdings = holding_crud.get_by_account(db, account_id=account_id, as_of_date=as_of_date)
-        else:
-            # Get holdings across all users accounts
-            from sqlalchemy import select
-
-            from app.portfolio.accounts.model import PortfolioAccount
-
-            # Get all users account IDs
-            stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user.id)
-            result = await db.execute(stmt)
-            account_ids = [str(row[0]) for row in result.fetchall()]
-
-            if not account_ids:
-                return []
-
-            holdings = []
-            for acc_id in account_ids:
-                acc_holdings = holding_crud.get_by_account(
-                    db, account_id=acc_id, as_of_date=as_of_date
-                )
-                holdings.extend(acc_holdings)
-
-        # Apply pagination
-        paginated_holdings = holdings[skip : skip + limit]
-
-        return [
-            HoldingResponse.model_validate(holding, from_attributes=True)
-            for holding in paginated_holdings
-        ]
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving holdings: {str(e)}",
-        )
+    # Convert account_id to UUID if present
+    account_id_uuid = UUID(account_id) if account_id else None
+    return await PortfolioHoldingsService.get_user_holdings(
+        db=db,
+        current_user=current_user,
+        account_id=account_id_uuid,
+        as_of_date=as_of_date,
+        skip=skip,
+        limit=limit,
+    )
 
 
-@router.get("/{holding_id}", response_model=HoldingResponse)
+@router.get("/{holding_id}", response_model=HoldingRead)
 async def get_holding(
     *,
     db: AsyncSession = Depends(get_async_db),
@@ -139,25 +69,15 @@ async def get_holding(
     holding_id: str,
 ):
     """Get a specific holding by ID."""
-    holding = holding_crud.get(db, id=holding_id)
-
-    if not holding:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="PortfolioHolding not found"
-        )
-
-    # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
-        db, user_id=current_user.id, account_id=str(holding.account_id)
+    holding_id_uuid = UUID(holding_id)
+    return await PortfolioHoldingsService.get_holding(
+        db=db,
+        current_user=current_user,
+        holding_id=holding_id_uuid,
     )
 
-    if not account:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
-    return HoldingResponse.model_validate(holding, from_attributes=True)
-
-
-@router.post("/", response_model=HoldingResponse, status_code=status.HTTP_201_CREATED)
+@router.post("/", response_model=HoldingRead, status_code=status.HTTP_201_CREATED)
 async def create_holding(
     *,
     db: AsyncSession = Depends(get_async_db),
@@ -166,7 +86,7 @@ async def create_holding(
 ):
     """Create a new holding."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding_data.account_id)
     )
 
@@ -177,7 +97,7 @@ async def create_holding(
         )
 
     try:
-        holding = holding_crud.create(db, obj_in=holding_data)
+        holding = HoldingRepository.create(db, obj_in=holding_data)
 
         # Log the creation
         audit_log_crud.log_user_action(
@@ -189,7 +109,7 @@ async def create_holding(
             description=f"Created holding for account {holding_data.account_id}",
         )
 
-        return HoldingResponse.model_validate(holding, from_attributes=True)
+        return HoldingRead.model_validate(holding, from_attributes=True)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -197,7 +117,7 @@ async def create_holding(
         )
 
 
-@router.put("/{holding_id}", response_model=HoldingResponse)
+@router.put("/{holding_id}", response_model=HoldingRead)
 async def update_holding(
     *,
     db: AsyncSession = Depends(get_async_db),
@@ -206,7 +126,7 @@ async def update_holding(
     holding_update: HoldingUpdate,
 ):
     """Update an existing holding."""
-    holding = holding_crud.get(db, id=holding_id)
+    holding = HoldingRepository.get(db, id=holding_id)
 
     if not holding:
         raise HTTPException(
@@ -214,7 +134,7 @@ async def update_holding(
         )
 
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
@@ -222,7 +142,7 @@ async def update_holding(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     try:
-        updated_holding = holding_crud.update(db, db_obj=holding, obj_in=holding_update)
+        updated_holding = HoldingRepository.update(db, db_obj=holding, obj_in=holding_update)
 
         # Log the update
         audit_log_crud.log_data_change(
@@ -234,7 +154,7 @@ async def update_holding(
             new_values=holding_update.model_dump(exclude_unset=True),
         )
 
-        return HoldingResponse.model_validate(updated_holding, from_attributes=True)
+        return HoldingRead.model_validate(updated_holding, from_attributes=True)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -250,7 +170,7 @@ async def delete_holding(
     holding_id: str,
 ):
     """Delete a holding."""
-    holding = holding_crud.get(db, id=holding_id)
+    holding = HoldingRepository.get(db, id=holding_id)
 
     if not holding:
         raise HTTPException(
@@ -258,7 +178,7 @@ async def delete_holding(
         )
 
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
@@ -266,7 +186,7 @@ async def delete_holding(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     try:
-        holding_crud.delete(db, id=holding_id)
+        HoldingRepository.delete(db, id=holding_id)
 
         # Log the deletion
         audit_log_crud.log_user_action(
@@ -290,7 +210,7 @@ async def delete_holding(
         )
 
 
-@router.get("/{account_id}", response_model=List[HoldingResponse])
+@router.get("/{account_id}", response_model=List[HoldingRead])
 async def get_account_holdings(
     *,
     db: AsyncSession = Depends(get_async_db),
@@ -301,7 +221,7 @@ async def get_account_holdings(
 ):
     """Get holdings for a specific account."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -313,13 +233,13 @@ async def get_account_holdings(
 
     try:
         if current_only:
-            holdings = holding_crud.get_current_holdings_by_account(db, account_id=account_id)
+            holdings = HoldingRepository.get_current_holdings_by_account(db, account_id=account_id)
         else:
-            holdings = holding_crud.get_by_account(db, account_id=account_id, as_of_date=as_of_date)
+            holdings = HoldingRepository.get_by_account(
+                db, account_id=account_id, as_of_date=as_of_date
+            )
 
-        return [
-            HoldingResponse.model_validate(holding, from_attributes=True) for holding in holdings
-        ]
+        return [HoldingRead.model_validate(holding, from_attributes=True) for holding in holdings]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -337,7 +257,7 @@ async def get_account_holdings_summary(
 ):
     """Get comprehensive holdings summary for a specific account."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -348,7 +268,7 @@ async def get_account_holdings_summary(
         )
 
     try:
-        summary = holding_crud.get_holdings_summary(
+        summary = HoldingRepository.get_holdings_summary(
             db, account_id=account_id, base_currency=base_currency
         )
         return summary
@@ -368,7 +288,7 @@ async def get_portfolio_allocation(
 ):
     """Get portfolios allocation across all users accounts."""
     try:
-        allocation = holding_crud.get_portfolio_allocation(
+        allocation = HoldingRepository.get_portfolio_allocation(
             db, user_id=current_user.id, base_currency=base_currency
         )
         return allocation
@@ -394,7 +314,7 @@ async def get_holding_history(
     try:
         if account_id:
             # Verify users owns the account
-            account = await CRUDPortfolioAccount.get_by_user_and_id(
+            account = await PortfolioAccountRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -403,7 +323,7 @@ async def get_holding_history(
                     detail="Access denied or account not found",
                 )
 
-            holdings = holding_crud.get_holding_history(
+            holdings = HoldingRepository.get_holding_history(
                 db,
                 account_id=account_id,
                 security_id=security_id,
@@ -424,7 +344,7 @@ async def get_holding_history(
 
             holdings = []
             for acc_id in account_ids:
-                acc_holdings = holding_crud.get_holding_history(
+                acc_holdings = HoldingRepository.get_holding_history(
                     db,
                     account_id=acc_id,
                     security_id=security_id,
@@ -437,9 +357,7 @@ async def get_holding_history(
         # Sort by date and limit
         holdings = sorted(holdings, key=lambda x: x.as_of_date, reverse=True)[:limit]
 
-        return [
-            HoldingResponse.model_validate(holding, from_attributes=True) for holding in holdings
-        ]
+        return [HoldingRead.model_validate(holding, from_attributes=True) for holding in holdings]
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -468,11 +386,11 @@ async def bulk_update_market_values(
             if not holding_id:
                 continue
 
-            holding = holding_crud.get(db, id=holding_id)
+            holding = HoldingRepository.get(db, id=holding_id)
             if not holding:
                 continue
 
-            account = await CRUDPortfolioAccount.get_by_user_and_id(
+            account = await PortfolioAccountRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=str(holding.account_id)
             )
             if not account:
@@ -481,7 +399,9 @@ async def bulk_update_market_values(
                     detail=f"Access denied for holding {holding_id}",
                 )
 
-        updated_count = holding_crud.update_market_values(db, holdings_updates=holdings_updates)
+        updated_count = HoldingRepository.update_market_values(
+            db, holdings_updates=holdings_updates
+        )
 
         # Log bulk update
         audit_log_crud.log_user_action(
@@ -516,7 +436,7 @@ async def create_holdings_snapshot(
 ):
     """Create a complete holdings snapshot for an account."""
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -532,7 +452,7 @@ async def create_holdings_snapshot(
         )
 
     try:
-        holdings = holding_crud.create_holding_snapshot(
+        holdings = HoldingRepository.create_holding_snapshot(
             db,
             account_id=account_id,
             as_of_date=as_of_date,
@@ -559,8 +479,7 @@ async def create_holdings_snapshot(
             "as_of_date": as_of_date.isoformat(),
             "holdings_count": len(holdings),
             "holdings": [
-                HoldingResponse.model_validate(holding, from_attributes=True)
-                for holding in holdings
+                HoldingRead.model_validate(holding, from_attributes=True) for holding in holdings
             ],
         }
     except Exception as e:
@@ -589,7 +508,7 @@ async def upload_holdings_csv(
     """
 
     # Verify users owns the account
-    account = await CRUDPortfolioAccount.get_by_user_and_id(
+    account = await PortfolioAccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 

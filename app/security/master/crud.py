@@ -3,12 +3,12 @@ from typing import List, Optional
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.security.master.model import SecurityMaster
 from app.security.master.schema import SecurityCreate, SecurityUpdate
 
 
-class CRUDSecurity(CRUDBase[SecurityMaster, SecurityCreate, SecurityUpdate]):
+class SecurityRepository(BaseRepository[SecurityMaster, SecurityCreate, SecurityUpdate]):
 
     def search_securities(
         self, db: Session, *, query: str, limit: int = 50
@@ -49,4 +49,4 @@ class CRUDSecurity(CRUDBase[SecurityMaster, SecurityCreate, SecurityUpdate]):
 
 
 # Create instance
-security_crud = CRUDSecurity(SecurityMaster)
+security_crud = SecurityRepository(SecurityMaster)

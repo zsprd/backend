@@ -33,7 +33,7 @@ class HoldingUpdate(BaseModel):
     security_id: Optional[UUID] = None
 
 
-class HoldingResponse(HoldingBase):
+class HoldingRead(HoldingBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID

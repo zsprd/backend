@@ -263,11 +263,11 @@ async def async_client(mock_dependencies) -> AsyncGenerator[AsyncClient, None]:
 @pytest_asyncio.fixture
 async def real_auth_service(test_db_session):
     """Real auth service with test database for integration tests."""
-    from app.user.accounts.crud import CRUDUserAccount
-    from app.user.sessions.crud import CRUDUserSession
+    from app.user.accounts.crud import UserAccountRepository
+    from app.user.sessions.crud import UserSessionRepository
 
-    user_crud = CRUDUserAccount(test_db_session)
-    session_crud = CRUDUserSession(test_db_session)
+    user_crud = UserAccountRepository(test_db_session)
+    session_crud = UserSessionRepository(test_db_session)
     return AuthService(user_crud, session_crud)
 
 

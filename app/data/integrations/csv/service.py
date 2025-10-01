@@ -19,10 +19,10 @@ from uuid import UUID
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from app.portfolio.accounts.crud import CRUDPortfolioAccount
-from app.portfolio.holdings.crud import CRUDHolding
-from app.portfolio.holdings.schema import HoldingCreate
-from app.portfolio.transactions.crud import CRUDTransaction
+from app.portfolio.accounts.crud import PortfolioAccountRepository
+from app.portfolio.holdings.repository import HoldingRepository
+from app.portfolio.holdings.schemas import HoldingCreate
+from app.portfolio.transactions.crud import TransactionRepository
 from app.portfolio.transactions.schema import TransactionCreate
 from app.security.master.crud import security_crud
 from app.security.master.model import SecurityMaster
@@ -304,7 +304,7 @@ class CSVProcessor:
 
         try:
             # Verify account exists and user has access
-            account = CRUDPortfolioAccount.get(self.db, id=account_id)
+            account = PortfolioAccountRepository.get(self.db, id=account_id)
             if not account:
                 result.errors.append(f"Account {account_id} not found")
                 return result
@@ -362,7 +362,7 @@ class CSVProcessor:
 
         try:
             # Verify account
-            account = CRUDPortfolioAccount.get(self.db, id=account_id)
+            account = PortfolioAccountRepository.get(self.db, id=account_id)
             if not account:
                 result.errors.append(f"Account {account_id} not found")
                 return result
@@ -474,7 +474,7 @@ class CSVProcessor:
             description=row.get("description", "") or f"{tx_type.upper()} {symbol or ''}",
         )
 
-        transaction = CRUDTransaction.create(self.db, obj_in=tx_data)
+        transaction = TransactionRepository.create(self.db, obj_in=tx_data)
         result.processed_rows.append({"type": "transaction", "id": str(transaction.id)})
 
     def _process_holding_row(
@@ -516,7 +516,7 @@ class CSVProcessor:
             as_of_date=as_of_date,
         )
 
-        holding = CRUDHolding.create(self.db, obj_in=holding_data)
+        holding = HoldingRepository.create(self.db, obj_in=holding_data)
         result.processed_rows.append({"type": "holding", "id": str(holding.id)})
 
     def _validate_transaction_row(self, row: pd.Series, result: CSVProcessorResult):

@@ -1,39 +1,40 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Optional, Union
-from uuid import UUID as UUIDType
+from uuid import UUID
 
 from sqlalchemy import and_, desc, func, select, update
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.portfolio.holdings.model import PortfolioHolding
-from app.portfolio.holdings.schema import HoldingCreate, HoldingUpdate
+from app.portfolio.holdings.schemas import HoldingCreate, HoldingUpdate
 
 
-class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
+class HoldingRepository(BaseRepository[PortfolioHolding, HoldingCreate, HoldingUpdate]):
     """CRUD operations for PortfolioHolding model."""
 
     @staticmethod
-    def _to_uuid(value: Union[str, UUIDType]) -> UUIDType:
+    def _to_uuid(value: Union[str, UUID]) -> UUID:
         """Ensure a value is a UUID instance."""
-        if isinstance(value, UUIDType):
+        if isinstance(value, UUID):
             return value
         # Let ValueError propagate to surface invalid IDs clearly
-        return UUIDType(str(value))
+        return UUID(str(value))
 
-    def get_by_account(
+    async def get_by_account(
         self,
-        db: Session,
+        db: AsyncSession,
         *,
-        account_id: Union[str, UUIDType],
+        account_id: Union[str, UUID],
         as_of_date: Optional[date] = None,
     ) -> List[PortfolioHolding]:
         """Get holdings for a specific account, optionally as of a specific date."""
         account_uuid = self._to_uuid(account_id)
         stmt = (
             select(PortfolioHolding)
-            .options(joinedload(PortfolioHolding.security))
+            .options(joinedload(PortfolioHolding.security_master))
             .where(PortfolioHolding.account_id == account_uuid)
         )
 
@@ -42,7 +43,7 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
 
         # Get most recent holdings per securities
         stmt = stmt.order_by(PortfolioHolding.security_id, desc(PortfolioHolding.as_of_date))
-        result = db.execute(stmt)
+        result = await db.execute(stmt)
         holdings = list(result.scalars().all())
 
         # Filter to most recent per securities
@@ -53,8 +54,8 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
 
         return list(latest_holdings.values())
 
-    def get_current_holdings_by_account(
-        self, db: Session, *, account_id: Union[str, UUIDType]
+    async def get_current_holdings_by_account(
+        self, db: AsyncSession, *, account_id: Union[str, UUID]
     ) -> List[PortfolioHolding]:
         """Get current holdings for an account (latest as_of_date per securities)."""
         account_uuid = self._to_uuid(account_id)
@@ -72,7 +73,7 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
         # Main query to get holdings with latest dates
         stmt = (
             select(PortfolioHolding)
-            .options(joinedload(PortfolioHolding.security))
+            .options(joinedload(PortfolioHolding.security_master))
             .join(
                 latest_date_subq,
                 and_(
@@ -81,24 +82,24 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
                 ),
             )
             .where(PortfolioHolding.account_id == account_uuid)
-            .where(PortfolioHolding.quantity > 0)  # Only non-zero positions
+            .where(PortfolioHolding.quantity > 0)
         )
 
-        result = db.execute(stmt)
+        result = await db.execute(stmt)
         return list(result.scalars().all())
 
-    def get_holdings_summary(
+    async def get_holdings_summary(
         self,
-        db: Session,
+        db: AsyncSession,
         *,
-        account_id: Union[str, UUIDType],
+        account_id: Union[str, UUID],
         base_currency: str = "USD",
     ) -> Dict[str, Any]:
         """Get comprehensive holdings summary for an account."""
-        holdings = self.get_current_holdings_by_account(db, account_id=account_id)
+        holdings = await self.get_current_holdings_by_account(db, account_id=account_id)
 
         total_market_value = sum(h.market_value or Decimal("0") for h in holdings)
-        total_cost_basis = sum(h.cost_basis_total or Decimal("0") for h in holdings)
+        total_cost_basis = sum(h.cost_basis or Decimal("0") for h in holdings)
         unrealized_gain_loss = total_market_value - total_cost_basis
         unrealized_gain_loss_percent = (
             (unrealized_gain_loss / total_cost_basis * 100)
@@ -112,7 +113,9 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
 
         for holding in holdings:
             # Allocation by asset type (from securities)
-            asset_type = holding.security.security_type if holding.security else "unknown"
+            asset_type = (
+                holding.security_master.security_type if holding.security_master else "unknown"
+            )
             current_value = allocation_by_type.get(asset_type, Decimal("0"))
             allocation_by_type[asset_type] = current_value + (holding.market_value or Decimal("0"))
 
@@ -156,12 +159,12 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
             "summary_date": datetime.now(timezone.utc).date(),
         }
 
-    def get_holding_history(
+    async def get_holding_history(
         self,
-        db: Session,
+        db: AsyncSession,
         *,
-        account_id: Union[str, UUIDType],
-        security_id: Union[str, UUIDType],
+        account_id: Union[str, UUID],
+        security_id: Union[str, UUID],
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         limit: int = 100,
@@ -182,10 +185,12 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
             stmt = stmt.where(PortfolioHolding.as_of_date <= end_date)
 
         stmt = stmt.order_by(desc(PortfolioHolding.as_of_date)).limit(limit)
-        result = db.execute(stmt)
+        result = await db.execute(stmt)
         return list(result.scalars().all())
 
-    def update_market_values(self, db: Session, *, holdings_updates: List[Dict[str, Any]]) -> int:
+    async def update_market_values(
+        self, db: AsyncSession, *, holdings_updates: List[Dict[str, Any]]
+    ) -> int:
         """Bulk update market values for holdings."""
         updated_count = 0
         for holding_update in holdings_updates:
@@ -202,17 +207,17 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
                     updated_at=datetime.now(timezone.utc),
                 )
             )
-            result = db.execute(stmt)
+            result = await db.execute(stmt)
             updated_count += result.rowcount
 
-        db.commit()
+        await db.commit()
         return updated_count
 
-    def create_holding_snapshot(
+    async def create_holding_snapshot(
         self,
-        db: Session,
+        db: AsyncSession,
         *,
-        account_id: Union[str, UUIDType],
+        account_id: Union[str, UUID],
         as_of_date: date,
         holdings_data: List[Dict[str, Any]],
     ) -> List[PortfolioHolding]:
@@ -226,28 +231,23 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
                 account_id=account_uuid,
                 security_id=security_uuid,
                 quantity=holding_data["quantity"],
-                cost_basis_per_share=holding_data.get("cost_basis_per_share"),
-                cost_basis_total=holding_data.get("cost_basis_total"),
+                cost_basis=holding_data.get("cost_basis"),
                 market_value=holding_data.get("market_value"),
                 currency=holding_data["currency"],
                 as_of_date=as_of_date,
-                plaid_account_id=holding_data.get("plaid_account_id"),
-                plaid_security_id=holding_data.get("plaid_security_id"),
-                institution_price=holding_data.get("institution_price"),
-                institution_value=holding_data.get("institution_value"),
             )
             holdings.append(holding)
 
         db.add_all(holdings)
-        db.commit()
+        await db.commit()
 
         for holding in holdings:
-            db.refresh(holding)
+            await db.refresh(holding)
 
         return holdings
 
-    def get_portfolio_allocation(
-        self, db: Session, *, user_id: Union[str, UUIDType], base_currency: str = "USD"
+    async def get_portfolio_allocation(
+        self, db: AsyncSession, *, user_id: Union[str, UUID], base_currency: str = "USD"
     ) -> Dict[str, Any]:
         """Get portfolios allocation across all users accounts."""
         # You'll need to join with PortfolioAccount table to filter by user_id
@@ -257,11 +257,11 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
         stmt = (
             select(PortfolioHolding)
             .join(PortfolioAccount, PortfolioHolding.account_id == PortfolioAccount.id)
-            .options(joinedload(PortfolioHolding.security))
+            .options(joinedload(PortfolioHolding.security_master))
             .where(PortfolioAccount.user_id == user_uuid)
         )
 
-        result = db.execute(stmt)
+        result = await db.execute(stmt)
         all_holdings = list(result.scalars().all())
 
         # Get current holdings only (latest per securities per account)
@@ -308,7 +308,3 @@ class CRUDHolding(CRUDBase[PortfolioHolding, HoldingCreate, HoldingUpdate]):
             "total_holdings": len(holdings),
             "last_updated": datetime.now(timezone.utc),
         }
-
-
-# Create instance
-holding_crud = CRUDHolding(PortfolioHolding)

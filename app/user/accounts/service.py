@@ -3,7 +3,7 @@ from typing import Optional
 from uuid import UUID
 
 from app.user.accounts import schema
-from app.user.accounts.crud import CRUDUserAccount
+from app.user.accounts.crud import UserAccountRepository
 from app.user.accounts.model import UserAccount
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ class UserError(Exception):
 class UserService:
     """User business logic service."""
 
-    def __init__(self, user_repo: CRUDUserAccount):
+    def __init__(self, user_repo: UserAccountRepository):
         self.user_crud = user_repo
 
     async def get_user_profile(self, user_id: UUID) -> schema.UserAccountRead:

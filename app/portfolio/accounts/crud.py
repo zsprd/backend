@@ -6,15 +6,15 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.portfolio.accounts import schema
 from app.portfolio.accounts.model import PortfolioAccount
 
 logger = logging.getLogger(__name__)
 
 
-class CRUDPortfolioAccount(
-    CRUDBase[PortfolioAccount, schema.PortfolioAccountCreate, schema.PortfolioAccountUpdate]
+class PortfolioAccountRepository(
+    BaseRepository[PortfolioAccount, schema.PortfolioAccountCreate, schema.PortfolioAccountUpdate]
 ):
 
     def __init__(self, db: AsyncSession):

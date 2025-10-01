@@ -5,12 +5,14 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, desc, extract, select
 from sqlalchemy.orm import Session, joinedload
 
-from app.core.crud import CRUDBase
+from app.core.repository import BaseRepository
 from app.portfolio.transactions.model import PortfolioTransaction
 from app.portfolio.transactions.schema import TransactionCreate, TransactionUpdate
 
 
-class CRUDTransaction(CRUDBase[PortfolioTransaction, TransactionCreate, TransactionUpdate]):
+class TransactionRepository(
+    BaseRepository[PortfolioTransaction, TransactionCreate, TransactionUpdate]
+):
     """CRUD operations for PortfolioTransaction model."""
 
     def get_by_account(
@@ -388,4 +390,4 @@ class CRUDTransaction(CRUDBase[PortfolioTransaction, TransactionCreate, Transact
 
 
 # Create instance
-transaction_crud = CRUDTransaction(PortfolioTransaction)
+transaction_crud = TransactionRepository(PortfolioTransaction)
