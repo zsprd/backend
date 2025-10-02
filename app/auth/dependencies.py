@@ -10,18 +10,13 @@ from app.auth import tokens
 from app.auth.service import AuthService
 from app.core.database import get_async_db
 from app.user.accounts.model import UserAccount
-from app.user.accounts.repository import UserAccountRepository
-from app.user.sessions.crud import UserSessionRepository
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
 
 
-async def get_auth_service(db: AsyncSession = Depends(get_async_db)) -> AuthService:
-    return AuthService(
-        user_repo=UserAccountRepository(db),
-        session_repo=UserSessionRepository(db),
-    )
+async def get_auth_service(db: Annotated[AsyncSession, Depends(get_async_db)]) -> AuthService:
+    return AuthService(db)
 
 
 # Authentication Dependencies

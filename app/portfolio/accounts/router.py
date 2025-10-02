@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user
 from app.core.database import get_async_db
 from app.portfolio.accounts import schema
-from app.portfolio.accounts.crud import PortfolioAccountRepository
+from app.portfolio.accounts.repository import PortfolioAccountRepository
 from app.portfolio.accounts.service import PortfolioAccountError, PortfolioAccountService
 from app.user.accounts.model import UserAccount
 

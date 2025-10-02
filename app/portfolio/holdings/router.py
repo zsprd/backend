@@ -9,12 +9,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth.dependencies import get_current_user
 from app.core.database import get_async_db
 from app.data.integrations.csv.service import CSVProcessorResult
-from app.portfolio.accounts.crud import PortfolioAccountRepository
+from app.portfolio.accounts.repository import PortfolioAccountRepository
 from app.portfolio.holdings.repository import HoldingRepository
 from app.portfolio.holdings.schemas import HoldingCreate, HoldingRead, HoldingUpdate
 from app.portfolio.holdings.service import PortfolioHoldingsService
-from app.system.logs.crud import audit_log_crud
 from app.user.accounts.model import UserAccount
+from app.user.logs.repository import UserLogRepository
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -100,7 +100,7 @@ async def create_holding(
         holding = HoldingRepository.create(db, obj_in=holding_data)
 
         # Log the creation
-        audit_log_crud.log_user_action(
+        UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="create",
@@ -145,7 +145,7 @@ async def update_holding(
         updated_holding = HoldingRepository.update(db, db_obj=holding, obj_in=holding_update)
 
         # Log the update
-        audit_log_crud.log_data_change(
+        UserLogRepository.log_data_change(
             db,
             user_id=current_user.id,
             action="update",
@@ -189,7 +189,7 @@ async def delete_holding(
         HoldingRepository.delete(db, id=holding_id)
 
         # Log the deletion
-        audit_log_crud.log_user_action(
+        UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="delete",
@@ -404,7 +404,7 @@ async def bulk_update_market_values(
         )
 
         # Log bulk update
-        audit_log_crud.log_user_action(
+        UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="bulk_update",
@@ -460,7 +460,7 @@ async def create_holdings_snapshot(
         )
 
         # Log snapshot creation
-        audit_log_crud.log_user_action(
+        UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="create_snapshot",
@@ -536,7 +536,7 @@ async def upload_holdings_csv(
         content = await file.read()
 
         # Log the upload attempt
-        audit_log_crud.log_user_action(
+        UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="csv_upload_attempt",
@@ -560,7 +560,7 @@ async def upload_holdings_csv(
             )
 
             # Log the result
-            audit_log_crud.log_user_action(
+            UserLogRepository.log_user_action(
                 db,
                 user_id=current_user.id,
                 action="csv_import_completed",
@@ -592,7 +592,7 @@ async def upload_holdings_csv(
         logger.error(error_msg)
 
         # Log the error
-        audit_log_crud.log_user_action(
+        UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="csv_upload_error",

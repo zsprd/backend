@@ -4,7 +4,7 @@ from typing import Any, Dict, Optional
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.orm import Session
 
-from app.analytics.performance.crud import get_account_performance_analytics
+from app.analytics.performance.repository import get_account_performance_analytics
 from app.core.database import get_db
 
 router = APIRouter()

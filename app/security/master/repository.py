@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.core.repository import BaseRepository
 from app.security.master.model import SecurityMaster
-from app.security.master.schema import SecurityCreate, SecurityUpdate
+from app.security.master.schemas import SecurityCreate, SecurityUpdate
 
 
 class SecurityRepository(BaseRepository[SecurityMaster, SecurityCreate, SecurityUpdate]):

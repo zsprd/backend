@@ -9,12 +9,7 @@ from app.auth.rate_limiter import rate_limit
 from app.core.config import settings
 from app.core.database import get_async_db
 from app.user.accounts.model import UserAccount
-from app.user.accounts.repository import UserAccountRepository
-from app.user.accounts.schemas import (
-    UserAccountPasswordUpdate,
-    UserAccountRead,
-    UserAccountUpdate,
-)
+from app.user.accounts.schemas import UserAccountPasswordUpdate, UserAccountRead, UserAccountUpdate
 from app.user.accounts.service import UserAccountService, UserError
 
 router = APIRouter()
@@ -23,8 +18,7 @@ logger = logging.getLogger(__name__)
 
 def get_user_service(db: Annotated[AsyncSession, Depends(get_async_db)]) -> UserAccountService:
     """Dependency injection for user service."""
-    repository = UserAccountRepository(db)
-    return UserAccountService(repository)
+    return UserAccountService(db)
 
 
 @router.get(

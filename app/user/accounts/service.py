@@ -3,6 +3,7 @@ from typing import Optional
 from uuid import UUID
 
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.user.accounts.model import UserAccount
 from app.user.accounts.repository import UserAccountRepository
@@ -11,6 +12,7 @@ from app.user.accounts.schemas import (
     UserAccountRead,
     UserAccountUpdate,
 )
+from app.user.logs.repository import UserLogRepository
 
 logger = logging.getLogger(__name__)
 
@@ -24,8 +26,9 @@ class UserError(Exception):
 class UserAccountService:
     """Service layer for user account business logic."""
 
-    def __init__(self, repository: UserAccountRepository):
-        self.repository = repository
+    def __init__(self, db: AsyncSession):
+        self.repository = UserAccountRepository(db)
+        self.user_log_repository = UserLogRepository(db)
 
     async def get_user_profile(self, user_id: UUID) -> UserAccountRead:
         """Get user profile by ID."""
@@ -77,12 +80,15 @@ class UserAccountService:
 
             self._validate_user_for_update(user)
 
-            # TODO: Add audit log before update - log what fields are being changed
-            # await audit_log.log_profile_update_attempt(
-            #     user_id=user.id,
-            #     changes=profile_update.model_dump(exclude_unset=True),
-            #     timestamp=datetime.now(timezone.utc)
-            # )
+            # Audit log before update - log what fields are being changed
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="profile_update_attempt",
+                target_category="user_account",
+                target_id=str(user.id),
+                description=f"Attempting profile update: {profile_update.model_dump(exclude_unset=True)}",
+                status="attempt",
+            )
 
             update_data = profile_update.model_dump(exclude_unset=True)
             updated_user = await self.repository.update_profile(user, update_data)
@@ -91,12 +97,15 @@ class UserAccountService:
                 logger.error(f"Failed to update profile for user: {user.id}")
                 raise UserError("Failed to update user profile")
 
-            # TODO: Add audit log after successful update
-            # await audit_log.log_profile_updated(
-            #     user_id=user.id,
-            #     changes=update_data,
-            #     timestamp=datetime.now(timezone.utc)
-            # )
+            # Audit log after successful update
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="profile_updated",
+                target_category="user_account",
+                target_id=str(user.id),
+                description=f"Profile updated: {update_data}",
+                status="success",
+            )
 
             logger.info(f"Profile updated successfully for user: {user.id}")
             return UserAccountRead.model_validate(updated_user)
@@ -105,6 +114,16 @@ class UserAccountService:
             raise
         except IntegrityError as e:
             logger.error(f"Integrity error updating profile for user {user.id}: {str(e)}")
+            # Audit log for failed update
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="profile_update_failed",
+                target_category="user_account",
+                target_id=str(user.id),
+                description=f"Integrity error: {str(e)}",
+                status="failed",
+                error_message=str(e),
+            )
             raise UserError("Invalid data provided for profile update")
         except SQLAlchemyError as e:
             logger.error(f"Database error updating profile for user {user.id}: {str(e)}")
@@ -122,32 +141,42 @@ class UserAccountService:
 
             self._validate_user_for_update(user)
 
-            # TODO: Add security audit log before password change
-            # await audit_log.log_password_change_attempt(
-            #     user_id=user.id,
-            #     ip_address=request.client.host,  # Pass from router
-            #     timestamp=datetime.now(timezone.utc)
-            # )
+            # Security audit log before password change
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="password_change_attempt",
+                target_category="user_account",
+                target_id=str(user.id),
+                description="Password change requested",
+                status="attempt",
+            )
 
             updated_user = await self.repository.update_password(
                 user, password_update.current_password, password_update.new_password
             )
 
             if not updated_user:
-                # TODO: Add audit log for failed password change
-                # await audit_log.log_password_change_failed(
-                #     user_id=user.id,
-                #     reason="incorrect_current_password",
-                #     timestamp=datetime.now(timezone.utc)
-                # )
+                # Audit log for failed password change
+                await self.user_log_repository.create_log(
+                    user_id=str(user.id),
+                    action="password_change_failed",
+                    target_category="user_account",
+                    target_id=str(user.id),
+                    description="Incorrect current password or password change failed",
+                    status="failed",
+                )
                 logger.error(f"Failed to change password for user: {user.id}")
                 raise UserError("Current password is incorrect or password change failed")
 
-            # TODO: Add security audit log for successful password change
-            # await audit_log.log_password_changed(
-            #     user_id=user.id,
-            #     timestamp=datetime.now(timezone.utc)
-            # )
+            # Security audit log for successful password change
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="password_changed",
+                target_category="user_account",
+                target_id=str(user.id),
+                description="Password changed successfully",
+                status="success",
+            )
 
             logger.info(f"Password changed successfully for user: {user.id}")
 
@@ -155,6 +184,16 @@ class UserAccountService:
             raise
         except Exception as e:
             logger.error(f"Password change failed for user {user.id}: {type(e).__name__}: {str(e)}")
+            # Audit log for unexpected error
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="password_change_error",
+                target_category="user_account",
+                target_id=str(user.id),
+                description=f"Unexpected error: {str(e)}",
+                status="error",
+                error_message=str(e),
+            )
             raise UserError("Failed to change password")
 
     async def mark_email_verified(self, user: UserAccount) -> UserAccount:
@@ -196,17 +235,38 @@ class UserAccountService:
         try:
             logger.info(f"Deleting account for user: {user.id}")
 
-            # TODO: Add audit log before deletion - critical for compliance
-            # await audit_log.log_account_deletion(
-            #     user_id=user.id,
-            #     email=user.email,
-            #     timestamp=datetime.now(timezone.utc),
-            #     retention_required=True  # For GDPR/compliance
-            # )
+            # Audit log before deletion - critical for compliance
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="account_deletion_attempt",
+                target_category="user_account",
+                target_id=str(user.id),
+                description=f"Account deletion requested for {user.email}",
+                status="attempt",
+            )
 
             success = await self.repository.delete_account(user)
             if not success:
+                # Audit log for failed deletion
+                await self.user_log_repository.create_log(
+                    user_id=str(user.id),
+                    action="account_deletion_failed",
+                    target_category="user_account",
+                    target_id=str(user.id),
+                    description="Account deletion failed",
+                    status="failed",
+                )
                 raise UserError("Failed to delete account")
+
+            # Audit log for successful deletion
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="account_deleted",
+                target_category="user_account",
+                target_id=str(user.id),
+                description=f"Account deleted for {user.email}",
+                status="success",
+            )
 
             logger.info(f"Account deleted successfully for user: {user.id}")
             return True
@@ -215,6 +275,16 @@ class UserAccountService:
             raise
         except Exception as e:
             logger.error(f"Failed to delete account for user {user.id}: {str(e)}")
+            # Audit log for unexpected error
+            await self.user_log_repository.create_log(
+                user_id=str(user.id),
+                action="account_deletion_error",
+                target_category="user_account",
+                target_id=str(user.id),
+                description=f"Unexpected error: {str(e)}",
+                status="error",
+                error_message=str(e),
+            )
             raise UserError("Failed to delete account")
 
     def _validate_user_for_update(self, user: UserAccount) -> None:

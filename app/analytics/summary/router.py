@@ -3,7 +3,7 @@ from typing import Any, Dict
 from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.orm import Session
 
-from app.analytics.summary.crud import get_account_analytics_summary
+from app.analytics.summary.repository import get_account_analytics_summary
 from app.core.database import get_db
 
 router = APIRouter()

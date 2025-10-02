@@ -3,7 +3,7 @@ from typing import List
 from uuid import UUID
 
 from app.portfolio.accounts import schema
-from app.portfolio.accounts.crud import PortfolioAccountRepository
+from app.portfolio.accounts.repository import PortfolioAccountRepository
 
 logger = logging.getLogger(__name__)
 

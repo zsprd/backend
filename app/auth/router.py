@@ -4,14 +4,14 @@ from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from app.auth import schema
-from app.auth.dependencies import get_auth_service, get_current_user
+from app.auth.dependencies import get_current_user, get_auth_service
 from app.auth.rate_limiter import rate_limit
 from app.auth.service import AuthError, AuthService, SessionContext
 from app.core.config import settings
 from app.user.accounts.model import UserAccount
 
-logger = logging.getLogger(__name__)
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 
 @router.post(

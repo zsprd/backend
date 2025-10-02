@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.repository import BaseRepository
 from app.security.master.model import SecurityMaster
 from app.security.prices.model import SecurityPrice
-from app.security.prices.schema import (
+from app.security.prices.schemas import (
     MarketDataCreate,
     MarketDataUpdate,
 )

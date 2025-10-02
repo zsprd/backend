@@ -7,7 +7,7 @@ from fastapi import HTTPException, status, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.data.integrations.csv.service import get_csv_processor
-from app.portfolio.accounts.crud import PortfolioAccountRepository
+from app.portfolio.accounts.repository import PortfolioAccountRepository
 from app.portfolio.holdings.repository import HoldingRepository
 from app.portfolio.holdings.schemas import HoldingRead
 from app.user.accounts.model import UserAccount

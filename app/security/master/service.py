@@ -8,9 +8,9 @@ from rapidfuzz import fuzz, process
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.security.master.crud import security_crud
 from app.security.master.model import SecurityMaster
-from app.security.master.schema import SecurityCreate
+from app.security.master.repository import security_crud
+from app.security.master.schemas import SecurityCreate
 
 logger = logging.getLogger(__name__)
 

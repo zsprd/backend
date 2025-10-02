@@ -2,11 +2,13 @@ import logging
 from dataclasses import dataclass
 from typing import Optional
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.auth import email, schema, tokens
 from app.core.config import settings
 from app.user.accounts.model import UserAccount
 from app.user.accounts.repository import UserAccountRepository
-from app.user.sessions.crud import UserSessionRepository
+from app.user.sessions.repository import UserSessionRepository
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +30,9 @@ class SessionContext:
 class AuthService:
     """Pure authentication business logic service."""
 
-    def __init__(self, user_repo: UserAccountRepository, session_repo: UserSessionRepository):
-        self.user_crud = user_repo
-        self.session_crud = session_repo
+    def __init__(self, db: AsyncSession):
+        self.user_crud = UserAccountRepository(db)
+        self.session_crud = UserSessionRepository(db)
 
     async def register(
         self,

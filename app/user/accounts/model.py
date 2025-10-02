@@ -8,7 +8,7 @@ from app.core.model import BaseModel
 
 if TYPE_CHECKING:
     from app.portfolio.accounts.model import PortfolioAccount
-    from app.system.logs.model import SystemLog
+    from app.user.logs.model import UserLog
     from app.user.notifications.model import UserNotification
     from app.user.sessions.model import UserSession
     from app.user.subscriptions.model import UserSubscription
@@ -131,8 +131,8 @@ class UserAccount(BaseModel):
         "PortfolioAccount", back_populates="user_accounts", passive_deletes=True, lazy="select"
     )
 
-    system_logs: Mapped[List["SystemLog"]] = relationship(
-        "SystemLog", back_populates="user_accounts", passive_deletes=True, lazy="select"
+    user_logs: Mapped[List["UserLog"]] = relationship(
+        "UserLog", back_populates="user_accounts", passive_deletes=True, lazy="select"
     )
 
     # Database constraints and indexes for security and performance

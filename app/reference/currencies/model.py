@@ -8,11 +8,11 @@ from app.core.model import BaseModel
 
 class ReferenceCurrency(BaseModel):
     """
-    Currency reference data for internationalization support.
+    Currency reference data for multi-currency portfolio support.
 
     Master list of supported currencies with display formatting
     and precision information. Used for portfolio reporting,
-    currency conversion, and user interface localization.
+    currency conversion, FX tracking, and user interface localization.
     """
 
     __tablename__ = "reference_currencies"
@@ -21,15 +21,18 @@ class ReferenceCurrency(BaseModel):
         String(3),
         unique=True,
         nullable=False,
+        index=True,
         comment="ISO 4217 currency code (USD, EUR, GBP, JPY)",
     )
 
-    name: Mapped[str] = mapped_column(
-        String(100), nullable=False, comment="Full currency name (US Dollar, Euro, British Pound)"
+    currency_name: Mapped[str] = mapped_column(
+        String(100),
+        nullable=False,
+        comment="Full currency name (United States dollar, Euro, British Pound)",
     )
 
     symbol: Mapped[Optional[str]] = mapped_column(
-        String(5), nullable=True, comment="Currency symbol for display ($, €, £, ¥)"
+        String(10), nullable=True, comment="Currency symbol for display ($, €, £, ¥)"
     )
 
     decimal_places: Mapped[int] = mapped_column(

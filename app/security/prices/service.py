@@ -8,9 +8,9 @@ import yfinance as yf
 from sqlalchemy.orm import Session
 
 from app.data.integrations.alphavantage.service import MarketDataService as AlphaVantageService
-from app.security.master.crud import security_crud
 from app.security.master.model import SecurityMaster
-from app.security.master.schema import SecurityCreate, SecurityUpdate
+from app.security.master.repository import security_crud
+from app.security.master.schemas import SecurityCreate, SecurityUpdate
 from app.security.prices.model import SecurityPrice
 
 logger = logging.getLogger(__name__)

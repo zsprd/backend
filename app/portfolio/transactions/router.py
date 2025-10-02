@@ -13,15 +13,15 @@ from app.auth.dependencies import get_current_user
 from app.core.database import get_async_db
 from app.data.integrations.csv.service import CSVProcessorResult
 from app.data.integrations.csv.service import get_csv_processor
-from app.portfolio.accounts.crud import PortfolioAccountRepository
-from app.portfolio.transactions.crud import transaction_crud
+from app.portfolio.accounts.repository import PortfolioAccountRepository
+from app.portfolio.transactions.repository import transaction_crud
 from app.portfolio.transactions.schema import (
     TransactionCreate,
     TransactionResponse,
     TransactionUpdate,
 )
-from app.system.logs.crud import audit_log_crud
 from app.user.accounts.model import UserAccount
+from app.user.logs.repository import UserLogRepository
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -184,7 +184,7 @@ async def create_transaction(
         transaction = await transaction_crud.create(db, obj_in=transaction_data)
 
         # Log the creation
-        await audit_log_crud.log_user_action(
+        await UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="create",
@@ -231,7 +231,7 @@ async def update_transaction(
         )
 
         # Log the update
-        await audit_log_crud.log_data_change(
+        await UserLogRepository.log_data_change(
             db,
             user_id=current_user.id,
             action="update",
@@ -275,7 +275,7 @@ async def delete_transaction(
         await transaction_crud.delete(db, id=transaction_id)
 
         # Log the deletion
-        await audit_log_crud.log_user_action(
+        await UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="delete",
@@ -450,7 +450,7 @@ async def get_realized_gains_losses(
         )
 
         # Log tax report access
-        await audit_log_crud.log_user_action(
+        await UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="tax_report",
@@ -510,7 +510,7 @@ async def get_tax_summary(
         net_realized = total_gains - total_losses
 
         # Log tax summary access
-        await audit_log_crud.log_user_action(
+        await UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="tax_summary",
@@ -571,7 +571,7 @@ async def bulk_import_transactions(
         )
 
         # Log bulk import
-        await audit_log_crud.log_user_action(
+        await UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="bulk_import",
@@ -654,7 +654,7 @@ async def upload_transactions_csv(
         )
 
         # Log CSV import
-        await audit_log_crud.log_user_action(
+        await UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="csv_import",
@@ -794,7 +794,7 @@ async def upload_transactions_csv(
         content = await file.read()
 
         # Log the upload attempt
-        await audit_log_crud.log_user_action(
+        await UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="csv_upload_attempt",
@@ -818,7 +818,7 @@ async def upload_transactions_csv(
             )
 
             # Log the result
-            await audit_log_crud.log_user_action(
+            await UserLogRepository.log_user_action(
                 db,
                 user_id=current_user.id,
                 action="csv_import_completed",
@@ -850,7 +850,7 @@ async def upload_transactions_csv(
         logger.error(error_msg)
 
         # Log the error
-        await audit_log_crud.log_user_action(
+        await UserLogRepository.log_user_action(
             db,
             user_id=current_user.id,
             action="csv_upload_error",

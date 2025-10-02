@@ -19,14 +19,14 @@ from uuid import UUID
 import pandas as pd
 from sqlalchemy.orm import Session
 
-from app.portfolio.accounts.crud import PortfolioAccountRepository
+from app.portfolio.accounts.repository import PortfolioAccountRepository
 from app.portfolio.holdings.repository import HoldingRepository
 from app.portfolio.holdings.schemas import HoldingCreate
-from app.portfolio.transactions.crud import TransactionRepository
+from app.portfolio.transactions.repository import TransactionRepository
 from app.portfolio.transactions.schema import TransactionCreate
-from app.security.master.crud import security_crud
 from app.security.master.model import SecurityMaster
-from app.security.master.schema import SecurityCreate
+from app.security.master.repository import security_crud
+from app.security.master.schemas import SecurityCreate
 
 logger = logging.getLogger(__name__)
 
