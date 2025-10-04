@@ -51,12 +51,12 @@ class Settings(BaseSettings):
     REQUIRE_PASSWORD_SPECIAL: bool = False
 
     # Rate Limiting (requests per time window)
-    RATE_LIMIT_REGISTER: str = "3/hour"
-    RATE_LIMIT_LOGIN: str = "5/15minutes"
-    RATE_LIMIT_REFRESH: str = "100/hour"
-    RATE_LIMIT_PASSWORD: str = "5/hour"
-    RATE_LIMIT_VERIFY: str = "10/hour"
-    RATE_LIMIT_UPDATE: str = "20/hour"
+    RATE_LIMIT_REGISTER: str = "3/hour"  # Limit signups to prevent abuse
+    RATE_LIMIT_LOGIN: str = "5/15minutes"  # Limit login attempts to prevent brute force
+    RATE_LIMIT_REFRESH: str = "100/hour"  # Allow frequent token refreshes
+    RATE_LIMIT_PASSWORD: str = "5/hour"  # Limit password reset attempts
+    RATE_LIMIT_VERIFY: str = "10/hour"  # Limit email verification attempts
+    RATE_LIMIT_UPDATE: str = "20/hour"  # Limit profile updates
 
     # Session Management
     MAX_FAILED_ATTEMPTS: int = 5  # Max failed login attempts
@@ -75,13 +75,17 @@ class Settings(BaseSettings):
     CORS_ALLOW_HEADERS: list = ["*"]
 
     # Database Settings
-    POSTGRES_HOST: str
-    POSTGRES_PORT: int = 5432
-    POSTGRES_USER: str
-    POSTGRES_PASSWORD: str
-    POSTGRES_DB: str
-    DATABASE_URL: str
-    DATABASE_ECHO: bool = True  # Set to True for SQL debugging
+    POSTGRES_HOST: str  # e.g. "localhost" or a remote host
+    POSTGRES_PORT: int = 5432  # Default PostgreSQL port
+    POSTGRES_USER: str  # e.g. "myuser"
+    POSTGRES_PASSWORD: str  # e.g. "mypassword"
+    POSTGRES_DB: str  # e.g. "mydatabase"
+    DATABASE_URL: str  # Constructed below if not set directly
+    DATABASE_ECHO: bool = True  # Log SQL queries for debugging
+    POOL_SIZE: int = 10  # Adjust based on expected load
+    MAX_OVERFLOW: int = 20  # Allow some overflow connections
+    POOL_TIMEOUT: int = 30  # Seconds to wait for a connection
+    POOL_RECYCLE: int = 1800  # Recycle connections every 30 minutes
     ALEMBIC_URL: Optional[str] = None  # If different from DATABASE_URL
 
     # Redis Settings (for caching and rate limiting)

@@ -14,7 +14,7 @@ from app.user.accounts.model import UserAccount
 logger = logging.getLogger(__name__)
 
 
-class UserAccountRepository:
+class UserRepository:
     """Repository for user account data access operations."""
 
     def __init__(self, db: AsyncSession):

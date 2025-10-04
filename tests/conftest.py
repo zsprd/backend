@@ -20,11 +20,10 @@ if PROJECT_ROOT not in sys.path:
 
 from main import app
 
-from app.auth import schema
 from app.auth.dependencies import get_auth_service
 from app.auth.service import AuthService
 from app.core.config import Settings
-from app.core.database import Base, get_async_db
+from app.core.database import Base, get_db
 
 
 class TestSettings(Settings):
@@ -125,7 +124,7 @@ def override_get_db(test_db_session):
     def _override_get_db():
         yield test_db_session
 
-    app.dependency_overrides[get_async_db] = _override_get_db
+    app.dependency_overrides[get_db] = _override_get_db
     yield
     app.dependency_overrides.clear()
 
@@ -263,10 +262,10 @@ async def async_client(mock_dependencies) -> AsyncGenerator[AsyncClient, None]:
 @pytest_asyncio.fixture
 async def real_auth_service(test_db_session):
     """Real auth service with test database for integration tests."""
-    from app.user.accounts.repository import UserAccountRepository
+    from app.user.accounts.repository import UserRepository
     from app.user.sessions.repository import UserSessionRepository
 
-    user_crud = UserAccountRepository(test_db_session)
+    user_crud = UserRepository(test_db_session)
     session_crud = UserSessionRepository(test_db_session)
     return AuthService(user_crud, session_crud)
 
@@ -294,7 +293,7 @@ def integration_dependencies(test_db_session, real_auth_service):
     def override_get_auth_service():
         return real_auth_service
 
-    app.dependency_overrides[get_async_db] = override_get_db
+    app.dependency_overrides[get_db] = override_get_db
     app.dependency_overrides[get_auth_service] = override_get_auth_service
 
     yield {"db": test_db_session, "auth_service": real_auth_service}

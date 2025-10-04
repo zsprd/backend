@@ -1,13 +1,27 @@
 import logging
-from dataclasses import dataclass
-from typing import Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import email, schema, tokens
+from app.auth import email, tokens
+from app.auth.schemas import (
+    SignInRequest,
+    AuthResponse,
+    UserRegistrationData,
+    RegistrationResponse,
+    RefreshTokenRequest,
+    TokenResponse,
+    EmailConfirmRequest,
+    EmailVerificationResponse,
+    ForgotPasswordRequest,
+    ForgotPasswordResponse,
+    ResetPasswordRequest,
+    PasswordResetResponse,
+    LogoutResponse,
+)
 from app.core.config import settings
 from app.user.accounts.model import UserAccount
-from app.user.accounts.repository import UserAccountRepository
+from app.user.accounts.repository import UserRepository
+from app.user.accounts.schemas import UserAccountRead
 from app.user.sessions.repository import UserSessionRepository
 
 logger = logging.getLogger(__name__)
@@ -19,31 +33,23 @@ class AuthError(Exception):
     pass
 
 
-@dataclass
-class SessionContext:
-    """Context information for session creation."""
-
-    ip_address: Optional[str] = None
-    user_agent: Optional[str] = None
-
-
 class AuthService:
     """Pure authentication business logic service."""
 
     def __init__(self, db: AsyncSession):
-        self.user_crud = UserAccountRepository(db)
-        self.session_crud = UserSessionRepository(db)
+        self.repo = UserRepository(db)
+        self.session_repo = UserSessionRepository(db)
 
     async def register(
         self,
-        registration_data: schema.UserRegistrationData,
-    ) -> schema.RegistrationResponse:
+        registration_data: UserRegistrationData,
+    ) -> RegistrationResponse:
         """Register a new user account."""
         logger.info(f"Processing user registration for email: {registration_data.email}")
 
         try:
             # Check if user already exists
-            existing_user = await self.user_crud.get_user_by_email(registration_data.email)
+            existing_user = await self.repo.get_user_by_email(registration_data.email)
             if existing_user:
                 logger.warning(
                     f"Registration failed: Email already exists - {registration_data.email}"
@@ -51,7 +57,7 @@ class AuthService:
                 raise AuthError("An account with this email already exists.")
 
             # Create user account
-            user = await self.user_crud.create_user_with_password(
+            user = await self.repo.create_user_with_password(
                 registration_data.email,
                 registration_data.full_name,
                 registration_data.password,
@@ -65,13 +71,12 @@ class AuthService:
 
             # Generate email verification token
             verification_token = tokens.create_verification_token(str(user.id))
-            verification_url = f"{settings.FRONTEND_URL}/verify-email?token={verification_token}"
 
             # Send verification email
             try:
                 await email.send_verification_email(
                     user.email,
-                    verification_url,
+                    verification_token,
                     user.full_name,
                 )
                 logger.info(f"Verification email sent to user: {user.id}")
@@ -79,11 +84,11 @@ class AuthService:
                 logger.warning(f"Failed to send verification email: {type(e).__name__}: {str(e)}")
                 # Don't fail registration if email fails
 
-            return schema.RegistrationResponse(
+            return RegistrationResponse(
                 message="User registered successfully. Please verify your email.",
                 user_id=user.id,
                 email_verification_required=True,
-                user=schema.UserAccountRead.model_validate(user),
+                user=UserAccountRead.model_validate(user),
             )
 
         except AuthError:
@@ -93,14 +98,14 @@ class AuthService:
             raise AuthError("Registration failed due to unexpected error")
 
     async def login(
-        self, signin_data: schema.SignInRequest, session_context: Optional[SessionContext] = None
-    ) -> schema.AuthResponse:
+        self, signin_data: SignInRequest, ip_address: str = None, user_agent: str = None
+    ) -> AuthResponse:
         """Authenticate user and create session."""
         logger.info(f"Processing login request for email: {signin_data.email}")
 
         try:
             # Get user by email
-            user = await self.user_crud.get_user_by_email(signin_data.email)
+            user = await self.repo.get_user_by_email(signin_data.email)
             if not user:
                 logger.warning(f"Login failed: User not found - {signin_data.email}")
                 raise AuthError("Invalid credentials.")
@@ -114,7 +119,7 @@ class AuthService:
                 )
 
             # Authenticate with password
-            authenticated = await self.user_crud.authenticate_user(user, signin_data.password)
+            authenticated = await self.repo.authenticate_user(user, signin_data.password)
 
             if not authenticated:
                 logger.warning(f"Login failed: Invalid credentials for {signin_data.email}")
@@ -128,17 +133,13 @@ class AuthService:
                 )
 
             # Update last login timestamp
-            await self.user_crud.update_last_login(user)
+            await self.repo.update_last_login(user)
 
             # Generate tokens
             access_token = tokens.create_access_token(str(user.id))
             refresh_token = tokens.create_refresh_token(str(user.id))
 
-            # Create user session with provided context
-            ip_address = session_context.ip_address if session_context else None
-            user_agent = session_context.user_agent if session_context else None
-
-            session = await self.session_crud.create_user_session(
+            session = await self.session_repo.create_user_session(
                 user, refresh_token, ip_address, user_agent
             )
 
@@ -148,12 +149,12 @@ class AuthService:
 
             logger.info(f"Login successful for user: {user.id}")
 
-            return schema.AuthResponse(
+            return AuthResponse(
                 access_token=access_token,
                 refresh_token=refresh_token,
                 token_type="bearer",
                 expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert to seconds
-                user=schema.UserAccountRead.model_validate(user),
+                user=UserAccountRead.model_validate(user),
             )
 
         except AuthError:
@@ -162,22 +163,22 @@ class AuthService:
             logger.error(f"Unexpected error during login: {type(e).__name__}: {str(e)}")
             raise AuthError("Login failed due to unexpected error")
 
-    async def logout(self, user: UserAccount) -> schema.LogoutResponse:
+    async def logout(self, user: UserAccount) -> LogoutResponse:
         """Logout user and revoke all sessions."""
         logger.info(f"Processing logout for user: {user.id}")
 
         try:
             # Revoke all user sessions
-            revoked_count = await self.session_crud.revoke_all_user_sessions(user.id)
+            revoked_count = await self.session_repo.revoke_all_user_sessions(user.id)
             logger.info(f"Logout successful: {revoked_count} sessions revoked for user {user.id}")
 
-            return schema.LogoutResponse(message="Logout successful.")
+            return LogoutResponse(message="Logout successful.")
 
         except Exception as e:
             logger.error(f"Error during logout for user {user.id}: {type(e).__name__}: {str(e)}")
             raise AuthError("Logout failed due to unexpected error")
 
-    async def refresh(self, refresh_data: schema.RefreshTokenRequest) -> schema.TokenResponse:
+    async def refresh(self, refresh_data: RefreshTokenRequest) -> TokenResponse:
         """Refresh access token using valid refresh token."""
         logger.info("Processing token refresh")
 
@@ -191,13 +192,13 @@ class AuthService:
             user_id = token_data["sub"]
 
             # Get user
-            user = await self.user_crud.get_user_by_id(user_id)
+            user = await self.repo.get_user_by_id(user_id)
             if not user or not user.is_active:
                 logger.warning(f"Token refresh failed: User not found or inactive - {user_id}")
                 raise AuthError("User account not found or inactive")
 
             # Validate refresh token session
-            session = await self.session_crud.get_user_session_by_token(refresh_data.refresh_token)
+            session = await self.session_repo.get_user_session_by_token(refresh_data.refresh_token)
             if not session or not session.is_active:
                 logger.warning(f"Token refresh failed: Invalid session for user {user_id}")
                 raise AuthError("Invalid or expired session")
@@ -207,7 +208,7 @@ class AuthService:
             new_refresh_token = tokens.create_refresh_token(str(user.id))
 
             # Update session with new refresh token
-            updated_session = await self.session_crud.update_user_session(
+            updated_session = await self.session_repo.update_user_session(
                 refresh_data.refresh_token, new_refresh_token
             )
 
@@ -217,7 +218,7 @@ class AuthService:
 
             logger.info(f"Token refresh successful for user: {user_id}")
 
-            return schema.TokenResponse(
+            return TokenResponse(
                 access_token=access_token,
                 refresh_token=new_refresh_token,
                 token_type="bearer",
@@ -231,8 +232,8 @@ class AuthService:
             raise AuthError("Token refresh failed due to unexpected error")
 
     async def verify_email(
-        self, confirmation_data: schema.EmailConfirmRequest
-    ) -> schema.EmailVerificationResponse:
+        self, confirmation_data: EmailConfirmRequest
+    ) -> EmailVerificationResponse:
         """Verify user email address using verification token."""
         logger.info("Processing email verification")
 
@@ -248,7 +249,7 @@ class AuthService:
             user_id = token_data["sub"]
 
             # Get user
-            user = await self.user_crud.get_user_by_id(user_id)
+            user = await self.repo.get_user_by_id(user_id)
             if not user:
                 logger.warning(f"Email verification failed: User not found - {user_id}")
                 raise AuthError("User not found")
@@ -256,13 +257,13 @@ class AuthService:
             # Check if already verified
             if user.is_verified:
                 logger.info(f"Email already verified for user: {user_id}")
-                return schema.EmailVerificationResponse(
+                return EmailVerificationResponse(
                     message="Email address is already verified.",
-                    user=schema.UserAccountRead.model_validate(user),
+                    user=UserAccountRead.model_validate(user),
                 )
 
             # Mark as verified
-            verified_user = await self.user_crud.mark_email_verified(user)
+            verified_user = await self.repo.mark_email_verified(user)
             if not verified_user:
                 logger.error(f"Failed to mark email as verified for user: {user_id}")
                 raise AuthError("Failed to verify email")
@@ -277,9 +278,9 @@ class AuthService:
                 except Exception as e:
                     logger.warning(f"Failed to send welcome email: {type(e).__name__}: {str(e)}")
 
-            return schema.EmailVerificationResponse(
+            return EmailVerificationResponse(
                 message="Email verified successfully. Welcome!",
-                user=schema.UserAccountRead.model_validate(verified_user),
+                user=UserAccountRead.model_validate(verified_user),
             )
 
         except AuthError:
@@ -292,14 +293,14 @@ class AuthService:
 
     async def forgot_password(
         self,
-        reset_request: schema.ForgotPasswordRequest,
-    ) -> schema.ForgotPasswordResponse:
+        reset_request: ForgotPasswordRequest,
+    ) -> ForgotPasswordResponse:
         """Send password reset email if user exists."""
         logger.info(f"Processing password reset request for email: {reset_request.email}")
 
         try:
             # Get user (but don't reveal if they exist)
-            user = await self.user_crud.get_user_by_email(reset_request.email)
+            user = await self.repo.get_user_by_email(reset_request.email)
 
             if user and user.is_active and user.hashed_password:
                 # Generate reset token using user ID (not email)
@@ -315,23 +316,23 @@ class AuthService:
                         f"Failed to send password reset email: {type(e).__name__}: {str(e)}"
                     )
             else:
-                logger.info(f"Password reset requested for non-existent/inactive user: {email}")
+                logger.info(
+                    f"Password reset requested for non-existent/inactive user: {reset_request.email}"
+                )
 
             # Always return the same response for security
-            return schema.ForgotPasswordResponse(
+            return ForgotPasswordResponse(
                 message="If an account with this email exists, a password reset link has been sent."
             )
 
         except Exception as e:
             logger.error(f"Error during password reset request: {type(e).__name__}: {str(e)}")
             # Still return success message for security
-            return schema.ForgotPasswordResponse(
+            return ForgotPasswordResponse(
                 message="If an account with this email exists, a password reset link has been sent."
             )
 
-    async def reset_password(
-        self, reset_data: schema.ResetPasswordRequest
-    ) -> schema.PasswordResetResponse:
+    async def reset_password(self, reset_data: ResetPasswordRequest) -> PasswordResetResponse:
         """Reset user password using reset token."""
         logger.info("Processing password reset")
 
@@ -345,19 +346,19 @@ class AuthService:
             user_id = token_data["sub"]
 
             # Get user
-            user = await self.user_crud.get_user_by_id(user_id)
+            user = await self.repo.get_user_by_id(user_id)
             if not user or not user.is_active:
                 logger.warning(f"Password reset failed: User not found or inactive - {user_id}")
                 raise AuthError("User not found or inactive")
 
             # Update password
-            updated_user = await self.user_crud.reset_password(user, reset_data.new_password)
+            updated_user = await self.repo.reset_password(user, reset_data.new_password)
             if not updated_user:
                 logger.error(f"Failed to reset password for user: {user_id}")
                 raise AuthError("Failed to reset password")
 
             # Revoke all sessions for security
-            await self.session_crud.revoke_all_user_sessions(user.id)
+            await self.session_repo.revoke_all_user_sessions(user.id)
 
             logger.info(f"Password reset successful for user: {user_id}")
 
@@ -371,7 +372,7 @@ class AuthService:
                         f"Failed to send password change confirmation: {type(e).__name__}: {str(e)}"
                     )
 
-            return schema.PasswordResetResponse(
+            return PasswordResetResponse(
                 message="Password has been reset successfully. Please log in with your new password."
             )
 

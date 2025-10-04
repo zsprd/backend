@@ -16,7 +16,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.core.database import async_engine
+from app.core.database import engine
 from app.core.redis import redis_client
 
 # Configure logging
@@ -96,7 +96,7 @@ async def health_check():
         redis_status = f"disconnected: {str(e)}"
 
     try:
-        async with async_engine.begin() as connection:
+        async with engine.begin() as connection:
             await connection.execute(text("SELECT 1"))
             db_status = "connected"
     except Exception as e:

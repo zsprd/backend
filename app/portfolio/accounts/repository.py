@@ -6,19 +6,14 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.core.repository import BaseRepository
-from app.portfolio.accounts import schema
 from app.portfolio.accounts.model import PortfolioAccount
 
 logger = logging.getLogger(__name__)
 
 
-class PortfolioAccountRepository(
-    BaseRepository[PortfolioAccount, schema.PortfolioAccountCreate, schema.PortfolioAccountUpdate]
-):
+class PortfolioRepository:
 
     def __init__(self, db: AsyncSession):
-        super().__init__(PortfolioAccount)
         self.db = db
 
     async def get_multi_by_user(
@@ -34,7 +29,7 @@ class PortfolioAccountRepository(
             query = query.limit(limit).order_by(PortfolioAccount.created_at.desc())
 
             result = await self.db.execute(query)
-            return result.scalars().all()
+            return list(result.scalars().all())
 
         except Exception as e:
             logger.error(f"Failed to get portfolio accounts for user {user_id}: {str(e)}")
@@ -70,7 +65,7 @@ class PortfolioAccountRepository(
             )
 
             result = await self.db.execute(query)
-            return result.scalars().all()
+            return list(result.scalars().all())
 
         except Exception as e:
             logger.error(f"Failed to get active portfolio accounts for user {user_id}: {str(e)}")
@@ -94,7 +89,7 @@ class PortfolioAccountRepository(
             query = query.order_by(PortfolioAccount.created_at.desc())
 
             result = await self.db.execute(query)
-            return result.scalars().all()
+            return list(result.scalars().all())
 
         except Exception as e:
             logger.error(
@@ -102,10 +97,16 @@ class PortfolioAccountRepository(
             )
             raise
 
-    async def create(self, obj_in: schema.PortfolioAccountCreate) -> PortfolioAccount:
+    async def create(self, obj_in) -> PortfolioAccount:
         """Create a new portfolio account."""
         try:
-            data = obj_in.model_dump(mode="json")
+            # Accept a dict or model, but do not depend on Pydantic
+            if hasattr(obj_in, "model_dump"):
+                data = obj_in.model_dump(mode="json")
+            elif isinstance(obj_in, dict):
+                data = obj_in
+            else:
+                raise TypeError("obj_in must be a dict or have model_dump method")
             db_obj = PortfolioAccount(**data)
             self.db.add(db_obj)
             await self.db.commit()
@@ -117,12 +118,16 @@ class PortfolioAccountRepository(
             logger.error(f"Failed to create portfolio account: {str(e)}")
             raise
 
-    async def update(
-        self, db_obj: PortfolioAccount, obj_in: schema.PortfolioAccountUpdate
-    ) -> PortfolioAccount:
+    async def update(self, db_obj: PortfolioAccount, obj_in) -> PortfolioAccount:
         """Update a portfolio account."""
         try:
-            obj_data = obj_in.model_dump(exclude_unset=True, mode="json")
+            # Accept a dict or model, but do not depend on Pydantic
+            if hasattr(obj_in, "model_dump"):
+                obj_data = obj_in.model_dump(exclude_unset=True, mode="json")
+            elif isinstance(obj_in, dict):
+                obj_data = obj_in
+            else:
+                raise TypeError("obj_in must be a dict or have model_dump method")
 
             for field, value in obj_data.items():
                 setattr(db_obj, field, value)
@@ -172,7 +177,7 @@ class PortfolioAccountRepository(
             )
 
             result = await self.db.execute(query)
-            return result.scalars().all()
+            return list(result.scalars().all())
 
         except Exception as e:
             logger.error(f"Failed to search portfolio accounts for user {user_id}: {str(e)}")
@@ -234,7 +239,7 @@ class PortfolioAccountRepository(
             )
 
             result = await self.db.execute(query)
-            return result.scalars().all()
+            return list(result.scalars().all())
 
         except Exception as e:
             logger.error(

@@ -223,6 +223,8 @@ class PasswordResetResponse(BaseModel):
 
 
 class PasswordChangeResponse(BaseModel):
+    """Password change response."""
+
     message: str
 
 

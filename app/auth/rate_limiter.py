@@ -30,54 +30,14 @@ class RateLimiter:
         else:
             logger.warning("⚠️ Rate limiter using in-memory - not shared across instances")
 
-    def _parse_rate_limit(self, rate_limit: str) -> Tuple[int, int]:
-        """Parse rate limit string like '5/15minutes' or '100/hour'."""
-        parts = rate_limit.split("/")
-        if len(parts) != 2:
-            raise ValueError(f"Invalid rate limit format: {rate_limit}")
-
-        max_requests = int(parts[0])
-        period_str = parts[1].lower().strip()
-
-        # Parse time period - check longer strings first to avoid partial matches
-        time_units = [
-            ("seconds", 1),
-            ("second", 1),
-            ("minutes", 60),
-            ("minute", 60),
-            ("hours", 3600),
-            ("hour", 3600),
-            ("days", 86400),
-            ("day", 86400),
-        ]
-
-        # Try to match a time unit using endswith
-        for unit, multiplier in time_units:
-            if period_str.endswith(unit):
-                # Extract number before unit
-                number_str = period_str[: -len(unit)].strip()
-                if number_str:
-                    period_value = int(number_str)
-                else:
-                    period_value = 1  # Default to 1 if no number
-                window_seconds = period_value * multiplier
-                return max_requests, window_seconds
-
-        # If no match found
-        raise ValueError(f"Unknown time unit in rate limit: {period_str}")
-
-    def _build_key(self, identifier: str, endpoint: str) -> str:
-        """Build rate limit key."""
-        return f"ratelimit:{endpoint}:{identifier}"
-
     def check_rate_limit(
         self,
         identifier: str,
         endpoint: str,
-        rate_limit: str,
+        limit: str,
     ) -> Tuple[bool, int, int]:
         """Check if request is within rate limit."""
-        max_requests, window_seconds = self._parse_rate_limit(rate_limit)
+        max_requests, window_seconds = _parse_rate_limit(limit)
 
         if self._use_redis:
             return self._redis_check_rate_limit(identifier, endpoint, max_requests, window_seconds)
@@ -99,7 +59,7 @@ class RateLimiter:
                     identifier, endpoint, max_requests, window_seconds
                 )
 
-            key = self._build_key(identifier, endpoint)
+            key = _build_key(identifier, endpoint)
             now = time.time()
             window_start = now - window_seconds
 
@@ -148,7 +108,7 @@ class RateLimiter:
         window_seconds: int,
     ) -> Tuple[bool, int, int]:
         """Check rate limit using in-memory sliding window."""
-        key = self._build_key(identifier, endpoint)
+        key = _build_key(identifier, endpoint)
         now = time.time()
         window_start = now - window_seconds
 
@@ -178,7 +138,7 @@ class RateLimiter:
 
     def reset(self, identifier: str, endpoint: str) -> bool:
         """Reset rate limit for identifier and endpoint."""
-        key = self._build_key(identifier, endpoint)
+        key = _build_key(identifier, endpoint)
 
         if self._use_redis:
             try:
@@ -269,6 +229,48 @@ def rate_limit(rate_limit_str: str, identifier_func=None):
         return wrapper
 
     return decorator
+
+
+def _parse_rate_limit(limit: str) -> Tuple[int, int]:
+    """Parse rate limit string like '5/15minutes' or '100/hour'."""
+    parts = limit.split("/")
+    if len(parts) != 2:
+        raise ValueError(f"Invalid rate limit format: {limit}")
+
+    max_requests = int(parts[0])
+    period_str = parts[1].lower().strip()
+
+    # Parse time period - check longer strings first to avoid partial matches
+    time_units = [
+        ("seconds", 1),
+        ("second", 1),
+        ("minutes", 60),
+        ("minute", 60),
+        ("hours", 3600),
+        ("hour", 3600),
+        ("days", 86400),
+        ("day", 86400),
+    ]
+
+    # Try to match a time unit using endswith
+    for unit, multiplier in time_units:
+        if period_str.endswith(unit):
+            # Extract number before unit
+            number_str = period_str[: -len(unit)].strip()
+            if number_str:
+                period_value = int(number_str)
+            else:
+                period_value = 1  # Default to 1 if no number
+            window_seconds = period_value * multiplier
+            return max_requests, window_seconds
+
+    # If no match found
+    raise ValueError(f"Unknown time unit in rate limit: {period_str}")
+
+
+def _build_key(identifier: str, endpoint: str) -> str:
+    """Build rate limit key."""
+    return f"ratelimit:{endpoint}:{identifier}"
 
 
 # Export for convenience

@@ -1,24 +1,17 @@
 import logging
-from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.auth.rate_limiter import rate_limit
 from app.core.config import settings
-from app.core.database import get_async_db
+from app.user.accounts.dependencies import get_user_service
 from app.user.accounts.model import UserAccount
 from app.user.accounts.schemas import UserAccountPasswordUpdate, UserAccountRead, UserAccountUpdate
-from app.user.accounts.service import UserAccountService, UserError
+from app.user.accounts.service import UserService, UserError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-
-def get_user_service(db: Annotated[AsyncSession, Depends(get_async_db)]) -> UserAccountService:
-    """Dependency injection for user service."""
-    return UserAccountService(db)
 
 
 @router.get(
@@ -29,14 +22,14 @@ def get_user_service(db: Annotated[AsyncSession, Depends(get_async_db)]) -> User
     description="Retrieve the authenticated user's profile information.",
 )
 async def get_current_user_profile(
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-    service: Annotated[UserAccountService, Depends(get_user_service)],
+    user: UserAccount = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
 ) -> UserAccountRead:
     """Get current user's profile information."""
     try:
-        logger.info("Profile requested", extra={"user_id": current_user.id})
-        user = await service.get_user_profile(current_user.id)
-        logger.info("Profile retrieved successfully", extra={"user_id": current_user.id})
+        logger.info("Profile requested", extra={"user_id": user.id})
+        user = await service.get_user_profile(user.id)
+        logger.info("Profile retrieved successfully", extra={"user_id": user.id})
         return user
     except UserError as e:
         logger.error(f"Failed to get profile: {str(e)}")
@@ -52,15 +45,15 @@ async def get_current_user_profile(
 )
 @rate_limit(settings.RATE_LIMIT_UPDATE)
 async def update_current_user_profile(
-    profile_update: UserAccountUpdate,
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-    service: Annotated[UserAccountService, Depends(get_user_service)],
+    payload: UserAccountUpdate,
+    user: UserAccount = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
 ) -> UserAccountRead:
     """Update current user's profile information."""
     try:
-        logger.info("Profile update requested", extra={"user_id": current_user.id})
-        updated_user = await service.update_user_profile(current_user, profile_update)
-        logger.info("Profile updated successfully", extra={"user_id": current_user.id})
+        logger.info("Profile update requested", extra={"user_id": user.id})
+        updated_user = await service.update_user_profile(user, payload)
+        logger.info("Profile updated successfully", extra={"user_id": user.id})
         return updated_user
     except UserError as e:
         logger.error(f"Error updating profile: {str(e)}")
@@ -74,14 +67,14 @@ async def update_current_user_profile(
     description="Permanently delete the current user's account.",
 )
 async def delete_user_account(
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-    service: Annotated[UserAccountService, Depends(get_user_service)],
+    user: UserAccount = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
 ) -> Response:
     """Delete current user's account."""
     try:
-        logger.info("Account deletion requested", extra={"user_id": current_user.id})
-        await service.delete_user_account(current_user)
-        logger.info("Account deleted successfully", extra={"user_id": current_user.id})
+        logger.info("Account deletion requested", extra={"user_id": user.id})
+        await service.delete_user_account(user)
+        logger.info("Account deleted successfully", extra={"user_id": user.id})
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except UserError as e:
         logger.error(f"Account deletion failed: {str(e)}")
@@ -96,15 +89,15 @@ async def delete_user_account(
 )
 @rate_limit(settings.RATE_LIMIT_PASSWORD)
 async def change_user_password(
-    password_update: UserAccountPasswordUpdate,
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-    service: Annotated[UserAccountService, Depends(get_user_service)],
+    payload: UserAccountPasswordUpdate,
+    user: UserAccount = Depends(get_current_user),
+    service: UserService = Depends(get_user_service),
 ) -> Response:
     """Change current user's password."""
     try:
-        logger.info("Password change requested", extra={"user_id": current_user.id})
-        await service.change_password(current_user, password_update)
-        logger.info("Password changed successfully", extra={"user_id": current_user.id})
+        logger.info("Password change requested", extra={"user_id": user.id})
+        await service.change_password(user, payload)
+        logger.info("Password changed successfully", extra={"user_id": user.id})
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except UserError as e:
         logger.error(f"Error changing password: {str(e)}")

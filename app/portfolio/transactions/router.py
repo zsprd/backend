@@ -10,12 +10,11 @@ from fastapi import File, UploadFile, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
-from app.core.database import get_async_db
+from app.core.database import get_db
 from app.data.integrations.csv.service import CSVProcessorResult
 from app.data.integrations.csv.service import get_csv_processor
-from app.portfolio.accounts.repository import PortfolioAccountRepository
-from app.portfolio.transactions.repository import transaction_crud
-from app.portfolio.transactions.schema import (
+from app.portfolio.accounts.repository import PortfolioRepository
+from app.portfolio.transactions.schemas import (
     TransactionCreate,
     TransactionResponse,
     TransactionUpdate,
@@ -33,7 +32,7 @@ async def import_transactions_csv(
     file: Annotated[UploadFile, File()],
     dry_run: Annotated[bool, Query()] = False,
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_async_db)] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> dict:
     """
     Import transactions from CSV file.
@@ -48,7 +47,7 @@ async def import_transactions_csv(
     """
 
     # Verify user owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
     if not account:
@@ -72,6 +71,7 @@ async def import_transactions_csv(
     processor = get_csv_processor(db)
     result = processor.process_transactions_csv(
         csv_content=contents,
+        user_id=current_user.id,
         account_id=account_id,
         source=f"csv_upload_{current_user.id}",
         dry_run=dry_run,
@@ -83,7 +83,7 @@ async def import_transactions_csv(
 @router.get("/", response_model=List[TransactionResponse])
 async def get_user_transactions(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
     start_date: Optional[date] = Query(None, description="Start date filter"),
@@ -98,7 +98,7 @@ async def get_user_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = await PortfolioAccountRepository.get_by_user_and_id(
+            account = await PortfolioRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -138,7 +138,7 @@ async def get_user_transactions(
 @router.get("/{transaction_id}", response_model=TransactionResponse)
 async def get_transaction(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transaction_id: str,
 ):
@@ -151,7 +151,7 @@ async def get_transaction(
         )
 
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
@@ -164,13 +164,13 @@ async def get_transaction(
 @router.post("/", response_model=TransactionResponse, status_code=status.HTTP_201_CREATED)
 async def create_transaction(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transaction_data: TransactionCreate,
 ):
     """Create a new transaction."""
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(transaction_data.account_id)
     )
 
@@ -204,7 +204,7 @@ async def create_transaction(
 @router.put("/{transaction_id}", response_model=TransactionResponse)
 async def update_transaction(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transaction_id: str,
     transaction_update: TransactionUpdate,
@@ -218,7 +218,7 @@ async def update_transaction(
         )
 
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
@@ -251,7 +251,7 @@ async def update_transaction(
 @router.delete("/{transaction_id}")
 async def delete_transaction(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transaction_id: str,
 ):
@@ -264,7 +264,7 @@ async def delete_transaction(
         )
 
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(transaction.account_id)
     )
 
@@ -299,7 +299,7 @@ async def delete_transaction(
 @router.get("/{account_id}/summary")
 async def get_account_transaction_summary(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str,
     start_date: Optional[date] = Query(None, description="Start date"),
@@ -307,7 +307,7 @@ async def get_account_transaction_summary(
 ):
     """Get transaction summary for a specific account."""
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -332,7 +332,7 @@ async def get_account_transaction_summary(
 @router.get("/portfolio/summary")
 async def get_portfolio_transaction_summary(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
@@ -353,7 +353,7 @@ async def get_portfolio_transaction_summary(
 @router.get("/{account_id}/monthly/{year}")
 async def get_monthly_transaction_activity(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str,
     year: int,
@@ -361,7 +361,7 @@ async def get_monthly_transaction_activity(
 ):
     """Get monthly transaction activity for an account."""
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -386,7 +386,7 @@ async def get_monthly_transaction_activity(
 @router.get("/securities/{security_id}")
 async def get_security_transactions(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     security_id: str,
     account_id: Optional[str] = Query(None, description="Filter by account"),
@@ -397,7 +397,7 @@ async def get_security_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = await PortfolioAccountRepository.get_by_user_and_id(
+            account = await PortfolioRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -426,7 +426,7 @@ async def get_security_transactions(
 @router.get("/{account_id}/realized-gains")
 async def get_realized_gains_losses(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str,
     tax_year: Optional[int] = Query(None, description="Tax year filter"),
@@ -434,7 +434,7 @@ async def get_realized_gains_losses(
 ):
     """Calculate realized gains/losses for tax reporting."""
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -470,7 +470,7 @@ async def get_realized_gains_losses(
 @router.get("/tax-summary/{tax_year}")
 async def get_tax_summary(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     tax_year: int,
 ):
@@ -537,7 +537,7 @@ async def get_tax_summary(
 @router.post("/bulk-import")
 async def bulk_import_transactions(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     transactions_data: List[Dict[str, Any]],
 ):
@@ -557,7 +557,7 @@ async def bulk_import_transactions(
                 account_ids.add(account_id)
 
         for account_id in account_ids:
-            account = await PortfolioAccountRepository.get_by_user_and_id(
+            account = await PortfolioRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -599,14 +599,14 @@ async def bulk_import_transactions(
 @router.post("/upload-csv")
 async def upload_transactions_csv(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str = Query(..., description="Target account ID"),
     file: UploadFile = File(..., description="CSV file with transactions"),
 ):
     """Upload and process transactions from CSV file."""
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -681,7 +681,7 @@ async def upload_transactions_csv(
 @router.get("/search")
 async def search_transactions(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     q: str = Query(..., description="Search term", min_length=2),
     account_id: Optional[str] = Query(None, description="Filter by account"),
@@ -693,7 +693,7 @@ async def search_transactions(
     try:
         if account_id:
             # Verify users owns the account
-            account = await PortfolioAccountRepository.get_by_user_and_id(
+            account = await PortfolioRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -750,7 +750,7 @@ async def search_transactions(
 @router.post("/accounts/{account_id}/csv-upload")
 async def upload_transactions_csv(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     account_id: str,
     file: UploadFile = File(...),
@@ -766,7 +766,7 @@ async def upload_transactions_csv(
     """
 
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 

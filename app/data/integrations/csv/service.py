@@ -17,13 +17,13 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from uuid import UUID
 
 import pandas as pd
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.portfolio.accounts.repository import PortfolioAccountRepository
+from app.portfolio.accounts.repository import PortfolioRepository
 from app.portfolio.holdings.repository import HoldingRepository
 from app.portfolio.holdings.schemas import HoldingCreate
 from app.portfolio.transactions.repository import TransactionRepository
-from app.portfolio.transactions.schema import TransactionCreate
+from app.portfolio.transactions.schemas import TransactionCreate
 from app.security.master.model import SecurityMaster
 from app.security.master.repository import security_crud
 from app.security.master.schemas import SecurityCreate
@@ -172,7 +172,7 @@ class CSVValidator:
 class SecurityMatcher:
     """Intelligently matches securities from CSV data to database records."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self._cache: Dict[str, Optional[SecurityMaster]] = {}
 
@@ -276,14 +276,16 @@ class SecurityMatcher:
 class CSVProcessor:
     """Main CSV processing service for transactions and holdings imports."""
 
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
         self.validator = CSVValidator()
         self.security_matcher = SecurityMatcher(db)
+        self.portfolio_repo = PortfolioRepository(db)
 
     def process_transactions_csv(
         self,
         csv_content: Union[str, bytes],
+        user_id: UUID,
         account_id: UUID,
         source: str = "csv_upload",
         dry_run: bool = False,
@@ -304,7 +306,7 @@ class CSVProcessor:
 
         try:
             # Verify account exists and user has access
-            account = PortfolioAccountRepository.get(self.db, id=account_id)
+            account = self.portfolio_repo.get_by_user_and_id(user_id, account_id)
             if not account:
                 result.errors.append(f"Account {account_id} not found")
                 return result
@@ -353,6 +355,7 @@ class CSVProcessor:
     def process_holdings_csv(
         self,
         csv_content: Union[str, bytes],
+        user_id: UUID,
         account_id: UUID,
         source: str = "csv_upload",
         dry_run: bool = False,
@@ -362,7 +365,7 @@ class CSVProcessor:
 
         try:
             # Verify account
-            account = PortfolioAccountRepository.get(self.db, id=account_id)
+            account = self.portfolio_repo.get_by_user_and_id(user_id, account_id)
             if not account:
                 result.errors.append(f"Account {account_id} not found")
                 return result
@@ -596,6 +599,6 @@ class CSVProcessor:
 
 
 # Factory function for getting processor
-def get_csv_processor(db: Session) -> CSVProcessor:
+def get_csv_processor(db: AsyncSession) -> CSVProcessor:
     """Get CSV processor instance."""
     return CSVProcessor(db)

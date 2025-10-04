@@ -21,7 +21,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import async_session_maker
+from app.core.database import AsyncSessionLocal
 from app.reference.countries.model import ReferenceCountry
 from app.reference.currencies.model import ReferenceCurrency
 from app.reference.languages.model import ReferenceLanguage
@@ -481,7 +481,7 @@ async def seed_all_reference_data() -> Dict:
     Returns:
         Dict with seeding statistics
     """
-    async with async_session_maker() as session:
+    async with AsyncSessionLocal() as session:
         seeder = ReferenceDataSeeder(session)
         return await seeder.seed_all()
 

@@ -11,10 +11,10 @@ from app.analytics.risk.model import AnalyticsRisk
 from app.analytics.summary.model import AnalyticsSummary
 from app.core.model import BaseModel
 from app.portfolio.holdings.model import PortfolioHolding
+from app.portfolio.providers.model import PortfolioProvider
 from app.portfolio.transactions.model import PortfolioTransaction
 
 if TYPE_CHECKING:
-    from app.data.connections.model import DataConnection
     from app.user.accounts.model import UserAccount
 
 
@@ -38,21 +38,17 @@ class PortfolioAccount(BaseModel):
     account_type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     account_subtype: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     currency: Mapped[str] = mapped_column(String(3), default="USD", nullable=False)
-    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    account_name: Mapped[str] = mapped_column(String(255), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-
-    connection_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("data_connections.id", ondelete="SET NULL"), nullable=True
-    )
-    data_source: Mapped[str] = mapped_column(String(50), default="manual", nullable=False)
 
     # Relationships
     user_accounts: Mapped["UserAccount"] = relationship(
         "UserAccount", back_populates="portfolio_accounts"
     )
 
-    data_connections: Mapped[Optional["DataConnection"]] = relationship(
-        "DataConnection", back_populates="portfolio_accounts"
+    portfolio_providers: Mapped[List["PortfolioProvider"]] = relationship(
+        "PortfolioProvider",
+        back_populates="portfolio_accounts",
     )
 
     portfolio_holdings: Mapped[List["PortfolioHolding"]] = relationship(

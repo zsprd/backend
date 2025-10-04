@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.user.accounts.model import UserAccount
-from app.user.accounts.repository import UserAccountRepository
+from app.user.accounts.repository import UserRepository
 from app.user.accounts.schemas import (
     UserAccountPasswordUpdate,
     UserAccountRead,
@@ -23,11 +23,11 @@ class UserError(Exception):
     pass
 
 
-class UserAccountService:
+class UserService:
     """Service layer for user account business logic."""
 
     def __init__(self, db: AsyncSession):
-        self.repository = UserAccountRepository(db)
+        self.repository = UserRepository(db)
         self.user_log_repository = UserLogRepository(db)
 
     async def get_user_profile(self, user_id: UUID) -> UserAccountRead:

@@ -3,22 +3,20 @@ from decimal import Decimal
 from typing import Any, Dict, List, Optional
 
 from sqlalchemy import and_, desc, extract, select
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
-from app.core.repository import BaseRepository
 from app.portfolio.transactions.model import PortfolioTransaction
-from app.portfolio.transactions.schema import TransactionCreate, TransactionUpdate
 
 
-class TransactionRepository(
-    BaseRepository[PortfolioTransaction, TransactionCreate, TransactionUpdate]
-):
+class TransactionRepository:
     """CRUD operations for PortfolioTransaction model."""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
     def get_by_account(
         self,
-        db: Session,
-        *,
         account_id: str,
         skip: int = 0,
         limit: int = 100,
@@ -45,13 +43,11 @@ class TransactionRepository(
         )
         stmt = stmt.offset(skip).limit(limit)
 
-        result = db.execute(stmt)
+        result = self.db.execute(stmt)
         return list(result.scalars().all())
 
     def get_by_user(
         self,
-        db: Session,
-        *,
         user_id: str,
         skip: int = 0,
         limit: int = 100,
@@ -78,13 +74,11 @@ class TransactionRepository(
         )
         stmt = stmt.offset(skip).limit(limit)
 
-        result = db.execute(stmt)
+        result = self.db.execute(stmt)
         return list(result.scalars().all())
 
     def get_transaction_summary(
         self,
-        db: Session,
-        *,
         account_id: str,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
@@ -97,7 +91,7 @@ class TransactionRepository(
         if end_date:
             stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
 
-        result = db.execute(stmt)
+        result = self.db.execute(stmt)
         transactions = list(result.scalars().all())
 
         # Initialize counters
@@ -154,8 +148,6 @@ class TransactionRepository(
 
     def get_portfolio_summary(
         self,
-        db: Session,
-        *,
         user_id: str,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
@@ -174,7 +166,7 @@ class TransactionRepository(
         if end_date:
             stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
 
-        result = db.execute(stmt)
+        result = self.db.execute(stmt)
         transactions = list(result.scalars().all())
 
         # Group by account
@@ -227,7 +219,7 @@ class TransactionRepository(
         }
 
     def get_monthly_activity(
-        self, db: Session, *, account_id: str, year: int, month: Optional[int] = None
+        self, account_id: str, year: int, month: Optional[int] = None
     ) -> Dict[str, Any]:
         """Get monthly transaction activity for an account."""
         stmt = select(PortfolioTransaction).where(
@@ -240,7 +232,7 @@ class TransactionRepository(
         if month:
             stmt = stmt.where(extract("month", PortfolioTransaction.trade_date) == month)
 
-        result = db.execute(stmt)
+        result = self.db.execute(stmt)
         transactions = list(result.scalars().all())
 
         # Group by month
@@ -279,8 +271,6 @@ class TransactionRepository(
 
     def get_security_transactions(
         self,
-        db: Session,
-        *,
         security_id: str,
         account_id: Optional[str] = None,
         user_id: Optional[str] = None,
@@ -305,13 +295,11 @@ class TransactionRepository(
             stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
 
         stmt = stmt.order_by(desc(PortfolioTransaction.trade_date))
-        result = db.execute(stmt)
+        result = self.db.execute(stmt)
         return list(result.scalars().all())
 
     def calculate_realized_gains_losses(
         self,
-        db: Session,
-        *,
         account_id: str,
         security_id: Optional[str] = None,
         tax_year: Optional[int] = None,
@@ -330,7 +318,7 @@ class TransactionRepository(
         if tax_year:
             stmt = stmt.where(extract("year", PortfolioTransaction.trade_date) == tax_year)
 
-        result = db.execute(stmt)
+        result = self.db.execute(stmt)
         sell_transactions = list(result.scalars().all())
 
         realized_gains = Decimal("0")
@@ -371,7 +359,7 @@ class TransactionRepository(
         }
 
     def bulk_import_transactions(
-        self, db: Session, *, transactions_data: List[Dict[str, Any]]
+        self, transactions_data: List[Dict[str, Any]]
     ) -> List[PortfolioTransaction]:
         """Bulk import transactions efficiently."""
         transactions = []
@@ -380,14 +368,10 @@ class TransactionRepository(
             transaction = PortfolioTransaction(**tx_data)
             transactions.append(transaction)
 
-        db.add_all(transactions)
-        db.commit()
+        self.db.add_all(transactions)
+        self.db.commit()
 
         for transaction in transactions:
-            db.refresh(transaction)
+            self.db.refresh(transaction)
 
         return transactions
-
-
-# Create instance
-transaction_crud = TransactionRepository(PortfolioTransaction)

@@ -1,15 +1,15 @@
 import logging
 from datetime import UTC, date, datetime
-from typing import Any, Dict, List, Optional, Annotated
+from typing import List, Optional, Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
-from app.core.database import get_async_db
+from app.core.database import get_db
 from app.data.integrations.csv.service import CSVProcessorResult
-from app.portfolio.accounts.repository import PortfolioAccountRepository
+from app.portfolio.accounts.repository import PortfolioRepository
 from app.portfolio.holdings.repository import HoldingRepository
 from app.portfolio.holdings.schemas import HoldingCreate, HoldingRead, HoldingUpdate
 from app.portfolio.holdings.service import PortfolioHoldingsService
@@ -26,22 +26,21 @@ async def import_holdings_csv(
     file: Annotated[UploadFile, File()],
     dry_run: Annotated[bool, Query()] = False,
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
-    db: Annotated[AsyncSession, Depends(get_async_db)] = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> dict:
     """Import holdings from CSV file."""
     return await PortfolioHoldingsService.import_holdings_csv(
-        db=db,
+        user=current_user,
         account_id=account_id,
         file=file,
         dry_run=dry_run,
-        current_user=current_user,
     )
 
 
 @router.get("/", response_model=List[HoldingRead])
 async def get_user_holdings(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
     as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
@@ -53,7 +52,7 @@ async def get_user_holdings(
     account_id_uuid = UUID(account_id) if account_id else None
     return await PortfolioHoldingsService.get_user_holdings(
         db=db,
-        current_user=current_user,
+        user=current_user,
         account_id=account_id_uuid,
         as_of_date=as_of_date,
         skip=skip,
@@ -64,7 +63,7 @@ async def get_user_holdings(
 @router.get("/{holding_id}", response_model=HoldingRead)
 async def get_holding(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     holding_id: str,
 ):
@@ -72,7 +71,7 @@ async def get_holding(
     holding_id_uuid = UUID(holding_id)
     return await PortfolioHoldingsService.get_holding(
         db=db,
-        current_user=current_user,
+        user=current_user,
         holding_id=holding_id_uuid,
     )
 
@@ -80,13 +79,13 @@ async def get_holding(
 @router.post("/", response_model=HoldingRead, status_code=status.HTTP_201_CREATED)
 async def create_holding(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     holding_data: HoldingCreate,
 ):
     """Create a new holding."""
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding_data.account_id)
     )
 
@@ -120,7 +119,7 @@ async def create_holding(
 @router.put("/{holding_id}", response_model=HoldingRead)
 async def update_holding(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     holding_id: str,
     holding_update: HoldingUpdate,
@@ -134,7 +133,7 @@ async def update_holding(
         )
 
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
@@ -165,7 +164,7 @@ async def update_holding(
 @router.delete("/{holding_id}")
 async def delete_holding(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     holding_id: str,
 ):
@@ -178,7 +177,7 @@ async def delete_holding(
         )
 
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
@@ -213,7 +212,7 @@ async def delete_holding(
 @router.get("/{account_id}", response_model=List[HoldingRead])
 async def get_account_holdings(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: str,
     as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
@@ -221,7 +220,7 @@ async def get_account_holdings(
 ):
     """Get holdings for a specific account."""
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -250,14 +249,14 @@ async def get_account_holdings(
 @router.get("/{account_id}/summary")
 async def get_account_holdings_summary(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: str,
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """Get comprehensive holdings summary for a specific account."""
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -279,30 +278,10 @@ async def get_account_holdings_summary(
         )
 
 
-@router.get("/portfolio/allocation")
-async def get_portfolio_allocation(
-    *,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-    base_currency: str = Query("USD", description="Base currency for calculations"),
-):
-    """Get portfolios allocation across all users accounts."""
-    try:
-        allocation = HoldingRepository.get_portfolio_allocation(
-            db, user_id=current_user.id, base_currency=base_currency
-        )
-        return allocation
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error retrieving portfolios allocation: {str(e)}",
-        )
-
-
 @router.get("/securities/{security_id}/history")
 async def get_holding_history(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     security_id: str,
     account_id: Optional[str] = Query(None, description="Filter by account"),
@@ -314,7 +293,7 @@ async def get_holding_history(
     try:
         if account_id:
             # Verify users owns the account
-            account = await PortfolioAccountRepository.get_by_user_and_id(
+            account = await PortfolioRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -365,134 +344,10 @@ async def get_holding_history(
         )
 
 
-@router.post("/bulk-update-prices")
-async def bulk_update_market_values(
-    *,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-    holdings_updates: List[Dict[str, Any]],
-):
-    """Bulk update market values for holdings."""
-    if not holdings_updates:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No holdings updates provided",
-        )
-
-    try:
-        # Verify users owns all the holdings
-        for update in holdings_updates:
-            holding_id = update.get("holding_id")
-            if not holding_id:
-                continue
-
-            holding = HoldingRepository.get(db, id=holding_id)
-            if not holding:
-                continue
-
-            account = await PortfolioAccountRepository.get_by_user_and_id(
-                db, user_id=current_user.id, account_id=str(holding.account_id)
-            )
-            if not account:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Access denied for holding {holding_id}",
-                )
-
-        updated_count = HoldingRepository.update_market_values(
-            db, holdings_updates=holdings_updates
-        )
-
-        # Log bulk update
-        UserLogRepository.log_user_action(
-            db,
-            user_id=current_user.id,
-            action="bulk_update",
-            target_category="holding",
-            description=f"Bulk updated market values for {updated_count} holdings",
-            metadata={"updated_count": updated_count},
-        )
-
-        return {
-            "message": "Market values updated successfully",
-            "updated_count": updated_count,
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error updating market values: {str(e)}",
-        )
-
-
-@router.post("/{account_id}/snapshot")
-async def create_holdings_snapshot(
-    *,
-    db: AsyncSession = Depends(get_async_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-    account_id: str,
-    as_of_date: date = Query(..., description="Snapshot date"),
-    holdings_data: List[Dict[str, Any]],
-):
-    """Create a complete holdings snapshot for an account."""
-    # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
-        db, user_id=current_user.id, account_id=account_id
-    )
-
-    if not account:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied or account not found",
-        )
-
-    if not holdings_data:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No holdings data provided"
-        )
-
-    try:
-        holdings = HoldingRepository.create_holding_snapshot(
-            db,
-            account_id=account_id,
-            as_of_date=as_of_date,
-            holdings_data=holdings_data,
-        )
-
-        # Log snapshot creation
-        UserLogRepository.log_user_action(
-            db,
-            user_id=current_user.id,
-            action="create_snapshot",
-            target_category="holding",
-            target_id=account_id,
-            description=f"Created holdings snapshot with {len(holdings)} positions",
-            metadata={
-                "as_of_date": as_of_date.isoformat(),
-                "holdings_count": len(holdings),
-            },
-        )
-
-        return {
-            "message": "Holdings snapshot created successfully",
-            "account_id": account_id,
-            "as_of_date": as_of_date.isoformat(),
-            "holdings_count": len(holdings),
-            "holdings": [
-                HoldingRead.model_validate(holding, from_attributes=True) for holding in holdings
-            ],
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating holdings snapshot: {str(e)}",
-        )
-
-
 @router.post("/{account_id}/csv-upload")
 async def upload_holdings_csv(
     *,
-    db: AsyncSession = Depends(get_async_db),
+    db: AsyncSession = Depends(get_db),
     current_user: Annotated[UserAccount, Depends(get_current_user)],
     account_id: str,
     file: UploadFile = File(...),
@@ -508,7 +363,7 @@ async def upload_holdings_csv(
     """
 
     # Verify users owns the account
-    account = await PortfolioAccountRepository.get_by_user_and_id(
+    account = await PortfolioRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 

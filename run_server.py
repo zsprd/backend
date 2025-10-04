@@ -17,7 +17,7 @@ from sqlalchemy import text
 
 # Import after path setup
 from app.core.config import settings
-from app.core.database import async_engine, async_session_maker
+from app.core.database import engine, AsyncSessionLocal
 from app.core.redis import redis_client
 
 # Add the current directory to Python path
@@ -53,7 +53,7 @@ def check_environment():
 async def test_database_connection():
     """Test database connectivity."""
     try:
-        async with async_session_maker() as session:
+        async with AsyncSessionLocal() as session:
             await session.execute(text("SELECT 1"))
         logger.info("✅ Database connection successful")
         return True
@@ -91,7 +91,7 @@ async def create_tables() -> bool:
         from app.core.model import Base
         import app.models
 
-        async with async_engine.begin() as conn:
+        async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
 
         logger.info("✅ Database tables created/verified")
@@ -182,7 +182,7 @@ async def main() -> None:
     finally:
         # Always dispose DB connections on shutdown
         logger.info("🧹 Disposing database engine...")
-        await async_engine.dispose()
+        await engine.dispose()
         logger.info("✅ Database engine disposed")
 
         # Add Redis cleanup

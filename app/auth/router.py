@@ -1,12 +1,27 @@
 import logging
-from typing import Annotated, Optional
+from ipaddress import ip_address
+from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
-from app.auth import schema
-from app.auth.dependencies import get_current_user, get_auth_service
+from app.auth.dependencies import get_auth_service, get_current_user
 from app.auth.rate_limiter import rate_limit
-from app.auth.service import AuthError, AuthService, SessionContext
+from app.auth.schemas import (
+    RegistrationResponse,
+    UserRegistrationData,
+    AuthResponse,
+    SignInRequest,
+    EmailConfirmRequest,
+    EmailVerificationResponse,
+    TokenResponse,
+    RefreshTokenRequest,
+    ResetPasswordRequest,
+    PasswordResetResponse,
+    ForgotPasswordResponse,
+    ForgotPasswordRequest,
+    LogoutResponse,
+)
+from app.auth.service import AuthError, AuthService
 from app.core.config import settings
 from app.user.accounts.model import UserAccount
 
@@ -16,31 +31,23 @@ logger = logging.getLogger(__name__)
 
 @router.post(
     "/register",
-    response_model=schema.RegistrationResponse,
+    response_model=RegistrationResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register new user",
     description="Create a new user account with email verification required.",
 )
 @rate_limit(settings.RATE_LIMIT_REGISTER)
 async def register(
-    registration_data: schema.UserRegistrationData,
-    request: Request,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> schema.RegistrationResponse:
+    payload: UserRegistrationData,
+    service: AuthService = Depends(get_auth_service),
+) -> RegistrationResponse:
     """Register a new user account with email verification required."""
-    client_ip = _extract_ip_address(request)
-    logger.info(
-        "Registration attempt",
-        extra={"client_ip": client_ip, "email": registration_data.email, "action": "register"},
-    )
+    logger.info("Registration attempt", extra={"email": payload.email, "action": "register"})
 
     try:
-        result = await auth_service.register(registration_data)
+        result = await service.register(payload)
 
-        logger.info(
-            "Registration successful",
-            extra={"email": registration_data.email, "action": "register"},
-        )
+        logger.info("Registration successful", extra={"email": payload.email, "action": "register"})
         return result
 
     except AuthError as e:
@@ -50,32 +57,26 @@ async def register(
 
 @router.post(
     "/login",
-    response_model=schema.AuthResponse,
+    response_model=AuthResponse,
     status_code=status.HTTP_200_OK,
     summary="User authentication",
     description="Authenticate user credentials and return JWT tokens.",
 )
 @rate_limit(settings.RATE_LIMIT_LOGIN)
 async def login(
-    signin_data: schema.SignInRequest,
+    payload: SignInRequest,
     request: Request,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> schema.AuthResponse:
+    service: AuthService = Depends(get_auth_service),
+) -> AuthResponse:
     """Authenticate user credentials and return JWT tokens."""
-    client_ip = _extract_ip_address(request)
-    logger.info(
-        "Login attempt",
-        extra={"client_ip": client_ip, "email": signin_data.email, "action": "login"},
-    )
+    logger.info("Login attempt", extra={"email": payload.email, "action": "login"})
 
     try:
-        # Extract session context from request
-        session_context = SessionContext(
-            ip_address=_extract_ip_address(request), user_agent=_extract_user_agent(request)
-        )
+        user_ip = _extract_ip_address(request)
+        user_agent = _extract_user_agent(request)
 
-        result = await auth_service.login(signin_data, session_context)
-        logger.info("Login successful", extra={"email": signin_data.email, "action": "login"})
+        result = await service.login(payload, user_ip, user_agent)
+        logger.info("Login successful", extra={"email": payload.email, "action": "login"})
         return result
 
     except AuthError as e:
@@ -85,22 +86,19 @@ async def login(
 
 @router.post(
     "/logout",
-    response_model=schema.LogoutResponse,
+    response_model=LogoutResponse,
     status_code=status.HTTP_200_OK,
     summary="User logout",
     description="Invalidate all user sessions (logout from all devices).",
 )
 async def logout(
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> schema.LogoutResponse:
+    user: UserAccount = Depends(get_current_user),
+    service: AuthService = Depends(get_auth_service),
+) -> LogoutResponse:
     """Invalidate all user sessions for the current user (logout everywhere)."""
     try:
-        result = await auth_service.logout(current_user)
-        logger.info(
-            "Logout successful",
-            extra={"user_id": getattr(current_user, "id", "unknown"), "action": "logout"},
-        )
+        result = await service.logout(user)
+        logger.info("Logout successful", extra={"user_id": str(user.id), "action": "logout"})
         return result
 
     except AuthError as e:
@@ -110,24 +108,21 @@ async def logout(
 
 @router.post(
     "/verify-email",
-    response_model=schema.EmailVerificationResponse,
+    response_model=EmailVerificationResponse,
     status_code=status.HTTP_200_OK,
     summary="Verify email address",
     description="Verify user email address using verification token.",
 )
 @rate_limit(settings.RATE_LIMIT_VERIFY)
 async def verify_email(
-    verification_data: schema.EmailConfirmRequest,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> schema.EmailVerificationResponse:
+    payload: EmailConfirmRequest,
+    service: AuthService = Depends(get_auth_service),
+) -> EmailVerificationResponse:
     """Verify user email address using verification token."""
-    logger.info(
-        "Email verification attempt",
-        extra={"token": verification_data.token[:10] + "...", "action": "verify_email"},
-    )
+    logger.info("Email verification attempt", extra={"action": "verify_email"})
 
     try:
-        result = await auth_service.verify_email(verification_data)
+        result = await service.verify_email(payload)
         logger.info("Email verification successful", extra={"action": "verify_email"})
         return result
 
@@ -138,22 +133,21 @@ async def verify_email(
 
 @router.post(
     "/refresh",
-    response_model=schema.TokenResponse,
+    response_model=TokenResponse,
     status_code=status.HTTP_200_OK,
     summary="Refresh access token",
     description="Generate new access token using valid refresh token.",
 )
 @rate_limit(settings.RATE_LIMIT_REFRESH)
 async def refresh(
-    request: Request,
-    refresh_data: schema.RefreshTokenRequest,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> schema.TokenResponse:
+    payload: RefreshTokenRequest,
+    service: AuthService = Depends(get_auth_service),
+) -> TokenResponse:
     """Generate new access token using valid refresh token."""
     logger.info("Token refresh attempt", extra={"action": "refresh_token"})
 
     try:
-        result = await auth_service.refresh(refresh_data)
+        result = await service.refresh(payload)
         logger.info("Token refresh successful", extra={"action": "refresh_token"})
         return result
 
@@ -164,30 +158,26 @@ async def refresh(
 
 @router.post(
     "/forgot-password",
-    response_model=schema.ForgotPasswordResponse,
+    response_model=ForgotPasswordResponse,
     status_code=status.HTTP_200_OK,
     summary="Request password reset",
     description="Send password reset email if account exists.",
 )
 @rate_limit(settings.RATE_LIMIT_PASSWORD)
 async def forgot_password(
-    reset_request: schema.ForgotPasswordRequest,
-    request: Request,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> schema.ForgotPasswordResponse:
+    payload: ForgotPasswordRequest,
+    service: AuthService = Depends(get_auth_service),
+) -> ForgotPasswordResponse:
     """Send password reset email if account exists."""
-    client_ip = _extract_ip_address(request)
     logger.info(
-        "Password reset request",
-        extra={"client_ip": client_ip, "email": reset_request.email, "action": "forgot_password"},
+        "Password reset request", extra={"email": payload.email, "action": "forgot_password"}
     )
 
     try:
-        result = await auth_service.forgot_password(reset_request)
+        result = await service.forgot_password(payload)
 
         logger.info(
-            "Password reset request processed",
-            extra={"email": reset_request.email, "action": "forgot_password"},
+            "Password reset email sent", extra={"email": payload.email, "action": "forgot_password"}
         )
         return result
 
@@ -198,21 +188,21 @@ async def forgot_password(
 
 @router.post(
     "/reset-password",
-    response_model=schema.PasswordResetResponse,
+    response_model=PasswordResetResponse,
     status_code=status.HTTP_200_OK,
     summary="Reset password",
     description="Reset password using valid reset token.",
 )
 @rate_limit(settings.RATE_LIMIT_PASSWORD)
 async def reset_password(
-    reset_data: schema.ResetPasswordRequest,
-    auth_service: Annotated[AuthService, Depends(get_auth_service)],
-) -> schema.PasswordResetResponse:
+    payload: ResetPasswordRequest,
+    service: AuthService = Depends(get_auth_service),
+) -> PasswordResetResponse:
     """Reset password using valid reset token."""
     logger.info("Password reset attempt", extra={"action": "reset_password"})
 
     try:
-        result = await auth_service.reset_password(reset_data)
+        result = await service.reset_password(payload)
         logger.info("Password reset successful", extra={"action": "reset_password"})
         return result
 
@@ -231,12 +221,15 @@ def _extract_ip_address(request: Optional[Request]) -> Optional[str]:
     if forwarded_for:
         # Take first IP from comma-separated list
         ip = forwarded_for.split(",")[0].strip()
-        if _is_valid_ip(ip):
+        try:
+            ip_address(ip)  # Validate
             return ip
+        except ValueError:
+            pass  # Invalid IP
 
     # Check other proxy headers
     real_ip = request.headers.get("X-Real-IP")
-    if real_ip and _is_valid_ip(real_ip):
+    if real_ip and ip_address(real_ip):
         return real_ip
 
     # Fall back to direct connection
@@ -265,56 +258,23 @@ def _extract_user_agent(request: Optional[Request]) -> Optional[str]:
     return sanitized or None
 
 
-def _is_valid_ip(ip: str) -> bool:
-    """Basic IP address validation."""
-    if not ip or ip == "unknown":
-        return False
-
-    # Basic IPv4 validation
-    parts = ip.split(".")
-    if len(parts) == 4:
-        try:
-            return all(0 <= int(part) <= 255 for part in parts)
-        except ValueError:
-            pass
-
-    # Basic IPv6 validation (simplified)
-    if ":" in ip and len(ip) <= 45:
-        return True
-
-    return False
-
-
 def handle_auth_error(e: AuthError) -> HTTPException:
     """Convert AuthError to appropriate HTTP status code."""
     error_msg = str(e).lower()
 
-    # Expired token/session errors -> 410 Gone
-    if any(phrase in error_msg for phrase in ["expired token", "expired session", "has expired"]):
+    if "expired" in error_msg:  # Expired token/session errors -> 410 Gone
         return HTTPException(status_code=status.HTTP_410_GONE, detail=str(e))
-
-    # Not found errors -> 404 Not Found
-    if "not found" in error_msg:
+    elif "not found" in error_msg:  # Not found errors -> 404 Not Found
         return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
-
-    # Invalid credentials -> 401 Unauthorized
-    if "invalid credentials" in error_msg:
+    elif "invalid credentials" in error_msg:  # Invalid credentials -> 401 Unauthorized
         return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
-
-    # Email not verified -> 403 Forbidden
-    if "not verified" in error_msg:
+    elif "not verified" in error_msg:  # Email not verified -> 403 Forbidden
         return HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
-
-    # Account locked -> 423 Locked
-    if "temporarily locked" in error_msg:
+    elif "temporarily locked" in error_msg:  # Account locked -> 423 Locked
         return HTTPException(status_code=status.HTTP_423_LOCKED, detail=str(e))
-
-    # Already exists -> 409 Conflict
-    if "already exists" in error_msg:
+    elif "already exists" in error_msg:  # Already exists -> 409 Conflict
         return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(e))
-
-    if "unexpected error" in error_msg:
+    elif "unexpected error" in error_msg:
         return HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
-
-    # Default to 400 Bad Request
-    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    else:  # Default to 400 Bad Request
+        return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
