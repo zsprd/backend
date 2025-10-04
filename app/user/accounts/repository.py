@@ -350,7 +350,7 @@ class UserRepository:
             return True
 
     async def cleanup_locked_accounts(self) -> int:
-        """Clean up accounts whose lockout period has expired."""
+        """Clean up master whose lockout period has expired."""
         try:
             now = datetime.now(timezone.utc)
 

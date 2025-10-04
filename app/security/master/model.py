@@ -1,15 +1,17 @@
-from typing import Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from sqlalchemy import JSON, Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.model import BaseModel
-from ..identifiers.model import SecurityIdentifier
-from ..prices.model import SecurityPrice
-from ...corporate.actions.model import CorporateAction
-from ...corporate.dividends.model import CorporateDividend
-from ...portfolio.holdings.model import PortfolioHolding
-from ...portfolio.transactions.model import PortfolioTransaction
+
+if TYPE_CHECKING:
+    from app.portfolio.holdings.model import PortfolioHolding
+    from app.portfolio.transactions.model import PortfolioTransaction
+    from app.security.actions.model import CorporateAction
+    from app.security.identifiers.model import SecurityIdentifier
+    from app.security.prices.model import SecurityPrice
+    from app.security.providers.model import SecurityProvider
 
 
 class SecurityMaster(BaseModel):
@@ -17,19 +19,31 @@ class SecurityMaster(BaseModel):
     Master security reference database for all financial instruments.
 
     Central repository for securities including stocks, bonds, ETFs, mutual funds,
-    options, and other instruments. Stores fundamental characteristics,
-    classification data, and metadata for portfolio analytics.
+    options, commodities, cryptocurrencies, and other instruments. Stores fundamental
+    characteristics, classification data, and metadata for portfolio analytics.
+
+    Each security can have an associated provider that actively maintains its data
+    (prices, identifiers, corporate actions). Data provenance is tracked at the
+    individual data point level (e.g., each price record tracks its data_provider).
+
+    NOTE: Cash should be represented as a special security with symbol='CASH' and
+    security_type='cash' and is_cash_equivalent=True.
     """
 
     __tablename__ = "security_master"
 
     # Basic security identification
     symbol: Mapped[Optional[str]] = mapped_column(
-        String(50), nullable=True, index=True, comment="Primary trading symbol (AAPL, MSFT, SPY)"
+        String(50),
+        nullable=True,
+        index=True,
+        comment="Primary trading symbol (AAPL, MSFT, SPY, BTC, etc.)",
     )
 
-    name: Mapped[str] = mapped_column(
-        String(500), nullable=False, comment="Full legal name of the security"
+    security_name: Mapped[str] = mapped_column(
+        String(500),
+        nullable=False,
+        comment="Full legal name of the security",
     )
 
     # Security classification for analytics
@@ -37,35 +51,46 @@ class SecurityMaster(BaseModel):
         String(50),
         nullable=False,
         index=True,
-        comment="Broad asset class: equity, debt, fund, option, etc.",
+        comment="Broad asset class: equity, debt, fund, option, commodity, crypto, cash, etc.",
     )
 
     security_subtype: Mapped[Optional[str]] = mapped_column(
         String(50),
         nullable=True,
-        comment="Specific security type: common stock, ETF, corporate bond",
+        comment="Specific security type: common_stock, etf, corporate_bond, bitcoin, etc.",
     )
 
     # Trading and market information
     currency: Mapped[str] = mapped_column(
-        String(3), default="USD", nullable=False, comment="Primary trading currency"
+        String(3),
+        default="USD",
+        nullable=False,
+        comment="Primary trading currency",
     )
 
     exchange: Mapped[Optional[str]] = mapped_column(
-        String(20), nullable=True, comment="Primary exchange where security trades (NYSE, NASDAQ)"
+        String(20),
+        nullable=True,
+        comment="Primary exchange where security trades (NYSE, NASDAQ, BINANCE, etc.)",
     )
 
     country: Mapped[Optional[str]] = mapped_column(
-        String(2), nullable=True, comment="Country of incorporation or primary listing"
+        String(2),
+        nullable=True,
+        comment="Country of incorporation or primary listing (ISO 3166-1 alpha-2)",
     )
 
-    # Sector and industry classification (GICS standard)
+    # Sector and industry classification (GICS standard for equities)
     sector: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, comment="GICS sector classification for industry analysis"
+        String(100),
+        nullable=True,
+        comment="GICS sector classification for industry analysis",
     )
 
     industry: Mapped[Optional[str]] = mapped_column(
-        String(100), nullable=True, comment="GICS industry classification for detailed analysis"
+        String(100),
+        nullable=True,
+        comment="GICS industry classification for detailed analysis",
     )
 
     # Special characteristics
@@ -73,26 +98,31 @@ class SecurityMaster(BaseModel):
         Boolean,
         default=False,
         nullable=False,
-        comment="Whether this security should be treated as cash for allocation",
+        comment="Whether this security should be treated as cash for allocation (e.g., CASH symbol)",
     )
 
     # Structured details for different security types
     option_details: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSON, nullable=True, comment="Option-specific data: strike, expiry, type, underlying symbol"
+        JSON,
+        nullable=True,
+        comment="Option-specific data: strike, expiry, type, underlying_symbol",
     )
 
     bond_details: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSON, nullable=True, comment="Bond-specific data: maturity, coupon, rating, issuer"
-    )
-
-    data_source: Mapped[str] = mapped_column(
-        String(50),
-        default="manual",
-        nullable=False,
-        comment="Source of this security's reference data",
+        JSON,
+        nullable=True,
+        comment="Bond-specific data: maturity, coupon, rating, issuer",
     )
 
     # Relationships
+    security_provider: Mapped[Optional["SecurityProvider"]] = relationship(
+        "SecurityProvider",
+        back_populates="security_master",
+        uselist=False,
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+
     security_prices: Mapped[List["SecurityPrice"]] = relationship(
         "SecurityPrice",
         back_populates="security_master",
@@ -108,22 +138,19 @@ class SecurityMaster(BaseModel):
     )
 
     portfolio_holdings: Mapped[List["PortfolioHolding"]] = relationship(
-        "PortfolioHolding", back_populates="security_master", passive_deletes=True
+        "PortfolioHolding",
+        back_populates="security_master",
+        passive_deletes=True,
     )
 
     portfolio_transactions: Mapped[List["PortfolioTransaction"]] = relationship(
-        "PortfolioTransaction", back_populates="security_master", passive_deletes=True
+        "PortfolioTransaction",
+        back_populates="security_master",
+        passive_deletes=True,
     )
 
     corporate_actions: Mapped[List["CorporateAction"]] = relationship(
         "CorporateAction",
-        back_populates="security_master",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-    )
-
-    corporate_dividends: Mapped[List["CorporateDividend"]] = relationship(
-        "CorporateDividend",
         back_populates="security_master",
         cascade="all, delete-orphan",
         passive_deletes=True,

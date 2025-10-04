@@ -5,9 +5,9 @@ from fastapi import APIRouter
 # import app.analytics.risk.router as risk
 # import app.analytics.summary.router as summary
 import app.auth.router as auth
-import app.data.integrations.csv.router as csv_import
-import app.portfolio.accounts.router as account
+import app.integrations.csv.router as csv_import
 import app.portfolio.holdings.router as holding
+import app.portfolio.master.router as account
 # import app.security.master.router as security
 import app.user.accounts.router as user
 
@@ -18,7 +18,7 @@ api_router = APIRouter()
 # Include all route modules
 api_router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 api_router.include_router(user.router, prefix="/user", tags=["User"])
-api_router.include_router(account.router, prefix="/portfolio/accounts", tags=["Portfolio"])
+api_router.include_router(account.router, prefix="/portfolio", tags=["Portfolio"])
 api_router.include_router(holding.router, prefix="/portfolio/holdings", tags=["Portfolio"])
 # api_router.include_router(transaction.router, prefix="/portfolio/transactions", tags=["Portfolio"])
 api_router.include_router(csv_import.router, prefix="/data/csv", tags=["CSV Import"])

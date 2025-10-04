@@ -1,9 +1,7 @@
-import enum
-
-from sqlalchemy import Enum
+from enum import Enum
 
 
-class SecurityTypeEnum(enum.Enum):
+class SecurityType(str, Enum):
     """
     Broad asset class categories for securities.
 
@@ -23,7 +21,7 @@ class SecurityTypeEnum(enum.Enum):
     OTHER = "other"  # Commodities, REITs, alternatives
 
 
-class SecuritySubtypeEnum(enum.Enum):
+class SecuritySubtype(str, Enum):
     """
     Specific security classifications for detailed analysis.
 
@@ -31,8 +29,8 @@ class SecuritySubtypeEnum(enum.Enum):
     sector analysis, and regulatory reporting.
     """
 
-    COMMON_STOCK = "common stock"
-    PREFERRED_STOCK = "preferred stock"
+    COMMON_STOCK = "common_stock"
+    PREFERRED_STOCK = "preferred_stock"
     ETF = "etf"
     MUTUAL_FUND = "mutual fund"
     INDEX_FUND = "index fund"
@@ -45,8 +43,3 @@ class SecuritySubtypeEnum(enum.Enum):
     CRYPTOCURRENCY = "cryptocurrency"
     REIT = "reit"
     COMMODITY = "commodity"
-
-
-# SQLAlchemy Enum type mappings for use in model definitions
-SECURITY_TYPE_ENUM = Enum(SecurityTypeEnum, name="security_type_enum")
-SECURITY_SUBTYPE_ENUM = Enum(SecuritySubtypeEnum, name="security_subtype_enum")

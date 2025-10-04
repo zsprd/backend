@@ -5,9 +5,9 @@ from sqlalchemy import Boolean, CheckConstraint, DateTime, Index, Integer, Strin
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.model import BaseModel
+from app.portfolio.master.model import PortfolioMaster
 
 if TYPE_CHECKING:
-    from app.portfolio.accounts.model import PortfolioAccount
     from app.user.logs.model import UserLog
     from app.user.notifications.model import UserNotification
     from app.user.sessions.model import UserSession
@@ -35,7 +35,7 @@ class UserAccount(BaseModel):
     )
 
     hashed_password: Mapped[Optional[str]] = mapped_column(
-        String(255), nullable=True, comment="Bcrypt hashed password (null for OAuth-only accounts)"
+        String(255), nullable=True, comment="Bcrypt hashed password (null for OAuth-only master)"
     )
 
     # Account status and security fields
@@ -127,8 +127,8 @@ class UserAccount(BaseModel):
         lazy="select",
     )
 
-    portfolio_accounts: Mapped[List["PortfolioAccount"]] = relationship(
-        "PortfolioAccount", back_populates="user_accounts", passive_deletes=True, lazy="select"
+    portfolio_accounts: Mapped[List["PortfolioMaster"]] = relationship(
+        "PortfolioMaster", back_populates="user_accounts", passive_deletes=True, lazy="select"
     )
 
     user_logs: Mapped[List["UserLog"]] = relationship(
@@ -188,7 +188,7 @@ class UserAccount(BaseModel):
             postgresql_where="last_login_at IS NOT NULL",
         ),
         # Add table comment
-        {"comment": "User accounts with comprehensive security and audit features"},
+        {"comment": "User master with comprehensive security and audit features"},
     )
 
     def __repr__(self) -> str:

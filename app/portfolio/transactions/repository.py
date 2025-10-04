@@ -54,8 +54,8 @@ class TransactionRepository:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
     ) -> List[PortfolioTransaction]:
-        """Get transactions for all users accounts."""
-        from app.portfolio.accounts.model import PortfolioAccount
+        """Get transactions for all users master."""
+        from app.portfolio.master.model import PortfolioAccount
 
         stmt = (
             select(PortfolioTransaction)
@@ -152,8 +152,8 @@ class TransactionRepository:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
     ) -> Dict[str, Any]:
-        """Get transaction summary across all users accounts."""
-        from app.portfolio.accounts.model import PortfolioAccount
+        """Get transaction summary across all users master."""
+        from app.portfolio.master.model import PortfolioAccount
 
         stmt = (
             select(PortfolioTransaction)
@@ -283,7 +283,7 @@ class TransactionRepository:
         if account_id:
             stmt = stmt.where(PortfolioTransaction.account_id == account_id)
         elif user_id:
-            from app.portfolio.accounts.model import PortfolioAccount
+            from app.portfolio.master.model import PortfolioAccount
 
             stmt = stmt.join(
                 PortfolioAccount, PortfolioTransaction.account_id == PortfolioAccount.id

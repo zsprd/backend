@@ -3,35 +3,33 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field
 
-from .enums import AccountSubtypeEnum, AccountTypeEnum
+from .enums import AccountSubType, AccountType
 
 
-class PortfolioAccountBase(BaseModel):
+class PortfolioMasterBase(BaseModel):
     """Base schema for PortfolioAccount (shared fields)."""
 
     name: str = Field(..., description="Account name", max_length=255)
-    account_type: AccountTypeEnum = Field(
+    account_type: AccountType = Field(
         ..., description="Primary account category", examples=["investment", "depository"]
     )
-    account_subtype: Optional[AccountSubtypeEnum] = Field(
-        None, description="Specific account subtype"
-    )
+    account_subtype: Optional[AccountSubType] = Field(None, description="Specific account subtype")
     currency: str = Field("USD", description="ISO currency code", min_length=3, max_length=3)
     is_active: bool = True
     data_source: str = Field("manual", description="Source of account data", max_length=50)
 
 
-class PortfolioAccountRead(PortfolioAccountBase):
+class PortfolioMasterRead(PortfolioMasterBase):
 
     user_id: UUID
     id: UUID = Field(..., description="Account ID")
 
 
-class PortfolioAccountCreate(PortfolioAccountBase):
+class PortfolioMasterCreate(PortfolioMasterBase):
 
     user_id: UUID
 
 
-class PortfolioAccountUpdate(PortfolioAccountBase):
+class PortfolioMasterUpdate(PortfolioMasterBase):
 
     pass

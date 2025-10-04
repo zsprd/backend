@@ -13,6 +13,17 @@ from httpx import AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+from app.auth.schemas import (
+    RegistrationResponse,
+    AuthResponse,
+    LogoutResponse,
+    EmailVerificationResponse,
+    TokenResponse,
+    ForgotPasswordResponse,
+    PasswordResetResponse,
+)
+from app.user.accounts.schemas import UserAccountRead
+
 # Add project root to path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 if PROJECT_ROOT not in sys.path:
@@ -137,11 +148,11 @@ def mock_auth_service():
 
     # Configure realistic return values
     async def _register(registration_data, background_tasks=None):
-        return schema.RegistrationResponse(
+        return RegistrationResponse(
             message="User registered successfully. Please verify your email.",
             user_id=uuid.uuid4(),
             email_verification_required=True,
-            user=schema.UserAccountRead(
+            user=UserAccountRead(
                 id=uuid.uuid4(),
                 email=getattr(registration_data, "email", "test@example.com"),
                 full_name=getattr(registration_data, "full_name", "Test User"),
@@ -159,12 +170,12 @@ def mock_auth_service():
 
     async def _login(signin_data, request=None):
         email = getattr(signin_data, "email", "test@example.com")
-        return schema.AuthResponse(
+        return AuthResponse(
             access_token="test-access-token",
             refresh_token="test-refresh-token",
             token_type="bearer",
             expires_in=300,
-            user=schema.UserAccountRead(
+            user=UserAccountRead(
                 id=uuid.uuid4(),
                 email=email,
                 full_name="Test User",
@@ -182,10 +193,10 @@ def mock_auth_service():
 
     service.register.side_effect = _register
     service.login.side_effect = _login
-    service.logout.return_value = schema.LogoutResponse(message="Logout successful.")
-    service.verify_email.return_value = schema.EmailVerificationResponse(
+    service.logout.return_value = LogoutResponse(message="Logout successful.")
+    service.verify_email.return_value = EmailVerificationResponse(
         message="Email verified successfully.",
-        user=schema.UserAccountRead(
+        user=UserAccountRead(
             id=uuid.uuid4(),
             email="test@example.com",
             full_name="Test User",
@@ -200,16 +211,16 @@ def mock_auth_service():
             updated_at=datetime.now(timezone.utc),
         ),
     )
-    service.refresh.return_value = schema.TokenResponse(
+    service.refresh.return_value = TokenResponse(
         access_token="new-access-token",
         refresh_token="new-refresh-token",
         token_type="bearer",
         expires_in=300,
     )
-    service.forgot_password.return_value = schema.ForgotPasswordResponse(
+    service.forgot_password.return_value = ForgotPasswordResponse(
         message="If an account with this email exists, a password reset link has been sent."
     )
-    service.reset_password.return_value = schema.PasswordResetResponse(
+    service.reset_password.return_value = PasswordResetResponse(
         message="Password reset successful."
     )
 

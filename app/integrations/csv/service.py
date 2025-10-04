@@ -19,9 +19,9 @@ from uuid import UUID
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.portfolio.accounts.repository import PortfolioRepository
 from app.portfolio.holdings.repository import HoldingRepository
 from app.portfolio.holdings.schemas import HoldingCreate
+from app.portfolio.master.repository import PortfolioRepository
 from app.portfolio.transactions.repository import TransactionRepository
 from app.portfolio.transactions.schemas import TransactionCreate
 from app.security.master.model import SecurityMaster

@@ -1,13 +1,8 @@
 from enum import Enum
 
 
-class TransactionTypeEnum(str, Enum):
-    """
-    High-level transaction categories for portfolio activity.
-
-    Primary classification for transaction processing and
-    performance calculation workflows.
-    """
+class TransactionType(str, Enum):
+    """Primary transaction categories"""
 
     BUY = "buy"  # Purchase transactions
     SELL = "sell"  # Sale transactions
@@ -21,27 +16,39 @@ class TransactionTypeEnum(str, Enum):
     SPLIT = "split"  # Stock splits
     MERGER = "merger"  # Merger transactions
     SPINOFF = "spinoff"  # Spinoff transactions
-
-
-class TransactionSubtypeEnum(str, Enum):
-    """
-    Detailed transaction classifications for specific processing.
-
-    Granular categorization enabling precise transaction handling,
-    tax reporting, and performance attribution.
-    """
-
-    BUY = "buy"
-    SELL = "sell"
     DEPOSIT = "deposit"
     WITHDRAWAL = "withdrawal"
-    DIVIDEND = "dividend"
-    INTEREST = "interest"
-    FEE = "fee"
-    TRANSFER_IN = "transfer in"
-    TRANSFER_OUT = "transfer out"
-    CANCEL = "cancel"
-    ADJUSTMENT = "adjustment"
-    STOCK_SPLIT = "stock split"
-    MERGER = "merger"
-    SPINOFF = "spinoff"
+    TRANSFER_IN = "transfer_in"
+    TRANSFER_OUT = "transfer_out"
+    CORPORATE_ACTION = "corporate_action"
+    TAX = "tax"
+    OTHER = "other"
+
+
+class TransactionSubType(str, Enum):
+    """Detailed transaction subtypes"""
+
+    # Buy/Sell subtypes
+    MARKET_ORDER = "market_order"
+    LIMIT_ORDER = "limit_order"
+    STOP_ORDER = "stop_order"
+    SHORT_SALE = "short_sale"
+    COVER_SHORT = "cover_short"
+
+    # Dividend subtypes
+    QUALIFIED_DIVIDEND = "qualified_dividend"
+    NON_QUALIFIED_DIVIDEND = "non_qualified_dividend"
+    DIVIDEND_REINVESTMENT = "dividend_reinvestment"
+    RETURN_OF_CAPITAL = "return_of_capital"
+    CAPITAL_GAINS_DISTRIBUTION = "capital_gains_distribution"
+
+    # Fee subtypes
+    ADVISORY_FEE = "advisory_fee"
+    MANAGEMENT_FEE = "management_fee"
+    COMMISSION = "commission"
+
+    # Transfer subtypes
+    ACAT = "acat"  # Automated Customer Account Transfer
+    JOURNAL = "journal"
+
+    OTHER = "other"

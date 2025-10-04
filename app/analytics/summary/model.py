@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.portfolio.accounts.model import PortfolioAccount
+    from app.portfolio.master.model import PortfolioMaster
 
 
 class AnalyticsSummary(BaseModel):
@@ -150,8 +150,8 @@ class AnalyticsSummary(BaseModel):
     )
 
     # Relationships
-    portfolio_accounts: Mapped["PortfolioAccount"] = relationship(
-        "PortfolioAccount", back_populates="analytics_summary"
+    portfolio_accounts: Mapped["PortfolioMaster"] = relationship(
+        "PortfolioMaster", back_populates="analytics_summary"
     )
 
     # Composite unique constraint on account_id + as_of_date

@@ -1,9 +1,9 @@
+import uuid
 from datetime import datetime
 from typing import Optional
-from uuid import UUID, uuid4
 
 from sqlalchemy import DateTime, func
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -53,6 +53,7 @@ class SoftDeleteMixin:
     deleted_at: Mapped[Optional[datetime]] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+        index=True,
         comment="Timestamp when the record was soft deleted (NULL if active)",
     )
 
@@ -70,19 +71,19 @@ class SoftDeleteMixin:
         self.deleted_at = None
 
 
-class BaseModel(Base, TimestampMixin):
+class BaseModel(Base, TimestampMixin, SoftDeleteMixin):
     """
-    Abstract base model with UUID primary key and timestamps.
+    Abstract base model with UUID primary key, timestamps, and soft delete support.
 
-    This is the standard base class for most models in the system.
+    This is the standard base class for all models in the system.
     Provides UUID primary keys for better security and scalability.
     """
 
     __abstract__ = True
 
-    id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True),
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         primary_key=True,
-        default=uuid4,
+        default=uuid.uuid4,
         comment="Unique identifier for the record",
     )

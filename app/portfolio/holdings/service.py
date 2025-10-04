@@ -6,10 +6,10 @@ from uuid import UUID
 from fastapi import HTTPException, status, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.data.integrations.csv.service import get_csv_processor
-from app.portfolio.accounts.repository import PortfolioRepository
+from app.integrations.csv.service import get_csv_processor
 from app.portfolio.holdings.repository import HoldingRepository
 from app.portfolio.holdings.schemas import HoldingRead
+from app.portfolio.master.repository import PortfolioRepository
 from app.user.accounts.model import UserAccount
 
 logger = logging.getLogger(__name__)
@@ -80,7 +80,7 @@ class PortfolioHoldingsService:
                 holdings = self.repo.get_by_account(account_id, as_of_date)
             else:
                 from sqlalchemy import select
-                from app.portfolio.accounts.model import PortfolioAccount
+                from app.portfolio.master.model import PortfolioAccount
 
                 stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == user.id)
                 result = await self.db.execute(stmt)

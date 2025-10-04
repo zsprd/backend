@@ -7,12 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.core.database import get_db
-from app.portfolio.accounts.schemas import (
-    PortfolioAccountRead,
-    PortfolioAccountCreate,
-    PortfolioAccountUpdate,
+from app.portfolio.master.schemas import (
+    PortfolioMasterRead,
+    PortfolioMasterCreate,
+    PortfolioMasterUpdate,
 )
-from app.portfolio.accounts.service import PortfolioError, PortfolioService
+from app.portfolio.master.service import PortfolioError, PortfolioService
 from app.user.accounts.model import UserAccount
 
 router = APIRouter()
@@ -28,20 +28,20 @@ def get_portfolio_service(db: AsyncSession = Depends(get_db)) -> PortfolioServic
     "/",
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
-    summary="Get user's portfolio accounts",
-    description="Retrieve all portfolio accounts for the authenticated user with pagination and filtering options.",
+    summary="Get user's portfolio master",
+    description="Retrieve all portfolio master for the authenticated user with pagination and filtering options.",
 )
 async def get_user_accounts(
     user: UserAccount = Depends(get_current_user),
     service: PortfolioService = Depends(get_portfolio_service),
     limit: int = Query(100, ge=1, le=500, description="Limit records"),
-    include_inactive: bool = Query(False, description="Include inactive accounts"),
+    include_inactive: bool = Query(False, description="Include inactive master"),
     account_type: Optional[str] = Query(None, description="Filter by account type"),
 ) -> Dict[str, Any]:
-    """Get all portfolio accounts for the current user with pagination and filtering."""
+    """Get all portfolio master for the current user with pagination and filtering."""
     try:
         logger.info(
-            "Portfolio accounts requested",
+            "Portfolio master requested",
             extra={
                 "user_id": user.id,
                 "limit": limit,
@@ -70,7 +70,7 @@ async def get_user_accounts(
         total = await service.get_account_count(user.id, include_inactive)
 
         logger.info(
-            "Portfolio accounts retrieved successfully",
+            "Portfolio master retrieved successfully",
             extra={
                 "user_id": user.id,
                 "count": len(paginated_accounts),
@@ -80,7 +80,7 @@ async def get_user_accounts(
         )
 
         return {
-            "accounts": paginated_accounts,
+            "master": paginated_accounts,
             "total": total,
             "limit": limit,
             "count": len(paginated_accounts),
@@ -93,7 +93,7 @@ async def get_user_accounts(
 
 @router.get(
     "/{account_id}",
-    response_model=PortfolioAccountRead,
+    response_model=PortfolioMasterRead,
     status_code=status.HTTP_200_OK,
     summary="Get specific portfolio account",
     description="Retrieve a specific portfolio account by ID for the authenticated user.",
@@ -102,7 +102,7 @@ async def get_account(
     account_id: UUID,
     user: UserAccount = Depends(get_current_user),
     service: PortfolioService = Depends(get_portfolio_service),
-) -> PortfolioAccountRead:
+) -> PortfolioMasterRead:
     """Get a specific portfolio account by ID."""
     try:
         logger.info(
@@ -126,16 +126,16 @@ async def get_account(
 
 @router.post(
     "/",
-    response_model=PortfolioAccountRead,
+    response_model=PortfolioMasterRead,
     status_code=status.HTTP_201_CREATED,
     summary="Create portfolio account",
     description="Create a new portfolio account for the authenticated user.",
 )
 async def create_account(
-    payload: PortfolioAccountCreate,
+    payload: PortfolioMasterCreate,
     user: UserAccount = Depends(get_current_user),
     service: PortfolioService = Depends(get_portfolio_service),
-) -> PortfolioAccountRead:
+) -> PortfolioMasterRead:
     """Create a new portfolio account for the current user."""
     try:
         logger.info(
@@ -169,17 +169,17 @@ async def create_account(
 
 @router.patch(
     "/{account_id}",
-    response_model=PortfolioAccountRead,
+    response_model=PortfolioMasterRead,
     status_code=status.HTTP_200_OK,
     summary="Update portfolio account",
     description="Update a specific portfolio account for the authenticated user.",
 )
 async def update_account(
     account_id: UUID,
-    payload: PortfolioAccountUpdate,
+    payload: PortfolioMasterUpdate,
     user: UserAccount = Depends(get_current_user),
     service: PortfolioService = Depends(get_portfolio_service),
-) -> PortfolioAccountRead:
+) -> PortfolioMasterRead:
     """Update a specific portfolio account."""
     try:
         logger.info(
@@ -252,7 +252,7 @@ async def deactivate_account(
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
     summary="Get account statistics",
-    description="Get comprehensive statistics for the user's portfolio accounts.",
+    description="Get comprehensive statistics for the user's portfolio master.",
 )
 async def get_account_statistics(
     user: UserAccount = Depends(get_current_user),
@@ -283,8 +283,8 @@ async def get_account_statistics(
     "/search",
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
-    summary="Search portfolio accounts",
-    description="Search portfolio accounts by name for the authenticated user.",
+    summary="Search portfolio master",
+    description="Search portfolio master by name for the authenticated user.",
 )
 async def search_accounts(
     user: UserAccount = Depends(get_current_user),
@@ -292,7 +292,7 @@ async def search_accounts(
     q: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(10, ge=1, le=50, description="Maximum results"),
 ) -> Dict[str, Any]:
-    """Search portfolio accounts by name."""
+    """Search portfolio master by name."""
     try:
         logger.info(
             "Portfolio account search requested",
@@ -312,7 +312,7 @@ async def search_accounts(
         )
 
         return {
-            "accounts": accounts,
+            "master": accounts,
             "query": q,
             "count": len(accounts),
         }

@@ -8,11 +8,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.core.database import get_db
-from app.data.integrations.csv.service import CSVProcessorResult
-from app.portfolio.accounts.repository import PortfolioRepository
+from app.integrations.csv.service import CSVProcessorResult
 from app.portfolio.holdings.repository import HoldingRepository
 from app.portfolio.holdings.schemas import HoldingCreate, HoldingRead, HoldingUpdate
 from app.portfolio.holdings.service import PortfolioHoldingsService
+from app.portfolio.master.repository import PortfolioRepository
 from app.user.accounts.model import UserAccount
 from app.user.logs.repository import UserLogRepository
 
@@ -311,10 +311,10 @@ async def get_holding_history(
                 limit=limit,
             )
         else:
-            # Get holdings across all users accounts for this securities
+            # Get holdings across all users master for this securities
             from sqlalchemy import select
 
-            from app.portfolio.accounts.model import PortfolioAccount
+            from app.portfolio.master.model import PortfolioAccount
 
             # Get all users account IDs
             stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user.id)
@@ -401,7 +401,7 @@ async def upload_holdings_csv(
         )
 
         # Process the CSV
-        from app.data.integrations.csv.service import get_csv_processor
+        from app.integrations.csv.service import get_csv_processor
 
         processor = get_csv_processor(db)
 
@@ -461,7 +461,7 @@ async def upload_holdings_csv(
 
 def _validate_holdings_csv(content: bytes, processor) -> CSVProcessorResult:
     """Validate holdings CSV without importing."""
-    from app.data.integrations.csv.service import CSVProcessorResult
+    from app.integrations.csv.service import CSVProcessorResult
 
     result = CSVProcessorResult()
 

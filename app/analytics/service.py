@@ -13,8 +13,8 @@ from app.analytics.performance.model import AnalyticsPerformance
 from app.analytics.risk.calculations import RiskCalculations
 from app.analytics.risk.model import AnalyticsRisk
 from app.analytics.summary.model import AnalyticsSummary
-from app.portfolio.accounts.model import PortfolioAccount
 from app.portfolio.holdings.model import PortfolioHolding
+from app.portfolio.master.model import PortfolioAccount
 
 logger = logging.getLogger(__name__)
 

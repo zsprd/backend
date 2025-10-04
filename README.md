@@ -1,14 +1,15 @@
 # ZSPRD Portfolio Analytics - FastAPI Backend
 
-Professional portfolio analytics API for high-net-worth individuals. This FastAPI backend provides comprehensive financial calculations, risk analysis, and portfolio management capabilities.
+Professional portfolio analytics API for high-net-worth individuals. This FastAPI backend provides comprehensive
+financial calculations, risk analysis, and portfolio management capabilities.
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
--   **Python 3.11+** installed
--   **PostgreSQL** running locally with database `zsprd_dev`
--   **Alpha Vantage API key** (free tier is fine)
+- **Python 3.11+** installed
+- **PostgreSQL** running locally with database `zsprd_dev`
+- **Alpha Vantage API key** (free tier is fine)
 
 ### Step 1: Clone and Setup
 
@@ -71,9 +72,9 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 🎉 **Your API is now running!**
 
--   **API Docs**: http://localhost:8000/api/v1/docs
--   **ReDoc**: http://localhost:8000/api/v1/redoc
--   **Health Check**: http://localhost:8000/health
+- **API Docs**: http://localhost:8000/api/v1/docs
+- **ReDoc**: http://localhost:8000/api/v1/redoc
+- **Health Check**: http://localhost:8000/health
 
 ## 📁 Project Structure
 
@@ -126,23 +127,23 @@ The backend will extract the `user_id` from the JWT payload (`sub` field).
 
 ### Accounts
 
--   `GET /api/v1/accounts/` - List user's accounts
--   `POST /api/v1/accounts/` - Create new account
--   `GET /api/v1/accounts/{id}` - Get account details
--   `PUT /api/v1/accounts/{id}` - Update account
--   `DELETE /api/v1/accounts/{id}` - Deactivate account
+- `GET /api/v1/accounts/` - List user's accounts
+- `POST /api/v1/accounts/` - Create new account
+- `GET /api/v1/accounts/{id}` - Get account details
+- `PUT /api/v1/accounts/{id}` - Update account
+- `DELETE /api/v1/accounts/{id}` - Deactivate account
 
 ### Analytics (Coming Soon)
 
--   `GET /api/v1/analytics/performance` - Portfolio performance metrics
--   `GET /api/v1/analytics/risk` - Risk analysis
--   `GET /api/v1/analytics/allocation` - Asset allocation breakdown
+- `GET /api/v1/analytics/performance` - Portfolio performance metrics
+- `GET /api/v1/analytics/risk` - Risk analysis
+- `GET /api/v1/analytics/allocation` - Asset allocation breakdown
 
 ### Holdings & Transactions (Coming Soon)
 
--   Portfolio holdings management
--   Transaction history and analysis
--   Market data integration
+- Portfolio holdings management
+- Transaction history and analysis
+- Market data integration
 
 ## 🧮 Financial Analytics
 
@@ -150,27 +151,27 @@ The backend provides sophisticated financial calculations:
 
 ### Performance Metrics
 
--   Total Return, Annualized Return
--   Volatility (Standard Deviation)
--   Sharpe Ratio, Sortino Ratio
--   Maximum Drawdown
--   Calmar Ratio
+- Total Return, Annualized Return
+- Volatility (Standard Deviation)
+- Sharpe Ratio, Sortino Ratio
+- Maximum Drawdown
+- Calmar Ratio
 
 ### Risk Analysis
 
--   Value at Risk (VaR) at 90%, 95%, 99%
--   Conditional VaR (Expected Shortfall)
--   Beta vs. benchmarks
--   Correlation analysis
--   Downside deviation
+- Value at Risk (VaR) at 90%, 95%, 99%
+- Conditional VaR (Expected Shortfall)
+- Beta vs. benchmarks
+- Correlation analysis
+- Downside deviation
 
 ### Allocation Analysis
 
--   Asset type breakdown
--   Sector allocation
--   Geographic exposure
--   Currency allocation
--   Concentration risk
+- Asset type breakdown
+- Sector allocation
+- Geographic exposure
+- Currency allocation
+- Concentration risk
 
 ## 🔧 Development
 
@@ -252,19 +253,19 @@ railway up
 
 The backend integrates with Alpha Vantage for market data:
 
--   **Free Tier**: 5 API calls per minute, 500 per day
--   **Rate Limiting**: Built-in to respect API limits
--   **Caching**: Market data cached for 1 hour
--   **Symbols**: Supports stocks, ETFs, cryptocurrencies
+- **Free Tier**: 5 API calls per minute, 500 per day
+- **Rate Limiting**: Built-in to respect API limits
+- **Caching**: Market data cached for 1 hour
+- **Symbols**: Supports stocks, ETFs, cryptocurrencies
 
 ## 🔒 Security Features
 
--   **JWT Token Validation**
--   **CORS Protection**
--   **Rate Limiting**
--   **Input Validation**
--   **SQL Injection Prevention**
--   **Secure Headers**
+- **JWT Token Validation**
+- **CORS Protection**
+- **Rate Limiting**
+- **Input Validation**
+- **SQL Injection Prevention**
+- **Secure Headers**
 
 ## 🤝 Integration with NextJS Frontend
 
@@ -273,10 +274,10 @@ The backend integrates with Alpha Vantage for market data:
 ```typescript
 // In your NextJS app
 const response = await fetch('http://localhost:8000/api/v1/accounts', {
-	headers: {
-		Authorization: `Bearer ${session.accessToken}`,
-		'Content-Type': 'application/json'
-	}
+    headers: {
+        Authorization: `Bearer ${session.accessToken}`,
+        'Content-Type': 'application/json'
+    }
 });
 const accounts = await response.json();
 ```
@@ -285,14 +286,14 @@ const accounts = await response.json();
 
 ```typescript
 // hooks/useAccounts.ts
-import { useQuery } from '@tanstack/react-query';
+import {useQuery} from '@tanstack/react-query';
 
 export const useAccounts = () =>
-	useQuery({
-		queryKey: ['accounts'],
-		queryFn: () => fetch('/api/v1/accounts').then((res) => res.json()),
-		staleTime: 5 * 60 * 1000 // 5 minutes
-	});
+    useQuery({
+        queryKey: ['master'],
+        queryFn: () => fetch('/api/v1/accounts').then((res) => res.json()),
+        staleTime: 5 * 60 * 1000 // 5 minutes
+    });
 ```
 
 ## 📞 Support

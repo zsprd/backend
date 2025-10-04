@@ -43,5 +43,5 @@ class ReferenceCurrency(BaseModel):
         Boolean,
         default=True,
         nullable=False,
-        comment="Whether this currency is supported for new accounts",
+        comment="Whether this currency is supported for new master",
     )

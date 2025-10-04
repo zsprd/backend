@@ -6,7 +6,7 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.portfolio.accounts.model import PortfolioAccount
+from app.portfolio.master.model import PortfolioMaster
 
 logger = logging.getLogger(__name__)
 
@@ -18,30 +18,30 @@ class PortfolioRepository:
 
     async def get_multi_by_user(
         self, user_id: UUID, limit: int = 100, include_inactive: bool = False
-    ) -> List[PortfolioAccount]:
-        """Get multiple portfolio accounts for a user with pagination."""
+    ) -> List[PortfolioMaster]:
+        """Get multiple portfolio master for a user with pagination."""
         try:
-            query = select(PortfolioAccount).where(PortfolioAccount.user_id == user_id)
+            query = select(PortfolioMaster).where(PortfolioMaster.user_id == user_id)
 
             if not include_inactive:
-                query = query.where(PortfolioAccount.is_active == True)
+                query = query.where(PortfolioMaster.is_active == True)
 
-            query = query.limit(limit).order_by(PortfolioAccount.created_at.desc())
+            query = query.limit(limit).order_by(PortfolioMaster.created_at.desc())
 
             result = await self.db.execute(query)
             return list(result.scalars().all())
 
         except Exception as e:
-            logger.error(f"Failed to get portfolio accounts for user {user_id}: {str(e)}")
+            logger.error(f"Failed to get portfolio master for user {user_id}: {str(e)}")
             raise
 
     async def get_by_user_and_id(
         self, user_id: UUID, account_id: UUID
-    ) -> Optional[PortfolioAccount]:
+    ) -> Optional[PortfolioMaster]:
         """Get a specific portfolio account by user ID and account ID."""
         try:
-            query = select(PortfolioAccount).where(
-                and_(PortfolioAccount.user_id == user_id, PortfolioAccount.id == account_id)
+            query = select(PortfolioMaster).where(
+                and_(PortfolioMaster.user_id == user_id, PortfolioMaster.id == account_id)
             )
 
             result = await self.db.execute(query)
@@ -53,51 +53,49 @@ class PortfolioRepository:
             )
             raise
 
-    async def get_active_by_user(self, user_id: UUID) -> List[PortfolioAccount]:
-        """Get all active portfolio accounts for a user."""
+    async def get_active_by_user(self, user_id: UUID) -> List[PortfolioMaster]:
+        """Get all active portfolio master for a user."""
         try:
             query = (
-                select(PortfolioAccount)
-                .where(
-                    and_(PortfolioAccount.user_id == user_id, PortfolioAccount.is_active == True)
-                )
-                .order_by(PortfolioAccount.created_at.desc())
+                select(PortfolioMaster)
+                .where(and_(PortfolioMaster.user_id == user_id, PortfolioMaster.is_active == True))
+                .order_by(PortfolioMaster.created_at.desc())
             )
 
             result = await self.db.execute(query)
             return list(result.scalars().all())
 
         except Exception as e:
-            logger.error(f"Failed to get active portfolio accounts for user {user_id}: {str(e)}")
+            logger.error(f"Failed to get active portfolio master for user {user_id}: {str(e)}")
             raise
 
     async def get_by_type(
         self, user_id: UUID, account_type: str, include_inactive: bool = False
-    ) -> List[PortfolioAccount]:
-        """Get portfolio accounts by type for a user."""
+    ) -> List[PortfolioMaster]:
+        """Get portfolio master by type for a user."""
         try:
-            query = select(PortfolioAccount).where(
+            query = select(PortfolioMaster).where(
                 and_(
-                    PortfolioAccount.user_id == user_id,
-                    PortfolioAccount.account_type == account_type,
+                    PortfolioMaster.user_id == user_id,
+                    PortfolioMaster.account_type == account_type,
                 )
             )
 
             if not include_inactive:
-                query = query.where(PortfolioAccount.is_active == True)
+                query = query.where(PortfolioMaster.is_active == True)
 
-            query = query.order_by(PortfolioAccount.created_at.desc())
+            query = query.order_by(PortfolioMaster.created_at.desc())
 
             result = await self.db.execute(query)
             return list(result.scalars().all())
 
         except Exception as e:
             logger.error(
-                f"Failed to get portfolio accounts by type {account_type} for user {user_id}: {str(e)}"
+                f"Failed to get portfolio master by type {account_type} for user {user_id}: {str(e)}"
             )
             raise
 
-    async def create(self, obj_in) -> PortfolioAccount:
+    async def create(self, obj_in) -> PortfolioMaster:
         """Create a new portfolio account."""
         try:
             # Accept a dict or model, but do not depend on Pydantic
@@ -107,7 +105,7 @@ class PortfolioRepository:
                 data = obj_in
             else:
                 raise TypeError("obj_in must be a dict or have model_dump method")
-            db_obj = PortfolioAccount(**data)
+            db_obj = PortfolioMaster(**data)
             self.db.add(db_obj)
             await self.db.commit()
             await self.db.refresh(db_obj)
@@ -118,7 +116,7 @@ class PortfolioRepository:
             logger.error(f"Failed to create portfolio account: {str(e)}")
             raise
 
-    async def update(self, db_obj: PortfolioAccount, obj_in) -> PortfolioAccount:
+    async def update(self, db_obj: PortfolioMaster, obj_in) -> PortfolioMaster:
         """Update a portfolio account."""
         try:
             # Accept a dict or model, but do not depend on Pydantic
@@ -142,56 +140,54 @@ class PortfolioRepository:
             raise
 
     async def count_by_user(self, user_id: UUID, include_inactive: bool = False) -> int:
-        """Count portfolio accounts for a user."""
+        """Count portfolio master for a user."""
         try:
-            query = select(func.count(PortfolioAccount.id)).where(
-                PortfolioAccount.user_id == user_id
-            )
+            query = select(func.count(PortfolioMaster.id)).where(PortfolioMaster.user_id == user_id)
 
             if not include_inactive:
-                query = query.where(PortfolioAccount.is_active == True)
+                query = query.where(PortfolioMaster.is_active == True)
 
             result = await self.db.execute(query)
             return result.scalar()
 
         except Exception as e:
-            logger.error(f"Failed to count portfolio accounts for user {user_id}: {str(e)}")
+            logger.error(f"Failed to count portfolio master for user {user_id}: {str(e)}")
             raise
 
     async def search_accounts(
         self, user_id: UUID, search_term: str, limit: int = 10
-    ) -> List[PortfolioAccount]:
-        """Search portfolio accounts by name for a user."""
+    ) -> List[PortfolioMaster]:
+        """Search portfolio master by name for a user."""
         try:
             query = (
-                select(PortfolioAccount)
+                select(PortfolioMaster)
                 .where(
                     and_(
-                        PortfolioAccount.user_id == user_id,
-                        PortfolioAccount.name.ilike(f"%{search_term}%"),
-                        PortfolioAccount.is_active == True,
+                        PortfolioMaster.user_id == user_id,
+                        PortfolioMaster.name.ilike(f"%{search_term}%"),
+                        PortfolioMaster.is_active == True,
                     )
                 )
                 .limit(limit)
-                .order_by(PortfolioAccount.name)
+                .order_by(PortfolioMaster.name)
             )
 
             result = await self.db.execute(query)
             return list(result.scalars().all())
 
         except Exception as e:
-            logger.error(f"Failed to search portfolio accounts for user {user_id}: {str(e)}")
+            logger.error(f"Failed to search portfolio master for user {user_id}: {str(e)}")
             raise
 
     async def get_user_account_statistics(self, user_id: UUID) -> dict:
-        """Get comprehensive statistics for a user's portfolio accounts."""
+        """Get comprehensive statistics for a user's portfolio master."""
         try:
             # Get basic counts
-            total_query = select(func.count(PortfolioAccount.id)).where(
-                PortfolioAccount.user_id == user_id
+            total_query = select(func.count(PortfolioMaster.id)).where(
+                PortfolioMaster.user_id == user_id
             )
-            active_query = select(func.count(PortfolioAccount.id)).where(
-                and_(PortfolioAccount.user_id == user_id, PortfolioAccount.is_active == True)
+            active_query = select(func.count(PortfolioMaster.id)).where(
+                and_(PortfolioMaster.user_id == user_id, PortfolioMaster.is_active == True)
             )
 
             total_result = await self.db.execute(total_query)
@@ -202,13 +198,9 @@ class PortfolioRepository:
 
             # Get account type breakdown
             type_query = (
-                select(
-                    PortfolioAccount.account_type, func.count(PortfolioAccount.id).label("count")
-                )
-                .where(
-                    and_(PortfolioAccount.user_id == user_id, PortfolioAccount.is_active == True)
-                )
-                .group_by(PortfolioAccount.account_type)
+                select(PortfolioMaster.account_type, func.count(PortfolioMaster.id).label("count"))
+                .where(and_(PortfolioMaster.user_id == user_id, PortfolioMaster.is_active == True))
+                .group_by(PortfolioMaster.account_type)
             )
 
             type_result = await self.db.execute(type_query)
@@ -226,16 +218,14 @@ class PortfolioRepository:
             logger.error(f"Failed to get portfolio account statistics for user {user_id}: {str(e)}")
             raise
 
-    async def get_accounts_with_holdings(self, user_id: UUID) -> List[PortfolioAccount]:
-        """Get portfolio accounts with their holdings preloaded."""
+    async def get_accounts_with_holdings(self, user_id: UUID) -> List[PortfolioMaster]:
+        """Get portfolio master with their holdings preloaded."""
         try:
             query = (
-                select(PortfolioAccount)
-                .options(selectinload(PortfolioAccount.portfolio_holdings))
-                .where(
-                    and_(PortfolioAccount.user_id == user_id, PortfolioAccount.is_active == True)
-                )
-                .order_by(PortfolioAccount.created_at.desc())
+                select(PortfolioMaster)
+                .options(selectinload(PortfolioMaster.portfolio_holdings))
+                .where(and_(PortfolioMaster.user_id == user_id, PortfolioMaster.is_active == True))
+                .order_by(PortfolioMaster.created_at.desc())
             )
 
             result = await self.db.execute(query)
@@ -243,6 +233,6 @@ class PortfolioRepository:
 
         except Exception as e:
             logger.error(
-                f"Failed to get portfolio accounts with holdings for user {user_id}: {str(e)}"
+                f"Failed to get portfolio master with holdings for user {user_id}: {str(e)}"
             )
             raise

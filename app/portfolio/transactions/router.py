@@ -11,9 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth.dependencies import get_current_user
 from app.core.database import get_db
-from app.data.integrations.csv.service import CSVProcessorResult
-from app.data.integrations.csv.service import get_csv_processor
-from app.portfolio.accounts.repository import PortfolioRepository
+from app.integrations.csv.service import CSVProcessorResult
+from app.integrations.csv.service import get_csv_processor
+from app.portfolio.master.repository import PortfolioRepository
 from app.portfolio.transactions.schemas import (
     TransactionCreate,
     TransactionResponse,
@@ -117,7 +117,7 @@ async def get_user_transactions(
                 transaction_category=transaction_category,
             )
         else:
-            # Get transactions across all users accounts
+            # Get transactions across all users master
             transactions = await transaction_crud.get_by_user(
                 db,
                 user_id=current_user.id,
@@ -337,7 +337,7 @@ async def get_portfolio_transaction_summary(
     start_date: Optional[date] = Query(None, description="Start date"),
     end_date: Optional[date] = Query(None, description="End date"),
 ):
-    """Get transaction summary across all users accounts."""
+    """Get transaction summary across all users master."""
     try:
         summary = await transaction_crud.get_portfolio_summary(
             db, user_id=current_user.id, start_date=start_date, end_date=end_date
@@ -474,12 +474,12 @@ async def get_tax_summary(
     current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
     tax_year: int,
 ):
-    """Get comprehensive tax summary across all accounts."""
+    """Get comprehensive tax summary across all master."""
     try:
-        # Get all users accounts
+        # Get all users master
         from sqlalchemy import select
 
-        from app.portfolio.accounts.model import PortfolioAccount
+        from app.portfolio.master.model import PortfolioAccount
 
         stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user.id)
         result = await db.execute(stmt)
@@ -549,7 +549,7 @@ async def bulk_import_transactions(
         )
 
     try:
-        # Verify users owns all accounts referenced
+        # Verify users owns all master referenced
         account_ids = set()
         for tx_data in transactions_data:
             account_id = tx_data.get("account_id")
@@ -804,7 +804,7 @@ async def upload_transactions_csv(
         )
 
         # Process the CSV
-        from app.data.integrations.csv.service import get_csv_processor
+        from app.integrations.csv.service import get_csv_processor
 
         processor = get_csv_processor(db)
 
@@ -864,7 +864,7 @@ async def upload_transactions_csv(
 
 def _validate_transactions_csv(content: bytes, processor) -> CSVProcessorResult:
     """Validate transactions CSV without importing."""
-    from app.data.integrations.csv.service import CSVProcessorResult
+    from app.integrations.csv.service import CSVProcessorResult
 
     result = CSVProcessorResult()
 

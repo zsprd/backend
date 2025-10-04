@@ -229,8 +229,12 @@ def _extract_ip_address(request: Optional[Request]) -> Optional[str]:
 
     # Check other proxy headers
     real_ip = request.headers.get("X-Real-IP")
-    if real_ip and ip_address(real_ip):
-        return real_ip
+    if real_ip:
+        try:
+            ip_address(real_ip)
+            return real_ip
+        except ValueError:
+            pass
 
     # Fall back to direct connection
     if hasattr(request, "client") and request.client:

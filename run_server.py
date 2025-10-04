@@ -124,7 +124,7 @@ def print_startup_info():
     print("\n🔑 API Endpoints:")
     print("  • Authentication: /api/v1/auth/*")
     print("  • Users: /api/v1/users/*")
-    print("  • Accounts: /api/v1/accounts/*")
+    print("  • Accounts: /api/v1/master/*")
     print("  • Holdings: /api/v1/holdings/*")
     print("  • Transactions: /api/v1/transactions/*")
     print("  • Analytics: /api/v1/analytics/*")
