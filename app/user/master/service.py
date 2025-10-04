@@ -5,14 +5,14 @@ from uuid import UUID
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.user.accounts.model import UserAccount
-from app.user.accounts.repository import UserRepository
-from app.user.accounts.schemas import (
-    UserAccountPasswordUpdate,
-    UserAccountRead,
-    UserAccountUpdate,
-)
 from app.user.logs.repository import UserLogRepository
+from app.user.master.model import User
+from app.user.master.repository import UserRepository
+from app.user.master.schemas import (
+    UserPasswordUpdate,
+    UserRead,
+    UserUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class UserService:
         self.repository = UserRepository(db)
         self.user_log_repository = UserLogRepository(db)
 
-    async def get_user_profile(self, user_id: UUID) -> UserAccountRead:
+    async def get_user_profile(self, user_id: UUID) -> UserRead:
         """Get user profile by ID."""
         try:
             logger.debug(f"Fetching user profile for ID: {user_id}")
@@ -41,7 +41,7 @@ class UserService:
                 raise UserError("User profile not found")
 
             logger.debug(f"User profile found for ID: {user_id}")
-            return UserAccountRead.model_validate(user)
+            return UserRead.model_validate(user)
 
         except UserError:
             raise
@@ -49,7 +49,7 @@ class UserService:
             logger.error(f"Failed to get user profile: {type(e).__name__}: {str(e)}")
             raise UserError("Failed to retrieve user profile")
 
-    async def get_user_by_email(self, email: str) -> Optional[UserAccountRead]:
+    async def get_user_by_email(self, email: str) -> Optional[UserRead]:
         """Get user by email address."""
         try:
             if not email or "@" not in email:
@@ -63,7 +63,7 @@ class UserService:
             if not user:
                 return None
 
-            return UserAccountRead.model_validate(user)
+            return UserRead.model_validate(user)
 
         except UserError:
             raise
@@ -71,9 +71,7 @@ class UserService:
             logger.error(f"Failed to get user by email: {type(e).__name__}: {str(e)}")
             raise UserError("Failed to retrieve user by email")
 
-    async def update_user_profile(
-        self, user: UserAccount, profile_update: UserAccountUpdate
-    ) -> UserAccountRead:
+    async def update_user_profile(self, user: User, profile_update: UserUpdate) -> UserRead:
         """Update user profile information."""
         try:
             logger.info(f"Updating profile for user: {user.id}")
@@ -108,7 +106,7 @@ class UserService:
             )
 
             logger.info(f"Profile updated successfully for user: {user.id}")
-            return UserAccountRead.model_validate(updated_user)
+            return UserRead.model_validate(updated_user)
 
         except UserError:
             raise
@@ -132,9 +130,7 @@ class UserService:
             logger.error(f"Unexpected error updating profile for user {user.id}: {str(e)}")
             raise UserError("Failed to update user profile")
 
-    async def change_password(
-        self, user: UserAccount, password_update: UserAccountPasswordUpdate
-    ) -> None:
+    async def change_password(self, user: User, password_update: UserPasswordUpdate) -> None:
         """Change user password."""
         try:
             logger.info(f"Password change requested for user: {user.id}")
@@ -196,7 +192,7 @@ class UserService:
             )
             raise UserError("Failed to change password")
 
-    async def mark_email_verified(self, user: UserAccount) -> UserAccount:
+    async def mark_email_verified(self, user: User) -> User:
         """Mark user's email as verified."""
         try:
             logger.info(f"Marking email as verified for user: {user.id}")
@@ -213,7 +209,7 @@ class UserService:
             logger.error(f"Failed to mark email verified for user {user.id}: {str(e)}")
             raise UserError("Failed to verify email")
 
-    async def deactivate_user_account(self, user: UserAccount) -> UserAccount:
+    async def deactivate_user_account(self, user: User) -> User:
         """Deactivate a user account."""
         try:
             logger.info(f"Deactivating account for user: {user.id}")
@@ -230,7 +226,7 @@ class UserService:
             logger.error(f"Failed to deactivate account for user {user.id}: {str(e)}")
             raise UserError("Failed to deactivate account")
 
-    async def delete_user_account(self, user: UserAccount) -> bool:
+    async def delete_user_account(self, user: User) -> bool:
         """Permanently delete a user account."""
         try:
             logger.info(f"Deleting account for user: {user.id}")
@@ -287,7 +283,7 @@ class UserService:
             )
             raise UserError("Failed to delete account")
 
-    def _validate_user_for_update(self, user: UserAccount) -> None:
+    def _validate_user_for_update(self, user: User) -> None:
         """Validate user can be updated."""
         if not user:
             raise UserError("User not found")

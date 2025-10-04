@@ -8,7 +8,7 @@ from rapidfuzz import fuzz, process
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from app.security.master.model import SecurityMaster
+from app.security.master.model import Security
 from app.security.master.repository import security_crud
 from app.security.master.schemas import SecurityCreate
 
@@ -23,12 +23,12 @@ class SecurityMatcher:
 
     def __init__(self, db: Session):
         self.db = db
-        self._security_cache: Dict[str, SecurityMaster] = {}
+        self._security_cache: Dict[str, Security] = {}
 
         # Load existing securities for fuzzy matching
         self._load_securities_for_matching()
 
-    def match_or_create_security(self, row: pd.Series, result) -> Optional[SecurityMaster]:
+    def match_or_create_security(self, row: pd.Series, result) -> Optional[Security]:
         """
         Match CSV row to existing securities or create new one.
         Uses sophisticated matching including fuzzy search.
@@ -66,9 +66,7 @@ class SecurityMatcher:
     def _load_securities_for_matching(self) -> None:
         """Load existing securities for fuzzy matching operations."""
         try:
-            securities = (
-                self.db.query(SecurityMaster).filter(SecurityMaster.is_active == True).all()
-            )
+            securities = self.db.query(Security).filter(Security.is_active == True).all()
 
             # Create searchable lists
             self.symbols = [(sec.symbol, sec.id) for sec in securities if sec.symbol]
@@ -85,17 +83,17 @@ class SecurityMatcher:
             self.isins = []
             self.cusips = []
 
-    def _exact_match(self, identifier: str) -> Optional[SecurityMaster]:
+    def _exact_match(self, identifier: str) -> Optional[Security]:
         """Try exact matches against various identifier fields."""
 
         security = (
-            self.db.query(SecurityMaster)
+            self.db.query(Security)
             .filter(
                 or_(
-                    SecurityMaster.symbol == identifier,
-                    SecurityMaster.isin == identifier,
-                    SecurityMaster.cusip == identifier,
-                    SecurityMaster.alphavantage_symbol == identifier,
+                    Security.symbol == identifier,
+                    Security.isin == identifier,
+                    Security.cusip == identifier,
+                    Security.alphavantage_symbol == identifier,
                 )
             )
             .first()
@@ -107,7 +105,7 @@ class SecurityMatcher:
 
         return None
 
-    def _fuzzy_symbol_match(self, identifier: str, threshold: int = 85) -> Optional[SecurityMaster]:
+    def _fuzzy_symbol_match(self, identifier: str, threshold: int = 85) -> Optional[Security]:
         """Use fuzzy matching to find similar symbols."""
 
         if not self.symbols:
@@ -128,9 +126,7 @@ class SecurityMatcher:
             security_id = next(
                 sec_id for symbol, sec_id in self.symbols if symbol == matched_symbol
             )
-            security = (
-                self.db.query(SecurityMaster).filter(SecurityMaster.id == security_id).first()
-            )
+            security = self.db.query(Security).filter(Security.id == security_id).first()
 
             if security:
                 logger.info(
@@ -140,7 +136,7 @@ class SecurityMatcher:
 
         return None
 
-    def _pattern_based_match(self, identifier: str) -> Optional[SecurityMaster]:
+    def _pattern_based_match(self, identifier: str) -> Optional[Security]:
         """Match based on identifier patterns (ISIN, CUSIP, etc.)."""
 
         # ISIN pattern: 12 characters, starts with 2 letters
@@ -154,11 +150,11 @@ class SecurityMatcher:
         # Extended symbol patterns (e.g., BTC-USD, AAPL.NASDAQ)
         return self._match_extended_symbol(identifier)
 
-    def _match_by_isin(self, isin: str) -> Optional[SecurityMaster]:
+    def _match_by_isin(self, isin: str) -> Optional[Security]:
         """Match by ISIN with fuzzy fallback."""
 
         # Try exact ISIN match first
-        security = self.db.query(SecurityMaster).filter(SecurityMaster.isin == isin).first()
+        security = self.db.query(Security).filter(Security.isin == isin).first()
         if security:
             return security
 
@@ -172,17 +168,15 @@ class SecurityMatcher:
                 security_id = next(
                     sec_id for isin_val, sec_id in self.isins if isin_val == matched_isin
                 )
-                return (
-                    self.db.query(SecurityMaster).filter(SecurityMaster.id == security_id).first()
-                )
+                return self.db.query(Security).filter(Security.id == security_id).first()
 
         return None
 
-    def _match_by_cusip(self, cusip: str) -> Optional[SecurityMaster]:
+    def _match_by_cusip(self, cusip: str) -> Optional[Security]:
         """Match by CUSIP with fuzzy fallback."""
 
         # Try exact CUSIP match first
-        security = self.db.query(SecurityMaster).filter(SecurityMaster.cusip == cusip).first()
+        security = self.db.query(Security).filter(Security.cusip == cusip).first()
         if security:
             return security
 
@@ -196,13 +190,11 @@ class SecurityMatcher:
                 security_id = next(
                     sec_id for cusip_val, sec_id in self.cusips if cusip_val == matched_cusip
                 )
-                return (
-                    self.db.query(SecurityMaster).filter(SecurityMaster.id == security_id).first()
-                )
+                return self.db.query(Security).filter(Security.id == security_id).first()
 
         return None
 
-    def _match_extended_symbol(self, identifier: str) -> Optional[SecurityMaster]:
+    def _match_extended_symbol(self, identifier: str) -> Optional[Security]:
         """Handle extended symbol formats like BTC-USD, AAPL.NASDAQ."""
 
         # Try various symbol variations
@@ -221,9 +213,7 @@ class SecurityMatcher:
 
         return None
 
-    def _create_security_from_market_data(
-        self, identifier: str, result
-    ) -> Optional[SecurityMaster]:
+    def _create_security_from_market_data(self, identifier: str, result) -> Optional[Security]:
         """
         Create new securities by fetching data from yfinance.
         Falls back to creating minimal securities if market data unavailable.
@@ -247,7 +237,7 @@ class SecurityMatcher:
 
     def _create_security_from_yfinance_data(
         self, identifier: str, yf_data: Dict[str, Any], result
-    ) -> Optional[SecurityMaster]:
+    ) -> Optional[Security]:
         """Create securities using yfinance data."""
 
         try:
@@ -296,7 +286,7 @@ class SecurityMatcher:
 
             return None
 
-    def _create_minimal_security(self, identifier: str, result) -> Optional[SecurityMaster]:
+    def _create_minimal_security(self, identifier: str, result) -> Optional[Security]:
         """Create minimal securities when market data is unavailable."""
 
         try:

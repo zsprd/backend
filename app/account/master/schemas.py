@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from .enums import AccountSubType, AccountType
 
 
-class PortfolioMasterBase(BaseModel):
+class AccountBase(BaseModel):
     """Base schema for PortfolioAccount (shared fields)."""
 
     name: str = Field(..., description="Account name", max_length=255)
@@ -19,17 +19,17 @@ class PortfolioMasterBase(BaseModel):
     data_source: str = Field("manual", description="Source of account data", max_length=50)
 
 
-class PortfolioMasterRead(PortfolioMasterBase):
+class AccountRead(AccountBase):
 
     user_id: UUID
     id: UUID = Field(..., description="Account ID")
 
 
-class PortfolioMasterCreate(PortfolioMasterBase):
+class AccountCreate(AccountBase):
 
     user_id: UUID
 
 
-class PortfolioMasterUpdate(PortfolioMasterBase):
+class AccountUpdate(AccountBase):
 
     pass

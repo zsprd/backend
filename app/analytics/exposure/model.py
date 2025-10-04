@@ -10,14 +10,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.portfolio.master.model import PortfolioMaster
+    from app.account.master.model import Account
 
 
 class AnalyticsExposure(BaseModel):
     """
     Asset allocation and exposure analysis for diversification insights.
 
-    Detailed breakdown of portfolio exposure across asset classes, sectors,
+    Detailed breakdown of account exposure across asset classes, sectors,
     geographies, and currencies. Supports both absolute values and
     percentage allocations for comprehensive exposure analysis.
     """
@@ -29,7 +29,7 @@ class AnalyticsExposure(BaseModel):
         ForeignKey("portfolio_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the portfolio account",
+        comment="Reference to the account account",
     )
 
     as_of_date: Mapped[date] = mapped_column(
@@ -99,9 +99,9 @@ class AnalyticsExposure(BaseModel):
     )
 
     # Relationships
-    portfolio_accounts: Mapped["PortfolioMaster"] = relationship(
-        "PortfolioMaster", back_populates="analytics_exposure"
+    portfolio_accounts: Mapped["Account"] = relationship(
+        "Account", back_populates="analytics_exposure"
     )
 
     # Composite unique constraint on account_id + as_of_date
-    __table_args__ = ({"comment": "Detailed portfolio exposure and allocation analysis"},)
+    __table_args__ = ({"comment": "Detailed account exposure and allocation analysis"},)

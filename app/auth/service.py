@@ -19,9 +19,9 @@ from app.auth.schemas import (
     LogoutResponse,
 )
 from app.core.config import settings
-from app.user.accounts.model import UserAccount
-from app.user.accounts.repository import UserRepository
-from app.user.accounts.schemas import UserAccountRead
+from app.user.master.model import User
+from app.user.master.repository import UserRepository
+from app.user.master.schemas import UserRead
 from app.user.sessions.repository import UserSessionRepository
 
 logger = logging.getLogger(__name__)
@@ -88,7 +88,7 @@ class AuthService:
                 message="User registered successfully. Please verify your email.",
                 user_id=user.id,
                 email_verification_required=True,
-                user=UserAccountRead.model_validate(user),
+                user=UserRead.model_validate(user),
             )
 
         except AuthError:
@@ -154,7 +154,7 @@ class AuthService:
                 refresh_token=refresh_token,
                 token_type="bearer",
                 expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,  # Convert to seconds
-                user=UserAccountRead.model_validate(user),
+                user=UserRead.model_validate(user),
             )
 
         except AuthError:
@@ -163,7 +163,7 @@ class AuthService:
             logger.error(f"Unexpected error during login: {type(e).__name__}: {str(e)}")
             raise AuthError("Login failed due to unexpected error")
 
-    async def logout(self, user: UserAccount) -> LogoutResponse:
+    async def logout(self, user: User) -> LogoutResponse:
         """Logout user and revoke all sessions."""
         logger.info(f"Processing logout for user: {user.id}")
 
@@ -259,7 +259,7 @@ class AuthService:
                 logger.info(f"Email already verified for user: {user_id}")
                 return EmailVerificationResponse(
                     message="Email address is already verified.",
-                    user=UserAccountRead.model_validate(user),
+                    user=UserRead.model_validate(user),
                 )
 
             # Mark as verified
@@ -280,7 +280,7 @@ class AuthService:
 
             return EmailVerificationResponse(
                 message="Email verified successfully. Welcome!",
-                user=UserAccountRead.model_validate(verified_user),
+                user=UserRead.model_validate(verified_user),
             )
 
         except AuthError:

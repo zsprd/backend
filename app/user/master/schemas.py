@@ -6,7 +6,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
-class UserAccountBase(BaseModel):
+class UserBase(BaseModel):
     """Base configuration for all user account schemas."""
 
     model_config = ConfigDict(
@@ -16,7 +16,7 @@ class UserAccountBase(BaseModel):
     )
 
 
-class UserAccountRead(UserAccountBase):
+class UserRead(UserBase):
     """
     Schema for reading user account information.
     SECURITY: Never includes sensitive fields like hashed_password.
@@ -45,7 +45,7 @@ class UserAccountRead(UserAccountBase):
     )
 
 
-class UserAccountCreate(UserAccountBase):
+class UserCreate(UserBase):
     """
     Schema for creating a new user account.
     Used internally by auth service with enhanced validation.
@@ -225,7 +225,7 @@ class UserAccountCreate(UserAccountBase):
         return currency
 
 
-class UserAccountUpdate(UserAccountBase):
+class UserUpdate(UserBase):
     """
     Schema for updating user account information.
     All fields optional for partial updates.
@@ -244,7 +244,7 @@ class UserAccountUpdate(UserAccountBase):
             return v
 
         # Reuse validation from create schema
-        return UserAccountCreate.validate_full_name(v)
+        return UserCreate.validate_full_name(v)
 
     @field_validator("language")
     @classmethod
@@ -253,7 +253,7 @@ class UserAccountUpdate(UserAccountBase):
         if v is None:
             return v
 
-        return UserAccountCreate.validate_language(v)
+        return UserCreate.validate_language(v)
 
     @field_validator("country")
     @classmethod
@@ -262,7 +262,7 @@ class UserAccountUpdate(UserAccountBase):
         if v is None:
             return v
 
-        return UserAccountCreate.validate_country(v)
+        return UserCreate.validate_country(v)
 
     @field_validator("currency")
     @classmethod
@@ -271,10 +271,10 @@ class UserAccountUpdate(UserAccountBase):
         if v is None:
             return v
 
-        return UserAccountCreate.validate_currency(v)
+        return UserCreate.validate_currency(v)
 
 
-class UserAccountPasswordUpdate(UserAccountBase):
+class UserPasswordUpdate(UserBase):
     """Schema for password updates with enhanced security."""
 
     current_password: str = Field(..., description="Current password for verification")
@@ -285,7 +285,7 @@ class UserAccountPasswordUpdate(UserAccountBase):
     @classmethod
     def validate_new_password(cls, v: str) -> str:
         """Validate new password strength."""
-        return UserAccountCreate.validate_password(v)
+        return UserCreate.validate_password(v)
 
     @field_validator("confirm_password")
     @classmethod
@@ -296,7 +296,7 @@ class UserAccountPasswordUpdate(UserAccountBase):
         return v
 
 
-class UserAccountSecurity(UserAccountBase):
+class UserSecurity(UserBase):
     """Schema for security information (admin/monitoring use)."""
 
     id: UUID

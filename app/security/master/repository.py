@@ -4,24 +4,22 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.repository import BaseRepository
-from app.security.master.model import SecurityMaster
+from app.security.master.model import Security
 from app.security.master.schemas import SecurityCreate, SecurityUpdate
 
 
-class SecurityRepository(BaseRepository[SecurityMaster, SecurityCreate, SecurityUpdate]):
+class SecurityRepository(BaseRepository[Security, SecurityCreate, SecurityUpdate]):
 
-    def search_securities(
-        self, db: Session, *, query: str, limit: int = 50
-    ) -> List[SecurityMaster]:
+    def search_securities(self, db: Session, *, query: str, limit: int = 50) -> List[Security]:
         """Search securities by symbol or name."""
         stmt = (
-            select(SecurityMaster)
+            select(Security)
             .where(
                 and_(
-                    SecurityMaster.is_active,
+                    Security.is_active,
                     or_(
-                        SecurityMaster.symbol.ilike(f"%{query}%"),
-                        SecurityMaster.name.ilike(f"%{query}%"),
+                        Security.symbol.ilike(f"%{query}%"),
+                        Security.name.ilike(f"%{query}%"),
                     ),
                 )
             )
@@ -31,22 +29,18 @@ class SecurityRepository(BaseRepository[SecurityMaster, SecurityCreate, Security
         result = db.execute(stmt)
         return list(result.scalars().all())
 
-    def get_by_symbol(self, db: Session, *, symbol: str) -> Optional[SecurityMaster]:
+    def get_by_symbol(self, db: Session, *, symbol: str) -> Optional[Security]:
         """Get securities by symbol."""
-        stmt = select(SecurityMaster).where(
-            and_(SecurityMaster.symbol == symbol.upper(), SecurityMaster.is_active)
-        )
+        stmt = select(Security).where(and_(Security.symbol == symbol.upper(), Security.is_active))
         result = db.execute(stmt)
         return result.scalar_one_or_none()
 
-    def get_by_category(self, db: Session, *, category: str) -> List[SecurityMaster]:
+    def get_by_category(self, db: Session, *, category: str) -> List[Security]:
         """Get securities by security_type."""
-        stmt = select(SecurityMaster).where(
-            and_(SecurityMaster.security_type == category, SecurityMaster.is_active)
-        )
+        stmt = select(Security).where(and_(Security.security_type == category, Security.is_active))
         result = db.execute(stmt)
         return list(result.scalars().all())
 
 
 # Create instance
-security_crud = SecurityRepository(SecurityMaster)
+security_crud = SecurityRepository(Security)

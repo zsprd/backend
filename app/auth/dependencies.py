@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.auth import tokens
 from app.auth.service import AuthService
 from app.core.database import get_db
-from app.user.accounts.model import UserAccount
+from app.user.master.model import User
 
 logger = logging.getLogger(__name__)
 security = HTTPBearer()
@@ -22,7 +22,7 @@ async def get_auth_service(db: AsyncSession = Depends(get_db)) -> AuthService:
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db),
-) -> UserAccount:
+) -> User:
     """Get the current authenticated user from JWT access token."""
     token = credentials.credentials
 
@@ -35,7 +35,7 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         )
 
-    query = select(UserAccount).where(UserAccount.id == user_id)
+    query = select(User).where(User.id == user_id)
     result = await db.execute(query)
     user = result.scalar_one_or_none()
 

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.user.accounts.model import UserAccount
+    from app.user.master.model import User
 
 
 class UserSession(BaseModel):
@@ -89,8 +89,8 @@ class UserSession(BaseModel):
     )
 
     # Relationships
-    user_accounts: Mapped["UserAccount"] = relationship(
-        "UserAccount",
+    user_accounts: Mapped["User"] = relationship(
+        "User",
         back_populates="user_sessions",
         lazy="select",  # Explicit lazy loading for performance
     )

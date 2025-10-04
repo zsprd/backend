@@ -8,7 +8,7 @@ class PlanTypeEnum(str, Enum):
     Controls access to platform features and API limits.
     """
 
-    FREE = "free"  # Basic portfolio tracking
+    FREE = "free"  # Basic account tracking
     PREMIUM = "premium"  # Advanced analytics & reporting
     PROFESSIONAL = "professional"  # Institution-grade features
     ENTERPRISE = "enterprise"  # White-label & API access

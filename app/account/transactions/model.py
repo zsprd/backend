@@ -10,23 +10,23 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.counterparty.master.model import CounterpartyMaster
-    from app.portfolio.master.model import PortfolioMaster
-    from app.security.master.model import SecurityMaster
+    from app.counterparty.master.model import Counterparty
+    from app.account.master.model import Account
+    from app.security.master.model import Security
 
 
-class PortfolioTransaction(BaseModel):
+class AccountTransaction(BaseModel):
     """
-    Complete transaction history for all portfolio activity.
+    Complete transaction history for all account activity.
 
-    Records all portfolio transactions including buys, sells, dividends, fees, deposits,
+    Records all account transactions including buys, sells, dividends, fees, deposits,
     withdrawals, and corporate actions.
 
     Transactions can be manually entered, imported via CSV, or synced from external
     providers. Uses external_transaction_id for deduplication when importing from providers.
 
     Counterparty tracking: The counterparty_id represents the actual broker/exchange that
-    executed the trade, which may differ from the portfolio's data provider.
+    executed the trade, which may differ from the account's data provider.
     """
 
     __tablename__ = "portfolio_transactions"
@@ -36,7 +36,7 @@ class PortfolioTransaction(BaseModel):
         ForeignKey("portfolio_master.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the portfolio where transaction occurred",
+        comment="Reference to the account where transaction occurred",
     )
 
     security_id: Mapped[Optional[uuid.UUID]] = mapped_column(
@@ -52,7 +52,7 @@ class PortfolioTransaction(BaseModel):
         ForeignKey("counterparty_master.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Broker/exchange that executed this transaction (may differ from portfolio provider)",
+        comment="Broker/exchange that executed this transaction (may differ from account provider)",
     )
 
     # Transaction classification
@@ -131,18 +131,18 @@ class PortfolioTransaction(BaseModel):
     )
 
     # Relationships
-    portfolio_master: Mapped["PortfolioMaster"] = relationship(
-        "PortfolioMaster",
+    portfolio_master: Mapped["Account"] = relationship(
+        "Account",
         back_populates="portfolio_transactions",
     )
 
-    security_master: Mapped[Optional["SecurityMaster"]] = relationship(
-        "SecurityMaster",
+    security_master: Mapped[Optional["Security"]] = relationship(
+        "Security",
         back_populates="portfolio_transactions",
     )
 
-    counterparty_master: Mapped[Optional["CounterpartyMaster"]] = relationship(
-        "CounterpartyMaster",
+    counterparty_master: Mapped[Optional["Counterparty"]] = relationship(
+        "Counterparty",
         back_populates="portfolio_transactions",
     )
 
@@ -154,5 +154,5 @@ class PortfolioTransaction(BaseModel):
         ),
         Index("idx_transaction_date_type", "portfolio_id", "trade_date", "transaction_type"),
         Index("idx_transaction_security", "security_id", "trade_date"),
-        {"comment": "Complete transaction history for portfolio activity"},
+        {"comment": "Complete transaction history for account activity"},
     )

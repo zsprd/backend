@@ -81,7 +81,7 @@ async def get_benchmarks():
     Get available benchmark indices.
     """
     return {
-        "benchmarks": [
+        "benchmark": [
             {
                 "symbol": "SPY",
                 "name": "SPDR S&P 500 ETF Trust",
@@ -143,5 +143,5 @@ async def market_data_health():
         "status": "healthy",
         "service": "market_data",
         "timestamp": datetime.now(timezone.utc).isoformat(),
-        "features": ["security_search", "price_data", "exchange_rates", "benchmarks"],
+        "features": ["security_search", "price_data", "exchange_rates", "benchmark"],
     }

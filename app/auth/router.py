@@ -23,7 +23,7 @@ from app.auth.schemas import (
 )
 from app.auth.service import AuthError, AuthService
 from app.core.config import settings
-from app.user.accounts.model import UserAccount
+from app.user.master.model import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -92,7 +92,7 @@ async def login(
     description="Invalidate all user sessions (logout from all devices).",
 )
 async def logout(
-    user: UserAccount = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     service: AuthService = Depends(get_auth_service),
 ) -> LogoutResponse:
     """Invalidate all user sessions for the current user (logout everywhere)."""

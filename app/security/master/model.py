@@ -6,21 +6,21 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.portfolio.holdings.model import PortfolioHolding
-    from app.portfolio.transactions.model import PortfolioTransaction
+    from app.account.holdings.model import AccountHolding
+    from app.account.transactions.model import AccountTransaction
     from app.security.actions.model import CorporateAction
     from app.security.identifiers.model import SecurityIdentifier
     from app.security.prices.model import SecurityPrice
     from app.security.providers.model import SecurityProvider
 
 
-class SecurityMaster(BaseModel):
+class Security(BaseModel):
     """
     Master security reference database for all financial instruments.
 
     Central repository for securities including stocks, bonds, ETFs, mutual funds,
     options, commodities, cryptocurrencies, and other instruments. Stores fundamental
-    characteristics, classification data, and metadata for portfolio analytics.
+    characteristics, classification data, and metadata for account analytics.
 
     Each security can have an associated provider that actively maintains its data
     (prices, identifiers, corporate actions). Data provenance is tracked at the
@@ -137,14 +137,14 @@ class SecurityMaster(BaseModel):
         passive_deletes=True,
     )
 
-    portfolio_holdings: Mapped[List["PortfolioHolding"]] = relationship(
-        "PortfolioHolding",
+    portfolio_holdings: Mapped[List["AccountHolding"]] = relationship(
+        "AccountHolding",
         back_populates="security_master",
         passive_deletes=True,
     )
 
-    portfolio_transactions: Mapped[List["PortfolioTransaction"]] = relationship(
-        "PortfolioTransaction",
+    portfolio_transactions: Mapped[List["AccountTransaction"]] = relationship(
+        "AccountTransaction",
         back_populates="security_master",
         passive_deletes=True,
     )

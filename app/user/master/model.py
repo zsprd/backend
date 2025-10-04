@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING, List, Optional
 from sqlalchemy import Boolean, CheckConstraint, DateTime, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.account.master.model import Account
 from app.core.model import BaseModel
-from app.portfolio.master.model import PortfolioMaster
 
 if TYPE_CHECKING:
     from app.user.logs.model import UserLog
@@ -14,7 +14,7 @@ if TYPE_CHECKING:
     from app.user.subscriptions.model import UserSubscription
 
 
-class UserAccount(BaseModel):
+class User(BaseModel):
     """
     User account model with enhanced security and audit capabilities.
 
@@ -127,8 +127,8 @@ class UserAccount(BaseModel):
         lazy="select",
     )
 
-    portfolio_accounts: Mapped[List["PortfolioMaster"]] = relationship(
-        "PortfolioMaster", back_populates="user_accounts", passive_deletes=True, lazy="select"
+    portfolio_accounts: Mapped[List["Account"]] = relationship(
+        "Account", back_populates="user_accounts", passive_deletes=True, lazy="select"
     )
 
     user_logs: Mapped[List["UserLog"]] = relationship(

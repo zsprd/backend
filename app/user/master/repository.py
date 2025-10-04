@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.user.accounts.model import UserAccount
+from app.user.master.model import User
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +23,7 @@ class UserRepository:
 
     async def create_user_with_password(
         self, email: str, full_name: str, password: str
-    ) -> Optional[UserAccount]:
+    ) -> Optional[User]:
         """Create a new user account with password."""
         try:
             if await self.is_email_taken(email):
@@ -32,7 +32,7 @@ class UserRepository:
 
             hashed_password = self._hash_password(password)
 
-            user = UserAccount(
+            user = User(
                 email=email.lower().strip(),
                 full_name=full_name.strip(),
                 hashed_password=hashed_password,
@@ -60,9 +60,7 @@ class UserRepository:
             logger.error(f"Database error creating user {email}: {str(e)}")
             return None
 
-    async def create_oauth_user(
-        self, email: str, full_name: str, provider: str
-    ) -> Optional[UserAccount]:
+    async def create_oauth_user(self, email: str, full_name: str, provider: str) -> Optional[User]:
         """Create a new OAuth user account."""
         try:
             existing_user = await self.get_user_by_email(email)
@@ -70,7 +68,7 @@ class UserRepository:
                 logger.info(f"OAuth user already exists: {existing_user.id}")
                 return existing_user
 
-            user = UserAccount(
+            user = User(
                 email=email.lower().strip(),
                 full_name=full_name.strip(),
                 hashed_password=None,
@@ -94,7 +92,7 @@ class UserRepository:
             logger.error(f"Error creating OAuth user {email}: {str(e)}")
             return None
 
-    async def get_user_by_id(self, user_id: Union[str, UUID]) -> Optional[UserAccount]:
+    async def get_user_by_id(self, user_id: Union[str, UUID]) -> Optional[User]:
         """Get user account by ID."""
         try:
             if isinstance(user_id, str):
@@ -106,9 +104,7 @@ class UserRepository:
             else:
                 user_uuid = user_id
 
-            query = select(UserAccount).where(
-                and_(UserAccount.id == user_uuid, UserAccount.is_active == True)
-            )
+            query = select(User).where(and_(User.id == user_uuid, User.is_active == True))
 
             result = await self.db.execute(query)
             return result.scalar_one_or_none()
@@ -117,11 +113,11 @@ class UserRepository:
             logger.error(f"Error retrieving user by ID {user_id}: {str(e)}")
             return None
 
-    async def get_user_by_email(self, email: str) -> Optional[UserAccount]:
+    async def get_user_by_email(self, email: str) -> Optional[User]:
         """Get user account by email address."""
         try:
-            query = select(UserAccount).where(
-                and_(UserAccount.email == email.lower().strip(), UserAccount.is_active == True)
+            query = select(User).where(
+                and_(User.email == email.lower().strip(), User.is_active == True)
             )
 
             result = await self.db.execute(query)
@@ -131,7 +127,7 @@ class UserRepository:
             logger.error(f"Error retrieving user by email: {str(e)}")
             return None
 
-    async def authenticate_user(self, user: UserAccount, password: str) -> bool:
+    async def authenticate_user(self, user: User, password: str) -> bool:
         """Authenticate user with password."""
         try:
             # Check if account is locked using database field
@@ -174,7 +170,7 @@ class UserRepository:
             logger.error(f"Error during authentication for user {user.id}: {str(e)}")
             return False
 
-    async def update_last_login(self, user: UserAccount) -> None:
+    async def update_last_login(self, user: User) -> None:
         """Update user's last login timestamp."""
         try:
             user.last_login_at = datetime.now(timezone.utc)
@@ -187,8 +183,8 @@ class UserRepository:
             logger.error(f"Error updating last login for user {user.id}: {str(e)}")
 
     async def update_password(
-        self, user: UserAccount, current_password: str, new_password: str
-    ) -> Optional[UserAccount]:
+        self, user: User, current_password: str, new_password: str
+    ) -> Optional[User]:
         """Update user password with current password verification."""
         try:
             if user.hashed_password and not self._verify_password(
@@ -215,7 +211,7 @@ class UserRepository:
             logger.error(f"Error updating password for user {user.id}: {str(e)}")
             return None
 
-    async def reset_password(self, user: UserAccount, new_password: str) -> Optional[UserAccount]:
+    async def reset_password(self, user: User, new_password: str) -> Optional[User]:
         """Reset user password (no current password required)."""
         try:
             user.hashed_password = self._hash_password(new_password)
@@ -235,9 +231,7 @@ class UserRepository:
             logger.error(f"Error resetting password for user {user.id}: {str(e)}")
             return None
 
-    async def update_profile(
-        self, user: UserAccount, profile_update: dict
-    ) -> Optional[UserAccount]:
+    async def update_profile(self, user: User, profile_update: dict) -> Optional[User]:
         """Update user profile information."""
         try:
             if not profile_update:
@@ -288,7 +282,7 @@ class UserRepository:
             logger.error(f"Database error updating profile for user {user.id}: {str(e)}")
             raise
 
-    async def mark_email_verified(self, user: UserAccount) -> Optional[UserAccount]:
+    async def mark_email_verified(self, user: User) -> Optional[User]:
         """Mark user's email as verified."""
         try:
             user.is_verified = True
@@ -306,7 +300,7 @@ class UserRepository:
             logger.error(f"Error marking email verified for user {user.id}: {str(e)}")
             return None
 
-    async def deactivate_account(self, user: UserAccount) -> Optional[UserAccount]:
+    async def deactivate_account(self, user: User) -> Optional[User]:
         """Deactivate user account."""
         try:
             user.is_active = False
@@ -324,7 +318,7 @@ class UserRepository:
             logger.error(f"Error deactivating account for user {user.id}: {str(e)}")
             return None
 
-    async def delete_account(self, user: UserAccount) -> bool:
+    async def delete_account(self, user: User) -> bool:
         """Delete user account."""
         try:
             await self.db.delete(user)
@@ -341,7 +335,7 @@ class UserRepository:
         """Check if email address is already in use."""
         try:
             result = await self.db.execute(
-                select(func.count(UserAccount.id)).where(UserAccount.email == email.lower().strip())
+                select(func.count(User.id)).where(User.email == email.lower().strip())
             )
             return result.scalar() > 0
 
@@ -355,11 +349,11 @@ class UserRepository:
             now = datetime.now(timezone.utc)
 
             result = await self.db.execute(
-                update(UserAccount)
+                update(User)
                 .where(
                     and_(
-                        UserAccount.locked_until.isnot(None),
-                        UserAccount.locked_until <= now,
+                        User.locked_until.isnot(None),
+                        User.locked_until <= now,
                     )
                 )
                 .values(
@@ -381,7 +375,7 @@ class UserRepository:
             logger.error(f"Error during lockout cleanup: {str(e)}")
             return 0
 
-    async def _handle_failed_login(self, user: UserAccount) -> None:
+    async def _handle_failed_login(self, user: User) -> None:
         """Handle failed login attempt and potential account lockout."""
         try:
             user.failed_login_attempts += 1
@@ -401,7 +395,7 @@ class UserRepository:
             await self.db.rollback()
             logger.error(f"Error handling failed login for user {user.id}: {str(e)}")
 
-    async def _reset_failed_attempts(self, user: UserAccount) -> None:
+    async def _reset_failed_attempts(self, user: User) -> None:
         """Reset failed login attempts and unlock account."""
         try:
             user.failed_login_attempts = 0

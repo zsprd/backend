@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.security.master.model import SecurityMaster
+    from app.security.master.model import Security
 
 
 class CorporateAction(BaseModel):
@@ -19,7 +19,7 @@ class CorporateAction(BaseModel):
 
     Records all corporate actions including dividends, stock splits, mergers, spin-offs,
     and other events that impact security holdings. Essential for accurate position
-    tracking and portfolio analytics.
+    tracking and account analytics.
 
     Uses a flexible design with common fields for all action types and a JSON field
     for action-specific details. This keeps the model simple while supporting diverse
@@ -112,8 +112,8 @@ class CorporateAction(BaseModel):
     )
 
     # Relationships
-    security_master: Mapped["SecurityMaster"] = relationship(
-        "SecurityMaster",
+    security_master: Mapped["Security"] = relationship(
+        "Security",
         back_populates="security_actions",
     )
 

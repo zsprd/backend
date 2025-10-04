@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.user.accounts.model import UserAccount
+    from app.user.master.model import User
 
 
 class UserLog(BaseModel):
@@ -108,8 +108,8 @@ class UserLog(BaseModel):
     )
 
     # Relationships
-    user_accounts: Mapped[Optional["UserAccount"]] = relationship(
-        "UserAccount",
+    user_accounts: Mapped[Optional["User"]] = relationship(
+        "User",
         back_populates="user_logs",
         foreign_keys=[user_id],
     )

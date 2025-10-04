@@ -6,12 +6,12 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.portfolio.holdings.model import PortfolioHolding
-    from app.portfolio.providers.model import PortfolioProvider
-    from app.portfolio.transactions.model import PortfolioTransaction
+    from app.account.holdings.model import AccountHolding
+    from app.account.providers.model import AccountProvider
+    from app.account.transactions.model import AccountTransaction
 
 
-class CounterpartyMaster(BaseModel):
+class Counterparty(BaseModel):
     """
     Master reference data for financial institutions and counterparties.
 
@@ -63,17 +63,17 @@ class CounterpartyMaster(BaseModel):
     )
 
     # Relationships
-    portfolio_providers: Mapped[List["PortfolioProvider"]] = relationship(
-        "PortfolioProvider",
+    portfolio_providers: Mapped[List["AccountProvider"]] = relationship(
+        "AccountProvider",
         back_populates="counterparty_master",
     )
 
-    portfolio_holdings: Mapped[List["PortfolioHolding"]] = relationship(
-        "PortfolioHolding",
+    portfolio_holdings: Mapped[List["AccountHolding"]] = relationship(
+        "AccountHolding",
         back_populates="counterparty_master",
     )
 
-    portfolio_transactions: Mapped[List["PortfolioTransaction"]] = relationship(
-        "PortfolioTransaction",
+    portfolio_transactions: Mapped[List["AccountTransaction"]] = relationship(
+        "AccountTransaction",
         back_populates="counterparty_master",
     )

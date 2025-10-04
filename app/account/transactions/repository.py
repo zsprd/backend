@@ -6,7 +6,7 @@ from sqlalchemy import and_, desc, extract, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.portfolio.transactions.model import PortfolioTransaction
+from app.account.transactions.model import AccountTransaction
 
 
 class TransactionRepository:
@@ -23,23 +23,23 @@ class TransactionRepository:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         transaction_category: Optional[str] = None,
-    ) -> List[PortfolioTransaction]:
+    ) -> List[AccountTransaction]:
         """Get transactions for a specific account with filtering."""
         stmt = (
-            select(PortfolioTransaction)
-            .options(joinedload(PortfolioTransaction.security))
-            .where(PortfolioTransaction.account_id == account_id)
+            select(AccountTransaction)
+            .options(joinedload(AccountTransaction.security))
+            .where(AccountTransaction.account_id == account_id)
         )
 
         if start_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
+            stmt = stmt.where(AccountTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
+            stmt = stmt.where(AccountTransaction.trade_date <= end_date)
         if transaction_category:
-            stmt = stmt.where(PortfolioTransaction.transaction_category == transaction_category)
+            stmt = stmt.where(AccountTransaction.transaction_category == transaction_category)
 
         stmt = stmt.order_by(
-            desc(PortfolioTransaction.trade_date), desc(PortfolioTransaction.created_at)
+            desc(AccountTransaction.trade_date), desc(AccountTransaction.created_at)
         )
         stmt = stmt.offset(skip).limit(limit)
 
@@ -53,24 +53,24 @@ class TransactionRepository:
         limit: int = 100,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-    ) -> List[PortfolioTransaction]:
+    ) -> List[AccountTransaction]:
         """Get transactions for all users master."""
-        from app.portfolio.master.model import PortfolioAccount
+        from app.account.master.model import PortfolioAccount
 
         stmt = (
-            select(PortfolioTransaction)
-            .join(PortfolioAccount, PortfolioTransaction.account_id == PortfolioAccount.id)
-            .options(joinedload(PortfolioTransaction.security))
+            select(AccountTransaction)
+            .join(PortfolioAccount, AccountTransaction.account_id == PortfolioAccount.id)
+            .options(joinedload(AccountTransaction.security))
             .where(PortfolioAccount.user_id == user_id)
         )
 
         if start_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
+            stmt = stmt.where(AccountTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
+            stmt = stmt.where(AccountTransaction.trade_date <= end_date)
 
         stmt = stmt.order_by(
-            desc(PortfolioTransaction.trade_date), desc(PortfolioTransaction.created_at)
+            desc(AccountTransaction.trade_date), desc(AccountTransaction.created_at)
         )
         stmt = stmt.offset(skip).limit(limit)
 
@@ -84,12 +84,12 @@ class TransactionRepository:
         end_date: Optional[date] = None,
     ) -> Dict[str, Any]:
         """Get transaction summary for an account."""
-        stmt = select(PortfolioTransaction).where(PortfolioTransaction.account_id == account_id)
+        stmt = select(AccountTransaction).where(AccountTransaction.account_id == account_id)
 
         if start_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
+            stmt = stmt.where(AccountTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
+            stmt = stmt.where(AccountTransaction.trade_date <= end_date)
 
         result = self.db.execute(stmt)
         transactions = list(result.scalars().all())
@@ -153,18 +153,18 @@ class TransactionRepository:
         end_date: Optional[date] = None,
     ) -> Dict[str, Any]:
         """Get transaction summary across all users master."""
-        from app.portfolio.master.model import PortfolioAccount
+        from app.account.master.model import PortfolioAccount
 
         stmt = (
-            select(PortfolioTransaction)
-            .join(PortfolioAccount, PortfolioTransaction.account_id == PortfolioAccount.id)
+            select(AccountTransaction)
+            .join(PortfolioAccount, AccountTransaction.account_id == PortfolioAccount.id)
             .where(PortfolioAccount.user_id == user_id)
         )
 
         if start_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
+            stmt = stmt.where(AccountTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
+            stmt = stmt.where(AccountTransaction.trade_date <= end_date)
 
         result = self.db.execute(stmt)
         transactions = list(result.scalars().all())
@@ -222,15 +222,15 @@ class TransactionRepository:
         self, account_id: str, year: int, month: Optional[int] = None
     ) -> Dict[str, Any]:
         """Get monthly transaction activity for an account."""
-        stmt = select(PortfolioTransaction).where(
+        stmt = select(AccountTransaction).where(
             and_(
-                PortfolioTransaction.account_id == account_id,
-                extract("year", PortfolioTransaction.trade_date) == year,
+                AccountTransaction.account_id == account_id,
+                extract("year", AccountTransaction.trade_date) == year,
             )
         )
 
         if month:
-            stmt = stmt.where(extract("month", PortfolioTransaction.trade_date) == month)
+            stmt = stmt.where(extract("month", AccountTransaction.trade_date) == month)
 
         result = self.db.execute(stmt)
         transactions = list(result.scalars().all())
@@ -276,25 +276,25 @@ class TransactionRepository:
         user_id: Optional[str] = None,
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
-    ) -> List[PortfolioTransaction]:
+    ) -> List[AccountTransaction]:
         """Get transactions for a specific securities."""
-        stmt = select(PortfolioTransaction).where(PortfolioTransaction.security_id == security_id)
+        stmt = select(AccountTransaction).where(AccountTransaction.security_id == security_id)
 
         if account_id:
-            stmt = stmt.where(PortfolioTransaction.account_id == account_id)
+            stmt = stmt.where(AccountTransaction.account_id == account_id)
         elif user_id:
-            from app.portfolio.master.model import PortfolioAccount
+            from app.account.master.model import PortfolioAccount
 
             stmt = stmt.join(
-                PortfolioAccount, PortfolioTransaction.account_id == PortfolioAccount.id
+                PortfolioAccount, AccountTransaction.account_id == PortfolioAccount.id
             ).where(PortfolioAccount.user_id == user_id)
 
         if start_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date >= start_date)
+            stmt = stmt.where(AccountTransaction.trade_date >= start_date)
         if end_date:
-            stmt = stmt.where(PortfolioTransaction.trade_date <= end_date)
+            stmt = stmt.where(AccountTransaction.trade_date <= end_date)
 
-        stmt = stmt.order_by(desc(PortfolioTransaction.trade_date))
+        stmt = stmt.order_by(desc(AccountTransaction.trade_date))
         result = self.db.execute(stmt)
         return list(result.scalars().all())
 
@@ -305,18 +305,18 @@ class TransactionRepository:
         tax_year: Optional[int] = None,
     ) -> Dict[str, Any]:
         """Calculate realized gains/losses for tax reporting."""
-        stmt = select(PortfolioTransaction).where(
+        stmt = select(AccountTransaction).where(
             and_(
-                PortfolioTransaction.account_id == account_id,
-                PortfolioTransaction.transaction_side == "sell",
+                AccountTransaction.account_id == account_id,
+                AccountTransaction.transaction_side == "sell",
             )
         )
 
         if security_id:
-            stmt = stmt.where(PortfolioTransaction.security_id == security_id)
+            stmt = stmt.where(AccountTransaction.security_id == security_id)
 
         if tax_year:
-            stmt = stmt.where(extract("year", PortfolioTransaction.trade_date) == tax_year)
+            stmt = stmt.where(extract("year", AccountTransaction.trade_date) == tax_year)
 
         result = self.db.execute(stmt)
         sell_transactions = list(result.scalars().all())
@@ -360,12 +360,12 @@ class TransactionRepository:
 
     def bulk_import_transactions(
         self, transactions_data: List[Dict[str, Any]]
-    ) -> List[PortfolioTransaction]:
+    ) -> List[AccountTransaction]:
         """Bulk import transactions efficiently."""
         transactions = []
 
         for tx_data in transactions_data:
-            transaction = PortfolioTransaction(**tx_data)
+            transaction = AccountTransaction(**tx_data)
             transactions.append(transaction)
 
         self.db.add_all(transactions)

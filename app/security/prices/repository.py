@@ -5,7 +5,7 @@ from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
 from app.core.repository import BaseRepository
-from app.security.master.model import SecurityMaster
+from app.security.master.model import Security
 from app.security.prices.model import SecurityPrice
 from app.security.prices.schemas import (
     MarketDataCreate,
@@ -187,8 +187,8 @@ class MarketDataRepository(BaseRepository[SecurityPrice, MarketDataCreate, Marke
         )
 
         securities_needing_update = (
-            db.query(SecurityMaster.id)
-            .filter(and_(SecurityMaster.is_active, ~SecurityMaster.id.in_(subquery)))
+            db.query(Security.id)
+            .filter(and_(Security.is_active, ~Security.id.in_(subquery)))
             .limit(limit)
             .all()
         )

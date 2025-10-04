@@ -7,7 +7,7 @@ from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import settings
-from app.user.accounts.model import UserAccount
+from app.user.master.model import User
 from app.user.sessions.model import UserSession
 
 logger = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class UserSessionRepository:
 
     async def create_user_session(
         self,
-        user: UserAccount,
+        user: User,
         refresh_token: str,
         ip_address: Optional[str] = None,
         user_agent: Optional[str] = None,

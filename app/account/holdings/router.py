@@ -6,15 +6,15 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.account.holdings.repository import HoldingRepository
+from app.account.holdings.schemas import HoldingCreate, HoldingRead, HoldingUpdate
+from app.account.holdings.service import PortfolioHoldingsService
+from app.account.master.repository import AccountRepository
 from app.auth.dependencies import get_current_user
 from app.core.database import get_db
 from app.integrations.csv.service import CSVProcessorResult
-from app.portfolio.holdings.repository import HoldingRepository
-from app.portfolio.holdings.schemas import HoldingCreate, HoldingRead, HoldingUpdate
-from app.portfolio.holdings.service import PortfolioHoldingsService
-from app.portfolio.master.repository import PortfolioRepository
-from app.user.accounts.model import UserAccount
 from app.user.logs.repository import UserLogRepository
+from app.user.master.model import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -25,7 +25,7 @@ async def import_holdings_csv(
     account_id: UUID,
     file: Annotated[UploadFile, File()],
     dry_run: Annotated[bool, Query()] = False,
-    current_user: Annotated[UserAccount, Depends(get_current_user)] = None,
+    current_user: Annotated[User, Depends(get_current_user)] = None,
     db: Annotated[AsyncSession, Depends(get_db)] = None,
 ) -> dict:
     """Import holdings from CSV file."""
@@ -41,7 +41,7 @@ async def import_holdings_csv(
 async def get_user_holdings(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     account_id: Optional[str] = Query(None, description="Filter by account ID"),
     as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
     skip: int = Query(0, description="Skip records", ge=0),
@@ -64,7 +64,7 @@ async def get_user_holdings(
 async def get_holding(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     holding_id: str,
 ):
     """Get a specific holding by ID."""
@@ -80,12 +80,12 @@ async def get_holding(
 async def create_holding(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     holding_data: HoldingCreate,
 ):
     """Create a new holding."""
     # Verify users owns the account
-    account = await PortfolioRepository.get_by_user_and_id(
+    account = await AccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding_data.account_id)
     )
 
@@ -120,7 +120,7 @@ async def create_holding(
 async def update_holding(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     holding_id: str,
     holding_update: HoldingUpdate,
 ):
@@ -133,7 +133,7 @@ async def update_holding(
         )
 
     # Verify users owns the account
-    account = await PortfolioRepository.get_by_user_and_id(
+    account = await AccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
@@ -165,7 +165,7 @@ async def update_holding(
 async def delete_holding(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     holding_id: str,
 ):
     """Delete a holding."""
@@ -177,7 +177,7 @@ async def delete_holding(
         )
 
     # Verify users owns the account
-    account = await PortfolioRepository.get_by_user_and_id(
+    account = await AccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=str(holding.account_id)
     )
 
@@ -213,14 +213,14 @@ async def delete_holding(
 async def get_account_holdings(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     account_id: str,
     as_of_date: Optional[date] = Query(None, description="Holdings as of specific date"),
     current_only: bool = Query(True, description="Get only current holdings (non-zero positions)"),
 ):
     """Get holdings for a specific account."""
     # Verify users owns the account
-    account = await PortfolioRepository.get_by_user_and_id(
+    account = await AccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -250,13 +250,13 @@ async def get_account_holdings(
 async def get_account_holdings_summary(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     account_id: str,
     base_currency: str = Query("USD", description="Base currency for calculations"),
 ):
     """Get comprehensive holdings summary for a specific account."""
     # Verify users owns the account
-    account = await PortfolioRepository.get_by_user_and_id(
+    account = await AccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 
@@ -282,7 +282,7 @@ async def get_account_holdings_summary(
 async def get_holding_history(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     security_id: str,
     account_id: Optional[str] = Query(None, description="Filter by account"),
     start_date: Optional[date] = Query(None, description="Start date"),
@@ -293,7 +293,7 @@ async def get_holding_history(
     try:
         if account_id:
             # Verify users owns the account
-            account = await PortfolioRepository.get_by_user_and_id(
+            account = await AccountRepository.get_by_user_and_id(
                 db, user_id=current_user.id, account_id=account_id
             )
             if not account:
@@ -314,7 +314,7 @@ async def get_holding_history(
             # Get holdings across all users master for this securities
             from sqlalchemy import select
 
-            from app.portfolio.master.model import PortfolioAccount
+            from app.account.master.model import PortfolioAccount
 
             # Get all users account IDs
             stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == current_user.id)
@@ -348,7 +348,7 @@ async def get_holding_history(
 async def upload_holdings_csv(
     *,
     db: AsyncSession = Depends(get_db),
-    current_user: Annotated[UserAccount, Depends(get_current_user)],
+    current_user: Annotated[User, Depends(get_current_user)],
     account_id: str,
     file: UploadFile = File(...),
     dry_run: bool = Form(False, description="Validate only, don't import"),
@@ -363,7 +363,7 @@ async def upload_holdings_csv(
     """
 
     # Verify users owns the account
-    account = await PortfolioRepository.get_by_user_and_id(
+    account = await AccountRepository.get_by_user_and_id(
         db, user_id=current_user.id, account_id=account_id
     )
 

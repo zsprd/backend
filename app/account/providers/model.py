@@ -9,15 +9,15 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.counterparty.master.model import CounterpartyMaster
-    from app.portfolio.master.model import PortfolioMaster
+    from app.counterparty.master.model import Counterparty
+    from app.account.master.model import Account
 
 
-class PortfolioProvider(BaseModel):
+class AccountProvider(BaseModel):
     """
-    Data provider/source for portfolio data.
+    Data provider/source for account data.
 
-    Every portfolio has exactly one provider (one-to-one relationship), which can be:
+    Every account has exactly one provider (one-to-one relationship), which can be:
     - External integration (Plaid, Yodlee, Broker, Coinbase, etc.)
     - Manual entry (provider_name='manual')
     - CSV upload (provider_name='csv_upload')
@@ -34,7 +34,7 @@ class PortfolioProvider(BaseModel):
         nullable=False,
         unique=True,
         index=True,
-        comment="Reference to the portfolio (one-to-one relationship)",
+        comment="Reference to the account (one-to-one relationship)",
     )
 
     provider_name: Mapped[str] = mapped_column(
@@ -93,7 +93,7 @@ class PortfolioProvider(BaseModel):
         ForeignKey("counterparty_master.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Financial institution/broker associated with this portfolio",
+        comment="Financial institution/broker associated with this account",
     )
 
     credentials_vault_reference: Mapped[Optional[str]] = mapped_column(
@@ -103,18 +103,18 @@ class PortfolioProvider(BaseModel):
     )
 
     # Relationships
-    portfolio_master: Mapped["PortfolioMaster"] = relationship(
-        "PortfolioMaster",
+    portfolio_master: Mapped["Account"] = relationship(
+        "Account",
         back_populates="portfolio_provider",
     )
 
-    counterparty_master: Mapped[Optional["CounterpartyMaster"]] = relationship(
-        "CounterpartyMaster",
+    counterparty_master: Mapped[Optional["Counterparty"]] = relationship(
+        "Counterparty",
         back_populates="portfolio_providers",
     )
 
     __table_args__ = (
         Index("idx_provider_sync", "provider_name", "connection_status", "last_sync_at"),
         Index("idx_provider_counterparty", "counterparty_id", "provider_name"),
-        {"comment": "Data providers and sources for portfolio data"},
+        {"comment": "Data providers and sources for account data"},
     )

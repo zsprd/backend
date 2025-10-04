@@ -19,12 +19,12 @@ from uuid import UUID
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.portfolio.holdings.repository import HoldingRepository
-from app.portfolio.holdings.schemas import HoldingCreate
-from app.portfolio.master.repository import PortfolioRepository
-from app.portfolio.transactions.repository import TransactionRepository
-from app.portfolio.transactions.schemas import TransactionCreate
-from app.security.master.model import SecurityMaster
+from app.account.holdings.repository import HoldingRepository
+from app.account.holdings.schemas import HoldingCreate
+from app.account.master.repository import AccountRepository
+from app.account.transactions.repository import TransactionRepository
+from app.account.transactions.schemas import TransactionCreate
+from app.security.master.model import Security
 from app.security.master.repository import security_crud
 from app.security.master.schemas import SecurityCreate
 
@@ -174,11 +174,11 @@ class SecurityMatcher:
 
     def __init__(self, db: AsyncSession):
         self.db = db
-        self._cache: Dict[str, Optional[SecurityMaster]] = {}
+        self._cache: Dict[str, Optional[Security]] = {}
 
     def match_or_create(
         self, symbol: str, name: Optional[str] = None, result: Optional[CSVProcessorResult] = None
-    ) -> Optional[SecurityMaster]:
+    ) -> Optional[Security]:
         """
         Match symbol to existing security or create new one.
 
@@ -212,7 +212,7 @@ class SecurityMatcher:
 
     def _create_security(
         self, symbol: str, name: Optional[str] = None, result: Optional[CSVProcessorResult] = None
-    ) -> Optional[SecurityMaster]:
+    ) -> Optional[Security]:
         """Create a new security in the database."""
         try:
             # Determine security type based on symbol patterns
@@ -280,7 +280,7 @@ class CSVProcessor:
         self.db = db
         self.validator = CSVValidator()
         self.security_matcher = SecurityMatcher(db)
-        self.portfolio_repo = PortfolioRepository(db)
+        self.portfolio_repo = AccountRepository(db)
 
     def process_transactions_csv(
         self,

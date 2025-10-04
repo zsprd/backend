@@ -1,16 +1,16 @@
+import uuid
 from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, Optional
-from uuid import UUID
 
 from sqlalchemy import DECIMAL, Date, ForeignKey, String
-from sqlalchemy.dialects.postgresql import UUID as PGUUID
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.user.accounts.model import UserAccount
+    from app.user.master.model import User
 
 
 class UserSubscription(BaseModel):
@@ -24,8 +24,8 @@ class UserSubscription(BaseModel):
 
     __tablename__ = "user_subscriptions"
 
-    user_id: Mapped[UUID] = mapped_column(
-        PGUUID(as_uuid=True),
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
         ForeignKey("user_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -77,6 +77,4 @@ class UserSubscription(BaseModel):
     )
 
     # Relationships
-    user_accounts: Mapped["UserAccount"] = relationship(
-        "UserAccount", back_populates="user_subscriptions"
-    )
+    user_accounts: Mapped["User"] = relationship("User", back_populates="user_subscriptions")

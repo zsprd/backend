@@ -10,14 +10,14 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.security.master.model import SecurityMaster
+    from app.security.master.model import Security
 
 
 class SecurityPrice(BaseModel):
     """
     Daily market prices and volume data for securities.
 
-    Time series price data essential for portfolio valuation,
+    Time series price data essential for account valuation,
     performance calculation, and market analytics. Supports
     both end-of-day and intraday pricing models.
     """
@@ -49,9 +49,7 @@ class SecurityPrice(BaseModel):
     )
 
     # Relationships
-    security_master: Mapped["SecurityMaster"] = relationship(
-        "SecurityMaster", back_populates="security_prices"
-    )
+    security_master: Mapped["Security"] = relationship("Security", back_populates="security_prices")
 
     # Composite unique constraint on security_id + price_date
-    __table_args__ = ({"comment": "Daily market prices for portfolio valuation"},)
+    __table_args__ = ({"comment": "Daily market prices for account valuation"},)

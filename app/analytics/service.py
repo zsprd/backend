@@ -6,6 +6,8 @@ import pandas as pd
 from sqlalchemy import and_, desc, select
 from sqlalchemy.orm import Session
 
+from app.account.holdings.model import AccountHolding
+from app.account.master.model import PortfolioAccount
 from app.analytics.exposure.calculations import ExposureCalculations
 from app.analytics.exposure.model import AnalyticsExposure
 from app.analytics.performance.calculations import PerformanceCalculations
@@ -13,8 +15,6 @@ from app.analytics.performance.model import AnalyticsPerformance
 from app.analytics.risk.calculations import RiskCalculations
 from app.analytics.risk.model import AnalyticsRisk
 from app.analytics.summary.model import AnalyticsSummary
-from app.portfolio.holdings.model import PortfolioHolding
-from app.portfolio.master.model import PortfolioAccount
 
 logger = logging.getLogger(__name__)
 
@@ -376,17 +376,17 @@ class AnalyticsCalculationService:
             return False
 
     # Helper methods (unchanged, only data fetching/structuring)
-    def _get_holdings_as_of_date(self, account_id: str, as_of_date: date) -> List[PortfolioHolding]:
+    def _get_holdings_as_of_date(self, account_id: str, as_of_date: date) -> List[AccountHolding]:
         stmt = (
-            select(PortfolioHolding)
+            select(AccountHolding)
             .where(
                 and_(
-                    PortfolioHolding.account_id == account_id,
-                    PortfolioHolding.as_of_date <= as_of_date,
-                    PortfolioHolding.quantity > 0,
+                    AccountHolding.account_id == account_id,
+                    AccountHolding.as_of_date <= as_of_date,
+                    AccountHolding.quantity > 0,
                 )
             )
-            .order_by(desc(PortfolioHolding.as_of_date))
+            .order_by(desc(AccountHolding.as_of_date))
         )
         result = self.db.execute(stmt)
         holdings = list(result.scalars().all())

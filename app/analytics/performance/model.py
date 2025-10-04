@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.portfolio.master.model import PortfolioMaster
+    from app.account.master.model import Account
 
 
 class AnalyticsPerformance(BaseModel):
@@ -18,7 +18,7 @@ class AnalyticsPerformance(BaseModel):
     Advanced performance analysis and benchmarking metrics.
 
     Stores risk-adjusted performance metrics, benchmark comparisons,
-    and statistical measures for sophisticated portfolio analysis.
+    and statistical measures for sophisticated account analysis.
     Used for institutional-grade reporting and performance attribution.
     """
 
@@ -29,7 +29,7 @@ class AnalyticsPerformance(BaseModel):
         ForeignKey("portfolio_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the portfolio account",
+        comment="Reference to the account account",
     )
 
     as_of_date: Mapped[date] = mapped_column(
@@ -128,8 +128,8 @@ class AnalyticsPerformance(BaseModel):
     )
 
     # Relationships
-    portfolio_accounts: Mapped["PortfolioMaster"] = relationship(
-        "PortfolioMaster", back_populates="analytics_performance"
+    portfolio_accounts: Mapped["Account"] = relationship(
+        "Account", back_populates="analytics_performance"
     )
 
     # Composite unique constraint on account_id + as_of_date

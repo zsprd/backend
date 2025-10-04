@@ -22,7 +22,7 @@ from app.auth.schemas import (
     ForgotPasswordResponse,
     PasswordResetResponse,
 )
-from app.user.accounts.schemas import UserAccountRead
+from app.user.master.schemas import UserRead
 
 # Add project root to path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
@@ -152,7 +152,7 @@ def mock_auth_service():
             message="User registered successfully. Please verify your email.",
             user_id=uuid.uuid4(),
             email_verification_required=True,
-            user=UserAccountRead(
+            user=UserRead(
                 id=uuid.uuid4(),
                 email=getattr(registration_data, "email", "test@example.com"),
                 full_name=getattr(registration_data, "full_name", "Test User"),
@@ -175,7 +175,7 @@ def mock_auth_service():
             refresh_token="test-refresh-token",
             token_type="bearer",
             expires_in=300,
-            user=UserAccountRead(
+            user=UserRead(
                 id=uuid.uuid4(),
                 email=email,
                 full_name="Test User",
@@ -196,7 +196,7 @@ def mock_auth_service():
     service.logout.return_value = LogoutResponse(message="Logout successful.")
     service.verify_email.return_value = EmailVerificationResponse(
         message="Email verified successfully.",
-        user=UserAccountRead(
+        user=UserRead(
             id=uuid.uuid4(),
             email="test@example.com",
             full_name="Test User",
@@ -273,7 +273,7 @@ async def async_client(mock_dependencies) -> AsyncGenerator[AsyncClient, None]:
 @pytest_asyncio.fixture
 async def real_auth_service(test_db_session):
     """Real auth service with test database for integration tests."""
-    from app.user.accounts.repository import UserRepository
+    from app.user.master.repository import UserRepository
     from app.user.sessions.repository import UserSessionRepository
 
     user_crud = UserRepository(test_db_session)
@@ -328,14 +328,14 @@ async def ensure_test_user(test_db_session):
 
         from passlib.context import CryptContext
 
-        from app.user.accounts.model import UserAccount
+        from app.user.master.model import User
 
         pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
         test_user_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
         # Always create fresh user for each test to avoid session issues
-        user = UserAccount(
+        user = User(
             id=test_user_id,
             email="testuser@example.com",
             full_name="Test User",

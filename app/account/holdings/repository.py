@@ -7,7 +7,7 @@ from sqlalchemy import and_, desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from app.portfolio.holdings.model import PortfolioHolding
+from app.account.holdings.model import AccountHolding
 
 
 class HoldingRepository:
@@ -16,15 +16,15 @@ class HoldingRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_holding(self, holding_id: UUID) -> Optional[PortfolioHolding]:
+    async def get_holding(self, holding_id: UUID) -> Optional[AccountHolding]:
         """Retrieve a holding by its ID."""
-        stmt = select(PortfolioHolding).where(PortfolioHolding.id == holding_id)
+        stmt = select(AccountHolding).where(AccountHolding.id == holding_id)
         result = await self.db.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def create_holding(self, holding_data: Dict[str, Any]) -> PortfolioHolding:
+    async def create_holding(self, holding_data: Dict[str, Any]) -> AccountHolding:
         """Create a new holding."""
-        holding = PortfolioHolding(**holding_data)
+        holding = AccountHolding(**holding_data)
         self.db.add(holding)
         await self.db.commit()
         await self.db.refresh(holding)
@@ -32,9 +32,9 @@ class HoldingRepository:
 
     async def update_holding(
         self, holding_id: UUID, update_data: Dict[str, Any]
-    ) -> Optional[PortfolioHolding]:
+    ) -> Optional[AccountHolding]:
         """Update an existing holding by ID."""
-        stmt = select(PortfolioHolding).where(PortfolioHolding.id == holding_id)
+        stmt = select(AccountHolding).where(AccountHolding.id == holding_id)
         result = await self.db.execute(stmt)
         holding = result.scalar_one_or_none()
         if not holding:
@@ -47,7 +47,7 @@ class HoldingRepository:
 
     async def delete_holding(self, holding_id: UUID) -> bool:
         """Delete a holding by ID. Returns True if deleted, False if not found."""
-        stmt = select(PortfolioHolding).where(PortfolioHolding.id == holding_id)
+        stmt = select(AccountHolding).where(AccountHolding.id == holding_id)
         result = await self.db.execute(stmt)
         holding = result.scalar_one_or_none()
         if not holding:
@@ -60,19 +60,19 @@ class HoldingRepository:
         self,
         account_id: UUID,
         as_of_date: Optional[date] = None,
-    ) -> List[PortfolioHolding]:
+    ) -> List[AccountHolding]:
         """Get holdings for a specific account, optionally as of a specific date."""
         stmt = (
-            select(PortfolioHolding)
-            .options(joinedload(PortfolioHolding.security_master))
-            .where(PortfolioHolding.account_id == account_id)
+            select(AccountHolding)
+            .options(joinedload(AccountHolding.security_master))
+            .where(AccountHolding.account_id == account_id)
         )
 
         if as_of_date:
-            stmt = stmt.where(PortfolioHolding.as_of_date <= as_of_date)
+            stmt = stmt.where(AccountHolding.as_of_date <= as_of_date)
 
         # Get most recent holdings per securities
-        stmt = stmt.order_by(PortfolioHolding.security_id, desc(PortfolioHolding.as_of_date))
+        stmt = stmt.order_by(AccountHolding.security_id, desc(AccountHolding.as_of_date))
         result = await self.db.execute(stmt)
         holdings = list(result.scalars().all())
 
@@ -84,32 +84,32 @@ class HoldingRepository:
 
         return list(latest_holdings.values())
 
-    async def get_current_holdings_by_account(self, account_id: UUID) -> List[PortfolioHolding]:
+    async def get_current_holdings_by_account(self, account_id: UUID) -> List[AccountHolding]:
         """Get current holdings for an account (latest as_of_date per securities)."""
         # Subquery to get latest date per securities for the account
         latest_date_subq = (
             select(
-                PortfolioHolding.security_id,
-                func.max(PortfolioHolding.as_of_date).label("max_date"),
+                AccountHolding.security_id,
+                func.max(AccountHolding.as_of_date).label("max_date"),
             )
-            .where(PortfolioHolding.account_id == account_id)
-            .group_by(PortfolioHolding.security_id)
+            .where(AccountHolding.account_id == account_id)
+            .group_by(AccountHolding.security_id)
             .subquery()
         )
 
         # Main query to get holdings with latest dates
         stmt = (
-            select(PortfolioHolding)
-            .options(joinedload(PortfolioHolding.security_master))
+            select(AccountHolding)
+            .options(joinedload(AccountHolding.security_master))
             .join(
                 latest_date_subq,
                 and_(
-                    PortfolioHolding.security_id == latest_date_subq.c.security_id,
-                    PortfolioHolding.as_of_date == latest_date_subq.c.max_date,
+                    AccountHolding.security_id == latest_date_subq.c.security_id,
+                    AccountHolding.as_of_date == latest_date_subq.c.max_date,
                 ),
             )
-            .where(PortfolioHolding.account_id == account_id)
-            .where(PortfolioHolding.quantity > 0)
+            .where(AccountHolding.account_id == account_id)
+            .where(AccountHolding.quantity > 0)
         )
 
         result = await self.db.execute(stmt)
@@ -191,20 +191,20 @@ class HoldingRepository:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         limit: int = 100,
-    ) -> List[PortfolioHolding]:
+    ) -> List[AccountHolding]:
         """Get historical holdings for a specific securities in an account."""
-        stmt = select(PortfolioHolding).where(
+        stmt = select(AccountHolding).where(
             and_(
-                PortfolioHolding.account_id == account_id,
-                PortfolioHolding.security_id == security_id,
+                AccountHolding.account_id == account_id,
+                AccountHolding.security_id == security_id,
             )
         )
 
         if start_date:
-            stmt = stmt.where(PortfolioHolding.as_of_date >= start_date)
+            stmt = stmt.where(AccountHolding.as_of_date >= start_date)
         if end_date:
-            stmt = stmt.where(PortfolioHolding.as_of_date <= end_date)
+            stmt = stmt.where(AccountHolding.as_of_date <= end_date)
 
-        stmt = stmt.order_by(desc(PortfolioHolding.as_of_date)).limit(limit)
+        stmt = stmt.order_by(desc(AccountHolding.as_of_date)).limit(limit)
         result = await self.db.execute(stmt)
         return list(result.scalars().all())

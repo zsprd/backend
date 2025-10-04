@@ -6,26 +6,26 @@ from uuid import UUID
 from fastapi import HTTPException, status, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.account.holdings.repository import HoldingRepository
+from app.account.holdings.schemas import HoldingRead
+from app.account.master.repository import AccountRepository
 from app.integrations.csv.service import get_csv_processor
-from app.portfolio.holdings.repository import HoldingRepository
-from app.portfolio.holdings.schemas import HoldingRead
-from app.portfolio.master.repository import PortfolioRepository
-from app.user.accounts.model import UserAccount
+from app.user.master.model import User
 
 logger = logging.getLogger(__name__)
 
 
 class PortfolioHoldingsService:
-    """Service layer for portfolio holdings business logic."""
+    """Service layer for account holdings business logic."""
 
     def __init__(self, db: AsyncSession):
         self.db = db
         self.repo = HoldingRepository(db)
-        self.portfolio_repo = PortfolioRepository(db)
+        self.portfolio_repo = AccountRepository(db)
 
     async def import_holdings_csv(
         self,
-        user: UserAccount,
+        user: User,
         account_id: UUID | str,
         file: UploadFile,
         dry_run: bool,
@@ -60,7 +60,7 @@ class PortfolioHoldingsService:
 
     async def get_user_holdings(
         self,
-        user: UserAccount,
+        user: User,
         account_id: Optional[str | UUID] = None,
         as_of_date: Optional[date] = None,
         skip: int = 0,
@@ -80,7 +80,7 @@ class PortfolioHoldingsService:
                 holdings = self.repo.get_by_account(account_id, as_of_date)
             else:
                 from sqlalchemy import select
-                from app.portfolio.master.model import PortfolioAccount
+                from app.account.master.model import PortfolioAccount
 
                 stmt = select(PortfolioAccount.id).where(PortfolioAccount.user_id == user.id)
                 result = await self.db.execute(stmt)
@@ -105,7 +105,7 @@ class PortfolioHoldingsService:
 
     async def get_holding(
         self,
-        user: UserAccount,
+        user: User,
         holding_id: str | UUID,
     ) -> HoldingRead:
         """Get a specific holding by ID with ownership validation."""

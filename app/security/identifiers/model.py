@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.security.master.model import SecurityMaster
+    from app.security.master.model import Security
 
 
 class SecurityIdentifier(BaseModel):
@@ -48,8 +48,8 @@ class SecurityIdentifier(BaseModel):
     )
 
     # Relationships
-    security_master: Mapped["SecurityMaster"] = relationship(
-        "SecurityMaster", back_populates="security_identifiers"
+    security_master: Mapped["Security"] = relationship(
+        "Security", back_populates="security_identifiers"
     )
 
     # Composite unique constraint on identifier_type + identifier_value

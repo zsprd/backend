@@ -80,7 +80,7 @@ class ReferenceCountry(BaseModel):
         Boolean,
         default=True,
         nullable=False,
-        comment="Developed market classification for portfolio analytics",
+        comment="Developed market classification for account analytics",
     )
 
     # Demographics & Statistics

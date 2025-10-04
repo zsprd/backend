@@ -74,7 +74,7 @@ async def get_template_info(template_type: Literal["transactions", "holdings"]) 
     if template_type == "transactions":
         return {
             "template_type": "transactions",
-            "description": "Import transaction history for a portfolio account",
+            "description": "Import transaction history for a account account",
             "required_columns": ["date", "type"],
             "optional_columns": ["symbol", "quantity", "price", "fees", "currency", "description"],
             "valid_transaction_types": [
@@ -130,7 +130,7 @@ async def get_template_info(template_type: Literal["transactions", "holdings"]) 
     else:  # holdings
         return {
             "template_type": "holdings",
-            "description": "Import current portfolio holdings/positions",
+            "description": "Import current account holdings/positions",
             "required_columns": ["date", "symbol", "quantity"],
             "optional_columns": ["cost_basis", "currency"],
             "date_formats": [

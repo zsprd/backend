@@ -8,10 +8,10 @@ from app.core.model import BaseModel
 
 class ReferenceCurrency(BaseModel):
     """
-    Currency reference data for multi-currency portfolio support.
+    Currency reference data for multi-currency account support.
 
     Master list of supported currencies with display formatting
-    and precision information. Used for portfolio reporting,
+    and precision information. Used for account reporting,
     currency conversion, FX tracking, and user interface localization.
     """
 

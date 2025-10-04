@@ -4,7 +4,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
-from app.user.accounts.service import UserService
+from app.user.master.service import UserService
 
 logger = logging.getLogger(__name__)
 

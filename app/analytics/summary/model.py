@@ -10,16 +10,16 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.portfolio.master.model import PortfolioMaster
+    from app.account.master.model import Account
 
 
 class AnalyticsSummary(BaseModel):
     """
-    Account-level summary metrics for portfolio performance and allocation.
+    Account-level summary metrics for account performance and allocation.
 
-    Stores calculated portfolio values, returns, and asset allocation data
-    that can be aggregated to create user-level portfolio summaries.
-    Updated daily or on-demand for real-time portfolio tracking.
+    Stores calculated account values, returns, and asset allocation data
+    that can be aggregated to create user-level account summaries.
+    Updated daily or on-demand for real-time account tracking.
     """
 
     __tablename__ = "analytics_summary"
@@ -29,14 +29,14 @@ class AnalyticsSummary(BaseModel):
         ForeignKey("portfolio_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the portfolio account",
+        comment="Reference to the account account",
     )
 
     as_of_date: Mapped[date] = mapped_column(
         Date, nullable=False, index=True, comment="Date for this analytics snapshot"
     )
 
-    # Core portfolio values
+    # Core account values
     market_value: Mapped[Decimal] = mapped_column(
         DECIMAL(15, 2), nullable=False, comment="Current market value of all holdings"
     )
@@ -133,7 +133,7 @@ class AnalyticsSummary(BaseModel):
     )
 
     holdings_count: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False, comment="Number of distinct positions in the portfolio"
+        Integer, default=0, nullable=False, comment="Number of distinct positions in the account"
     )
 
     last_price_date: Mapped[Optional[date]] = mapped_column(
@@ -142,7 +142,7 @@ class AnalyticsSummary(BaseModel):
 
     # Time series data for charting (JSON arrays)
     value_time_series: Mapped[Optional[Dict[str, Any]]] = mapped_column(
-        JSON, nullable=True, comment="30-day portfolio value history for trend charts"
+        JSON, nullable=True, comment="30-day account value history for trend charts"
     )
 
     return_time_series: Mapped[Optional[Dict[str, Any]]] = mapped_column(
@@ -150,9 +150,9 @@ class AnalyticsSummary(BaseModel):
     )
 
     # Relationships
-    portfolio_accounts: Mapped["PortfolioMaster"] = relationship(
-        "PortfolioMaster", back_populates="analytics_summary"
+    portfolio_accounts: Mapped["Account"] = relationship(
+        "Account", back_populates="analytics_summary"
     )
 
     # Composite unique constraint on account_id + as_of_date
-    __table_args__ = ({"comment": "Daily portfolio summary metrics and asset allocation"},)
+    __table_args__ = ({"comment": "Daily account summary metrics and asset allocation"},)

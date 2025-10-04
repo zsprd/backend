@@ -9,7 +9,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.security.master.model import SecurityMaster
+    from app.security.master.model import Security
 
 
 class SecurityProvider(BaseModel):
@@ -90,8 +90,8 @@ class SecurityProvider(BaseModel):
     )
 
     # Relationships
-    security_master: Mapped["SecurityMaster"] = relationship(
-        "SecurityMaster",
+    security_master: Mapped["Security"] = relationship(
+        "Security",
         back_populates="security_provider",
     )
 

@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.portfolio.master.model import PortfolioMaster
+    from app.account.master.model import Account
 
 
 class AnalyticsRisk(BaseModel):
@@ -29,7 +29,7 @@ class AnalyticsRisk(BaseModel):
         ForeignKey("portfolio_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the portfolio account",
+        comment="Reference to the account account",
     )
 
     as_of_date: Mapped[date] = mapped_column(
@@ -55,7 +55,7 @@ class AnalyticsRisk(BaseModel):
 
     # Risk ratios and measures
     volatility: Mapped[Decimal] = mapped_column(
-        DECIMAL(10, 4), nullable=False, comment="Annualized portfolio volatility"
+        DECIMAL(10, 4), nullable=False, comment="Annualized account volatility"
     )
 
     downside_deviation: Mapped[Optional[Decimal]] = mapped_column(
@@ -80,7 +80,7 @@ class AnalyticsRisk(BaseModel):
     )
 
     largest_position_pct: Mapped[Optional[Decimal]] = mapped_column(
-        DECIMAL(5, 2), nullable=True, comment="Largest single position as percentage of portfolio"
+        DECIMAL(5, 2), nullable=True, comment="Largest single position as percentage of account"
     )
 
     top_5_concentration: Mapped[Optional[Decimal]] = mapped_column(
@@ -110,9 +110,7 @@ class AnalyticsRisk(BaseModel):
     )
 
     # Relationships
-    portfolio_accounts: Mapped["PortfolioMaster"] = relationship(
-        "PortfolioMaster", back_populates="analytics_risk"
-    )
+    portfolio_accounts: Mapped["Account"] = relationship("Account", back_populates="analytics_risk")
 
     # Composite unique constraint on account_id + as_of_date
-    __table_args__ = ({"comment": "Comprehensive portfolio risk metrics and analysis"},)
+    __table_args__ = ({"comment": "Comprehensive account risk metrics and analysis"},)

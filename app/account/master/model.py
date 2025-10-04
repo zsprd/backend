@@ -12,15 +12,15 @@ if TYPE_CHECKING:
     from app.analytics.performance.model import AnalyticsPerformance
     from app.analytics.risk.model import AnalyticsRisk
     from app.analytics.summary.model import AnalyticsSummary
-    from app.portfolio.holdings.model import PortfolioHolding
-    from app.portfolio.providers.model import PortfolioProvider
-    from app.portfolio.transactions.model import PortfolioTransaction
-    from app.user.accounts.model import UserAccount
+    from app.account.holdings.model import AccountHolding
+    from app.account.providers.model import AccountProvider
+    from app.account.transactions.model import AccountTransaction
+    from app.user.master.model import User
 
 
-class PortfolioMaster(BaseModel):
+class Account(BaseModel):
     """
-    Master portfolio entities for investment tracking and analysis.
+    Master account entities for investment tracking and analysis.
 
     Represents individual investment portfolios (brokerage accounts, retirement accounts,
     alternative investments, etc.) that contain securities, cash, and transaction history.
@@ -28,8 +28,8 @@ class PortfolioMaster(BaseModel):
     Design for multi-user access: Portfolios are first-class entities that users can be
     granted access to, supporting both individual HNWI and institutional asset manager use cases.
 
-    Each portfolio has exactly one provider (manual, CSV upload, or external integration like
-    Plaid, Yodlee, etc.) that supplies the portfolio data.
+    Each account has exactly one provider (manual, CSV upload, or external integration like
+    Plaid, Yodlee, etc.) that supplies the account data.
     """
 
     __tablename__ = "portfolio_master"
@@ -39,13 +39,13 @@ class PortfolioMaster(BaseModel):
         ForeignKey("user_accounts.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Primary user/owner of this portfolio",
+        comment="Primary user/owner of this account",
     )
 
     account_name: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        comment="User-friendly portfolio/account name",
+        comment="User-friendly account/account name",
     )
 
     account_type: Mapped[str] = mapped_column(
@@ -65,7 +65,7 @@ class PortfolioMaster(BaseModel):
         String(3),
         default="USD",
         nullable=False,
-        comment="Base currency for portfolio (single currency per portfolio)",
+        comment="Base currency for account (single currency per account)",
     )
 
     account_number_masked: Mapped[Optional[str]] = mapped_column(
@@ -78,32 +78,32 @@ class PortfolioMaster(BaseModel):
         Boolean,
         default=True,
         nullable=False,
-        comment="Whether portfolio is currently active",
+        comment="Whether account is currently active",
     )
 
     # Relationships
-    user_accounts: Mapped["UserAccount"] = relationship(
-        "UserAccount",
+    user_accounts: Mapped["User"] = relationship(
+        "User",
         back_populates="portfolio_master",
     )
 
-    portfolio_provider: Mapped["PortfolioProvider"] = relationship(
-        "PortfolioProvider",
+    portfolio_provider: Mapped["AccountProvider"] = relationship(
+        "AccountProvider",
         back_populates="portfolio_master",
         uselist=False,
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
 
-    portfolio_holdings: Mapped[List["PortfolioHolding"]] = relationship(
-        "PortfolioHolding",
+    portfolio_holdings: Mapped[List["AccountHolding"]] = relationship(
+        "AccountHolding",
         back_populates="portfolio_master",
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
 
-    portfolio_transactions: Mapped[List["PortfolioTransaction"]] = relationship(
-        "PortfolioTransaction",
+    portfolio_transactions: Mapped[List["AccountTransaction"]] = relationship(
+        "AccountTransaction",
         back_populates="portfolio_master",
         cascade="all, delete-orphan",
         passive_deletes=True,
@@ -140,5 +140,5 @@ class PortfolioMaster(BaseModel):
     __table_args__ = (
         Index("idx_portfolio_user_active", "user_id", "is_active", "deleted_at"),
         Index("idx_portfolio_type", "account_type", "account_subtype"),
-        {"comment": "Master portfolio entities for investment tracking"},
+        {"comment": "Master account entities for investment tracking"},
     )

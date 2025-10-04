@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.repository import BaseRepository
-from app.security.master.model import SecurityMaster
+from app.security.master.model import Security
 from app.security.prices.model import SecurityPrice
 
 logger = logging.getLogger(__name__)
@@ -166,7 +166,7 @@ class MarketDataService:
     def __init__(self, db: Session):
         self.db = db
         self.client = AlphaVantageClient()
-        self.market_data_crud = BaseRepository(SecurityMaster)
+        self.market_data_crud = BaseRepository(Security)
 
     async def update_security_data(self, security_id: str, force_refresh: bool = False) -> bool:
         """
@@ -177,7 +177,7 @@ class MarketDataService:
             force_refresh: Force refresh even if data exists
         """
         # Get securities details
-        security = self.db.query(SecurityMaster).filter(SecurityMaster.id == security_id).first()
+        security = self.db.query(Security).filter(Security.id == security_id).first()
         if not security:
             logger.error(f"SecurityMaster {security_id} not found")
             return False
@@ -208,9 +208,7 @@ class MarketDataService:
             logger.error(f"Failed to update data for {security.symbol}: {str(e)}")
             return False
 
-    async def _process_stock_data(
-        self, security: SecurityMaster, data: Optional[Dict[str, Any]]
-    ) -> bool:
+    async def _process_stock_data(self, security: Security, data: Optional[Dict[str, Any]]) -> bool:
         """Process and store stock/ETF market data."""
         if not data or "Time Series (Daily)" not in data:
             logger.error(f"Invalid stock data format for {security.symbol}")
@@ -257,7 +255,7 @@ class MarketDataService:
         return True
 
     async def _process_crypto_data(
-        self, security: SecurityMaster, data: Optional[Dict[str, Any]]
+        self, security: Security, data: Optional[Dict[str, Any]]
     ) -> bool:
         """Process and store cryptocurrency market data."""
         if not data or "Time Series (Digital Currency Daily)" not in data:

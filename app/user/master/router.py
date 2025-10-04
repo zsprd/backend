@@ -5,10 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from app.auth.dependencies import get_current_user
 from app.auth.rate_limiter import rate_limit
 from app.core.config import settings
-from app.user.accounts.dependencies import get_user_service
-from app.user.accounts.model import UserAccount
-from app.user.accounts.schemas import UserAccountPasswordUpdate, UserAccountRead, UserAccountUpdate
-from app.user.accounts.service import UserService, UserError
+from app.user.master.dependencies import get_user_service
+from app.user.master.model import User
+from app.user.master.schemas import UserPasswordUpdate, UserRead, UserUpdate
+from app.user.master.service import UserService, UserError
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -16,15 +16,15 @@ logger = logging.getLogger(__name__)
 
 @router.get(
     "/me",
-    response_model=UserAccountRead,
+    response_model=UserRead,
     status_code=status.HTTP_200_OK,
     summary="Get current user profile",
     description="Retrieve the authenticated user's profile information.",
 )
 async def get_current_user_profile(
-    user: UserAccount = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
-) -> UserAccountRead:
+) -> UserRead:
     """Get current user's profile information."""
     try:
         logger.info("Profile requested", extra={"user_id": user.id})
@@ -38,17 +38,17 @@ async def get_current_user_profile(
 
 @router.patch(
     "/me",
-    response_model=UserAccountRead,
+    response_model=UserRead,
     status_code=status.HTTP_200_OK,
     summary="Update current user profile",
     description="Update the authenticated user's profile information.",
 )
 @rate_limit(settings.RATE_LIMIT_UPDATE)
 async def update_current_user_profile(
-    payload: UserAccountUpdate,
-    user: UserAccount = Depends(get_current_user),
+    payload: UserUpdate,
+    user: User = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
-) -> UserAccountRead:
+) -> UserRead:
     """Update current user's profile information."""
     try:
         logger.info("Profile update requested", extra={"user_id": user.id})
@@ -67,7 +67,7 @@ async def update_current_user_profile(
     description="Permanently delete the current user's account.",
 )
 async def delete_user_account(
-    user: UserAccount = Depends(get_current_user),
+    user: User = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
 ) -> Response:
     """Delete current user's account."""
@@ -89,8 +89,8 @@ async def delete_user_account(
 )
 @rate_limit(settings.RATE_LIMIT_PASSWORD)
 async def change_user_password(
-    payload: UserAccountPasswordUpdate,
-    user: UserAccount = Depends(get_current_user),
+    payload: UserPasswordUpdate,
+    user: User = Depends(get_current_user),
     service: UserService = Depends(get_user_service),
 ) -> Response:
     """Change current user's password."""

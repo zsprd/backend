@@ -4,7 +4,7 @@ from uuid import UUID
 import bleach
 from pydantic import BaseModel, Field, field_validator, validate_email
 
-from app.user.accounts.schemas import UserAccountRead
+from app.user.master.schemas import UserRead
 
 
 class UserRegistrationData(BaseModel):
@@ -197,7 +197,7 @@ class TokenResponse(BaseModel):
 class AuthResponse(TokenResponse):
     """Authentication response with user data."""
 
-    user: UserAccountRead
+    user: UserRead
 
 
 class RegistrationResponse(BaseModel):
@@ -206,14 +206,14 @@ class RegistrationResponse(BaseModel):
     message: str
     user_id: UUID
     email_verification_required: bool = True
-    user: UserAccountRead
+    user: UserRead
 
 
 class EmailVerificationResponse(BaseModel):
     """Email verification response."""
 
     message: str
-    user: UserAccountRead
+    user: UserRead
 
 
 class PasswordResetResponse(BaseModel):

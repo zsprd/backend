@@ -5,40 +5,40 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.account.master.schemas import (
+    AccountRead,
+    AccountCreate,
+    AccountUpdate,
+)
+from app.account.master.service import AccountError, AccountService
 from app.auth.dependencies import get_current_user
 from app.core.database import get_db
-from app.portfolio.master.schemas import (
-    PortfolioMasterRead,
-    PortfolioMasterCreate,
-    PortfolioMasterUpdate,
-)
-from app.portfolio.master.service import PortfolioError, PortfolioService
-from app.user.accounts.model import UserAccount
+from app.user.master.model import User
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 
-def get_portfolio_service(db: AsyncSession = Depends(get_db)) -> PortfolioService:
+def get_portfolio_service(db: AsyncSession = Depends(get_db)) -> AccountService:
     """Get user service with injected repository."""
-    return PortfolioService(db)
+    return AccountService(db)
 
 
 @router.get(
     "/",
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
-    summary="Get user's portfolio master",
-    description="Retrieve all portfolio master for the authenticated user with pagination and filtering options.",
+    summary="Get user's account master",
+    description="Retrieve all account master for the authenticated user with pagination and filtering options.",
 )
 async def get_user_accounts(
-    user: UserAccount = Depends(get_current_user),
-    service: PortfolioService = Depends(get_portfolio_service),
+    user: User = Depends(get_current_user),
+    service: AccountService = Depends(get_portfolio_service),
     limit: int = Query(100, ge=1, le=500, description="Limit records"),
     include_inactive: bool = Query(False, description="Include inactive master"),
     account_type: Optional[str] = Query(None, description="Filter by account type"),
 ) -> Dict[str, Any]:
-    """Get all portfolio master for the current user with pagination and filtering."""
+    """Get all account master for the current user with pagination and filtering."""
     try:
         logger.info(
             "Portfolio master requested",
@@ -86,24 +86,24 @@ async def get_user_accounts(
             "count": len(paginated_accounts),
         }
 
-    except PortfolioError as e:
+    except AccountError as e:
         logger.error(f"Portfolio account service error: {str(e)}")
         raise handle_portfolio_account_error(e)
 
 
 @router.get(
     "/{account_id}",
-    response_model=PortfolioMasterRead,
+    response_model=AccountRead,
     status_code=status.HTTP_200_OK,
-    summary="Get specific portfolio account",
-    description="Retrieve a specific portfolio account by ID for the authenticated user.",
+    summary="Get specific account account",
+    description="Retrieve a specific account account by ID for the authenticated user.",
 )
 async def get_account(
     account_id: UUID,
-    user: UserAccount = Depends(get_current_user),
-    service: PortfolioService = Depends(get_portfolio_service),
-) -> PortfolioMasterRead:
-    """Get a specific portfolio account by ID."""
+    user: User = Depends(get_current_user),
+    service: AccountService = Depends(get_portfolio_service),
+) -> AccountRead:
+    """Get a specific account account by ID."""
     try:
         logger.info(
             "Portfolio account requested",
@@ -119,24 +119,24 @@ async def get_account(
 
         return account
 
-    except PortfolioError as e:
+    except AccountError as e:
         logger.error(f"Portfolio account service error: {str(e)}")
         raise handle_portfolio_account_error(e)
 
 
 @router.post(
     "/",
-    response_model=PortfolioMasterRead,
+    response_model=AccountRead,
     status_code=status.HTTP_201_CREATED,
-    summary="Create portfolio account",
-    description="Create a new portfolio account for the authenticated user.",
+    summary="Create account account",
+    description="Create a new account account for the authenticated user.",
 )
 async def create_account(
-    payload: PortfolioMasterCreate,
-    user: UserAccount = Depends(get_current_user),
-    service: PortfolioService = Depends(get_portfolio_service),
-) -> PortfolioMasterRead:
-    """Create a new portfolio account for the current user."""
+    payload: AccountCreate,
+    user: User = Depends(get_current_user),
+    service: AccountService = Depends(get_portfolio_service),
+) -> AccountRead:
+    """Create a new account account for the current user."""
     try:
         logger.info(
             "Portfolio account creation requested",
@@ -162,25 +162,25 @@ async def create_account(
 
         return account
 
-    except PortfolioError as e:
+    except AccountError as e:
         logger.error(f"Portfolio account service error: {str(e)}")
         raise handle_portfolio_account_error(e)
 
 
 @router.patch(
     "/{account_id}",
-    response_model=PortfolioMasterRead,
+    response_model=AccountRead,
     status_code=status.HTTP_200_OK,
-    summary="Update portfolio account",
-    description="Update a specific portfolio account for the authenticated user.",
+    summary="Update account account",
+    description="Update a specific account account for the authenticated user.",
 )
 async def update_account(
     account_id: UUID,
-    payload: PortfolioMasterUpdate,
-    user: UserAccount = Depends(get_current_user),
-    service: PortfolioService = Depends(get_portfolio_service),
-) -> PortfolioMasterRead:
-    """Update a specific portfolio account."""
+    payload: AccountUpdate,
+    user: User = Depends(get_current_user),
+    service: AccountService = Depends(get_portfolio_service),
+) -> AccountRead:
+    """Update a specific account account."""
     try:
         logger.info(
             "Portfolio account update requested",
@@ -204,7 +204,7 @@ async def update_account(
 
         return account
 
-    except PortfolioError as e:
+    except AccountError as e:
         logger.error(f"Portfolio account service error: {str(e)}")
         raise handle_portfolio_account_error(e)
 
@@ -212,15 +212,15 @@ async def update_account(
 @router.delete(
     "/{account_id}",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Deactivate portfolio account",
-    description="Deactivate (soft delete) a specific portfolio account for the authenticated user.",
+    summary="Deactivate account account",
+    description="Deactivate (soft delete) a specific account account for the authenticated user.",
 )
 async def deactivate_account(
     account_id: UUID,
-    user: UserAccount = Depends(get_current_user),
-    service: PortfolioService = Depends(get_portfolio_service),
+    user: User = Depends(get_current_user),
+    service: AccountService = Depends(get_portfolio_service),
 ):
-    """Deactivate a specific portfolio account (soft delete)."""
+    """Deactivate a specific account account (soft delete)."""
     try:
         logger.info(
             "Portfolio account deactivation requested",
@@ -242,7 +242,7 @@ async def deactivate_account(
             },
         )
 
-    except PortfolioError as e:
+    except AccountError as e:
         logger.error(f"Portfolio account service error: {str(e)}")
         raise handle_portfolio_account_error(e)
 
@@ -252,11 +252,11 @@ async def deactivate_account(
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
     summary="Get account statistics",
-    description="Get comprehensive statistics for the user's portfolio master.",
+    description="Get comprehensive statistics for the user's account master.",
 )
 async def get_account_statistics(
-    user: UserAccount = Depends(get_current_user),
-    service: PortfolioService = Depends(get_portfolio_service),
+    user: User = Depends(get_current_user),
+    service: AccountService = Depends(get_portfolio_service),
 ) -> Dict[str, Any]:
     """Get comprehensive account statistics for the current user."""
     try:
@@ -274,7 +274,7 @@ async def get_account_statistics(
 
         return stats
 
-    except PortfolioError as e:
+    except AccountError as e:
         logger.error(f"Portfolio account service error: {str(e)}")
         raise handle_portfolio_account_error(e)
 
@@ -283,16 +283,16 @@ async def get_account_statistics(
     "/search",
     response_model=Dict[str, Any],
     status_code=status.HTTP_200_OK,
-    summary="Search portfolio master",
-    description="Search portfolio master by name for the authenticated user.",
+    summary="Search account master",
+    description="Search account master by name for the authenticated user.",
 )
 async def search_accounts(
-    user: UserAccount = Depends(get_current_user),
-    service: PortfolioService = Depends(get_portfolio_service),
+    user: User = Depends(get_current_user),
+    service: AccountService = Depends(get_portfolio_service),
     q: str = Query(..., min_length=1, description="Search query"),
     limit: int = Query(10, ge=1, le=50, description="Maximum results"),
 ) -> Dict[str, Any]:
-    """Search portfolio master by name."""
+    """Search account master by name."""
     try:
         logger.info(
             "Portfolio account search requested",
@@ -317,12 +317,12 @@ async def search_accounts(
             "count": len(accounts),
         }
 
-    except PortfolioError as e:
+    except AccountError as e:
         logger.error(f"Portfolio account service error: {str(e)}")
         raise handle_portfolio_account_error(e)
 
 
-def handle_portfolio_account_error(e: PortfolioError) -> HTTPException:
+def handle_portfolio_account_error(e: AccountError) -> HTTPException:
     """Convert PortfolioAccountError to appropriate HTTPException."""
     error_message = str(e)
 

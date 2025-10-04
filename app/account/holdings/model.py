@@ -10,20 +10,20 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.model import BaseModel
 
 if TYPE_CHECKING:
-    from app.counterparty.master.model import CounterpartyMaster
-    from app.portfolio.master.model import PortfolioMaster
-    from app.security.master.model import SecurityMaster
+    from app.counterparty.master.model import Counterparty
+    from app.account.master.model import Account
+    from app.security.master.model import Security
 
 
-class PortfolioHolding(BaseModel):
+class AccountHolding(BaseModel):
     """
     Portfolio positions and holdings (point-in-time snapshots).
 
-    Represents security positions held in a portfolio at a specific date. Supports both
+    Represents security positions held in a account at a specific date. Supports both
     long and short positions, with average cost basis tracking for performance calculations.
 
     Holdings are stored as snapshots for each as_of_date, enabling historical analysis
-    and tracking of portfolio changes over time. Query by specific dates rather than
+    and tracking of account changes over time. Query by specific dates rather than
     using is_current flags for flexibility and simplicity.
 
     NOTE: Cash positions are stored as holdings with security.symbol = 'CASH' where
@@ -37,7 +37,7 @@ class PortfolioHolding(BaseModel):
         ForeignKey("portfolio_master.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
-        comment="Reference to the portfolio holding this position",
+        comment="Reference to the account holding this position",
     )
 
     security_id: Mapped[uuid.UUID] = mapped_column(
@@ -53,7 +53,7 @@ class PortfolioHolding(BaseModel):
         ForeignKey("counterparty_master.id", ondelete="SET NULL"),
         nullable=True,
         index=True,
-        comment="Broker/custodian holding this position (may differ from portfolio provider)",
+        comment="Broker/custodian holding this position (may differ from account provider)",
     )
 
     as_of_date: Mapped[date] = mapped_column(
@@ -95,18 +95,18 @@ class PortfolioHolding(BaseModel):
     )
 
     # Relationships
-    portfolio_master: Mapped["PortfolioMaster"] = relationship(
-        "PortfolioMaster",
+    portfolio_master: Mapped["Account"] = relationship(
+        "Account",
         back_populates="portfolio_holdings",
     )
 
-    security_master: Mapped["SecurityMaster"] = relationship(
-        "SecurityMaster",
+    security_master: Mapped["Security"] = relationship(
+        "Security",
         back_populates="portfolio_holdings",
     )
 
-    counterparty_master: Mapped[Optional["CounterpartyMaster"]] = relationship(
-        "CounterpartyMaster",
+    counterparty_master: Mapped[Optional["Counterparty"]] = relationship(
+        "Counterparty",
         back_populates="portfolio_holdings",
     )
 
